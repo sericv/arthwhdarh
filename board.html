@@ -1,0 +1,947 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>مجلس الإدارة | جمعية إرث وحضارة بالقريات</title>
+    <meta name="description" content="مجلس إدارة جمعية إرث وحضارة بالقريات — نخبة من الكفاءات الوطنية التي تسهم في دعم مسيرة الجمعية وتعزيز رسالتها الثقافية والمجتمعية.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <style>
+    /* ═══════════════════════════════════════════════════════════════
+       DESIGN TOKENS — identical to all site pages
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+        --parchment:        #faf6ed;
+        --parchment-mid:    #f5ede0;
+        --parchment-deep:   #ede3cf;
+        --ink-dark:         #1e1610;
+        --ink:              #3a2a1c;
+        --ink-mid:          #4f3822;
+        --ink-soft:         #5c4430;
+        --ink-muted:        #6b4f35;
+        --gold:             #c09a62;
+        --gold-deep:        #b28a5a;
+        --gold-richer:      #9c6e38;
+        --gold-pale:        #e0c896;
+        --gold-faint:       #cbae86;
+        --amber:            #a07848;
+        --amber-lt:         #b07a3c;
+        --canvas:           rgba(253,250,240,0.7);
+        --canvas-strong:    rgba(245,237,224,0.92);
+        --r-card:           26px;
+        --r-pill:           100px;
+        --shadow:           0 8px 32px -8px rgba(40,25,8,0.14);
+        --shadow-deep:      0 28px 64px -18px rgba(40,25,8,0.22);
+        --ease:             cubic-bezier(0.22, 1, 0.36, 1);
+        --f-ar:             'Almarai', sans-serif;
+        --f-la:             'Montserrat', sans-serif;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+    html { scroll-behavior:smooth; overflow-x:hidden; }
+
+    body {
+        background: var(--parchment);
+        font-family: var(--f-ar);
+        color: var(--ink);
+        line-height: 1.5;
+        overflow-x: hidden;
+        direction: rtl;
+    }
+
+    /* Heritage paper texture */
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" opacity="0.05"><path fill="none" stroke="%23b28b5e" stroke-width="1.2" d="M200 150 L250 120 L300 150 L350 120 L400 150 L450 120 L500 150 L550 120 L600 150 M150 350 L200 320 L250 350 L300 320 L350 350 L400 320 L450 350 M100 550 L150 520 L200 550 L250 520 L300 550 L350 520 L400 550 M180 750 L230 720 L280 750 L330 720 L380 750 L430 720 L480 750 M220 950 L270 920 L320 950 L370 920 L420 950 L470 920 L520 950"/><circle cx="400" cy="500" r="25" stroke="%239c7a4b" fill="none" stroke-width="1.2"/></svg>');
+        background-repeat: repeat;
+        background-size: 160px;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    img { display:block; max-width:100%; }
+    a   { text-decoration:none; color:inherit; }
+
+    .site-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 2.5rem 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       NAVIGATION
+    ═══════════════════════════════════════════════════════════════ */
+    .nav-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 0.8rem 0 1.5rem;
+        border-bottom: 1px solid rgba(175,145,100,0.25);
+        margin-bottom: 2rem;
+    }
+    .logo-area-nav { display:flex; align-items:center; gap:12px; }
+    .nav-logo-emblem { font-size:2rem; color:#b48a5c; }
+    .association-name-nav { font-weight:800; font-size:1.3rem; color:var(--ink-mid); letter-spacing:-0.3px; }
+    .nav-links { display:flex; gap:2rem; flex-wrap:wrap; align-items:center; }
+    .nav-links a { color:var(--ink-soft); font-weight:500; transition:color 0.2s,border-color 0.2s; border-bottom:1px solid transparent; padding-bottom:4px; font-size:0.95rem; }
+    .nav-links a:hover, .nav-links a.active { color:var(--amber-lt); border-bottom-color:var(--gold-faint); }
+    .nav-links a.active { font-weight:700; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       PAGE INTRO
+    ═══════════════════════════════════════════════════════════════ */
+    .board-intro {
+        padding: 4rem 0 3.5rem;
+        max-width: 640px;
+    }
+
+    .intro-eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        margin-bottom: 2rem;
+    }
+    .intro-eyebrow-text {
+        font-family: var(--f-la);
+        font-size: 0.56rem;
+        font-weight: 500;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--amber);
+        white-space: nowrap;
+    }
+    .intro-eyebrow-line {
+        width: 60px; height: 1px;
+        background: linear-gradient(90deg, rgba(192,154,98,0.5), transparent);
+    }
+    .intro-eyebrow-dot {
+        width: 4px; height: 4px;
+        background: var(--gold);
+        border-radius: 50%;
+        animation: idot 2.8s ease-in-out infinite;
+    }
+    @keyframes idot {
+        0%,100% { opacity:1; transform:scale(1); }
+        50%      { opacity:0.3; transform:scale(0.55); }
+    }
+
+    .board-intro-title {
+        font-size: clamp(2.2rem, 4vw, 3.4rem);
+        font-weight: 800;
+        color: var(--ink-dark);
+        line-height: 1.2;
+        letter-spacing: -0.03em;
+        margin-bottom: 1.6rem;
+        position: relative;
+    }
+    .board-intro-title::after {
+        content: "";
+        display: block;
+        width: 44px; height: 2px;
+        background: linear-gradient(90deg, var(--gold), var(--gold-pale));
+        margin-top: 1.2rem;
+        border-radius: 2px;
+    }
+
+    .board-intro-desc {
+        font-size: 1rem;
+        line-height: 2.1;
+        color: var(--ink-muted);
+        font-weight: 300;
+        letter-spacing: 0.01em;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SECTION RULE
+    ═══════════════════════════════════════════════════════════════ */
+    .section-rule {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 0 0 3.5rem;
+    }
+    .sr-text {
+        font-family: var(--f-la);
+        font-size: 0.56rem;
+        font-weight: 500;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--amber);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .sr-diamond {
+        width: 5px; height: 5px;
+        background: var(--gold);
+        transform: rotate(45deg);
+        flex-shrink: 0;
+    }
+    .sr-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(192,154,98,0.38), transparent);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CHAIRMAN ROW — horizontal editorial, not a giant card
+    ═══════════════════════════════════════════════════════════════ */
+    .chairman-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 3.5rem;
+        padding: 3rem 3.5rem;
+        background: var(--canvas-strong);
+        border: 1px solid rgba(192,154,98,0.16);
+        border-radius: 20px;
+        box-shadow: 0 12px 40px -12px rgba(40,25,8,0.12);
+        margin-bottom: 5rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Subtle gold corner wash */
+    .chairman-row::before {
+        content: "";
+        position: absolute;
+        top: 0; right: 0;
+        width: 200px; height: 200px;
+        background: radial-gradient(circle at top right, rgba(192,154,98,0.07) 0%, transparent 60%);
+        pointer-events: none;
+    }
+
+    /* Portrait — restrained size */
+    .chairman-portrait {
+        flex-shrink: 0;
+        width: 168px;
+    }
+
+    .chairman-photo-frame {
+        width: 168px;
+        aspect-ratio: 3/4;
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--parchment-deep);
+        box-shadow: 0 10px 30px -8px rgba(40,25,8,0.22);
+        position: relative;
+    }
+    .chairman-photo-frame img {
+        width: 100%; height: 100%;
+        object-fit: cover; object-position: center top;
+        display: block;
+    }
+    .chairman-photo-frame::after {
+        content:"";
+        position:absolute; bottom:0; right:0; left:0;
+        height: 35%;
+        background: linear-gradient(to top, rgba(15,8,2,0.3), transparent);
+        pointer-events: none;
+    }
+
+    /* Corner marks */
+    .ph-corner {
+        position: absolute;
+        width: 16px; height: 16px;
+        pointer-events: none; z-index: 3;
+    }
+    .ph-corner-tl { top:10px; right:10px;
+        border-top:1px solid rgba(192,154,98,0.55);
+        border-right:1px solid rgba(192,154,98,0.55);
+        border-radius:0 3px 0 0; }
+    .ph-corner-br { bottom:10px; left:10px;
+        border-bottom:1px solid rgba(192,154,98,0.55);
+        border-left:1px solid rgba(192,154,98,0.55);
+        border-radius:0 0 3px 0; }
+
+    /* Photo placeholder */
+    .ph-placeholder {
+        width:100%; height:100%;
+        min-height: 200px;
+        display:flex; flex-direction:column;
+        align-items:center; justify-content:center; gap:0.8rem;
+        background: linear-gradient(145deg, var(--parchment-deep), #ece0c8);
+    }
+    .ph-placeholder i { font-size:2.2rem; color:rgba(192,154,98,0.28); }
+    .ph-placeholder span {
+        font-family: var(--f-la);
+        font-size: 0.46rem; letter-spacing:0.2em;
+        text-transform:uppercase; color:rgba(160,120,72,0.4);
+    }
+
+    /* Chairman text */
+    .chairman-info {
+        flex: 1;
+        padding-top: 0.4rem;
+    }
+
+    .chairman-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin-bottom: 1.4rem;
+    }
+    .chairman-badge::before {
+        content: "";
+        width: 22px; height: 1px;
+        background: var(--gold);
+    }
+    .chairman-badge-text {
+        font-family: var(--f-la);
+        font-size: 0.54rem;
+        font-weight: 500;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: var(--amber);
+    }
+
+    .chairman-name {
+        font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+        font-weight: 800;
+        color: var(--ink-dark);
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+        margin-bottom: 0.9rem;
+    }
+    .chairman-name::after {
+        content: "";
+        display: block;
+        width: 36px; height: 1.5px;
+        background: linear-gradient(90deg, var(--gold), var(--gold-pale));
+        margin-top: 1rem;
+        border-radius: 2px;
+    }
+
+    .chairman-title-ar {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--ink-mid);
+        margin-bottom: 0.3rem;
+    }
+    .chairman-title-la {
+        font-family: var(--f-la);
+        font-size: 0.58rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--amber);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MEMBERS — LIST TABLE STYLE (annual report feel)
+    ═══════════════════════════════════════════════════════════════ */
+    .members-list {
+        margin-bottom: 6rem;
+    }
+
+    .member-row {
+        display: flex;
+        align-items: center;
+        gap: 2.4rem;
+        padding: 2rem 2.8rem;
+        border-bottom: 1px solid rgba(192,154,98,0.12);
+        transition: background 0.3s var(--ease);
+        position: relative;
+    }
+    .member-row:first-child {
+        border-top: 1px solid rgba(192,154,98,0.12);
+    }
+    .member-row::before {
+        content:"";
+        position:absolute;
+        right:0; top:0; bottom:0;
+        width:0;
+        background: rgba(192,154,98,0.045);
+        transition: width 0.35s var(--ease);
+        border-radius: 0 2px 2px 0;
+    }
+    .member-row:hover { background: rgba(245,237,224,0.55); }
+    .member-row:hover::before { width:3px; }
+
+    /* Index number */
+    .member-index {
+        font-family: var(--f-la);
+        font-size: 0.62rem;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        color: rgba(160,120,72,0.38);
+        width: 28px;
+        flex-shrink: 0;
+        text-align: center;
+        line-height: 1;
+    }
+
+    /* Portrait — small and elegant */
+    .member-portrait {
+        flex-shrink: 0;
+        width: 80px;
+    }
+
+    .member-photo-frame {
+        width: 80px;
+        aspect-ratio: 1/1;
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--parchment-deep);
+        box-shadow: 0 4px 16px -4px rgba(40,25,8,0.18);
+        border: 1px solid rgba(192,154,98,0.18);
+        position: relative;
+    }
+    .member-photo-frame img {
+        width:100%; height:100%;
+        object-fit:cover; object-position:center top;
+        display:block;
+        transition: transform 0.6s var(--ease);
+    }
+    .member-row:hover .member-photo-frame img { transform: scale(1.04); }
+
+    .member-photo-frame::after {
+        content:"";
+        position:absolute; inset:0;
+        border-radius:10px;
+        box-shadow: inset 0 0 0 1px rgba(192,154,98,0.15);
+        pointer-events:none;
+    }
+
+    /* Small placeholder */
+    .sm-placeholder {
+        width:100%; height:100%;
+        min-height:80px;
+        display:flex; flex-direction:column;
+        align-items:center; justify-content:center; gap:0.4rem;
+        background: linear-gradient(145deg, var(--parchment-deep), #ece0c8);
+    }
+    .sm-placeholder i { font-size:1.5rem; color:rgba(192,154,98,0.3); }
+    .sm-placeholder span {
+        font-family:var(--f-la);
+        font-size:0.4rem; letter-spacing:0.18em;
+        text-transform:uppercase; color:rgba(160,120,72,0.4);
+    }
+
+    /* Member text */
+    .member-text {
+        flex: 1;
+    }
+    .member-name {
+        font-size: 1rem;
+        font-weight: 800;
+        color: var(--ink-dark);
+        line-height: 1.4;
+        letter-spacing: -0.015em;
+        margin-bottom: 0.28rem;
+    }
+    .member-role-ar {
+        font-size: 0.82rem;
+        font-weight: 400;
+        color: var(--ink-muted);
+    }
+    .member-role-la {
+        font-family: var(--f-la);
+        font-size: 0.52rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(160,120,72,0.55);
+        margin-top: 0.2rem;
+    }
+
+    /* Gold dash accent on right side */
+    .member-accent {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        opacity: 0.32;
+    }
+    .member-accent-dash { width:18px; height:1px; background:var(--gold); }
+    .member-accent-dot {
+        width:4px; height:4px; border-radius:50%;
+        background:var(--gold);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CLOSING
+    ═══════════════════════════════════════════════════════════════ */
+    .board-closing {
+        padding: 4.5rem 0 5.5rem;
+        text-align: center;
+    }
+
+    .closing-ornament {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2.2rem;
+        opacity: 0.55;
+    }
+    .closing-line {
+        width: 70px; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(192,154,98,0.5));
+    }
+    .closing-line.r { background: linear-gradient(90deg, rgba(192,154,98,0.5), transparent); }
+
+    .closing-eyebrow {
+        font-family: var(--f-la);
+        font-size: 0.54rem;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: var(--amber);
+        margin-bottom: 1.8rem;
+        opacity: 0.7;
+    }
+
+    .closing-title {
+        font-size: clamp(1.6rem, 2.8vw, 2.6rem);
+        font-weight: 800;
+        color: var(--ink-dark);
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+        margin-bottom: 1.2rem;
+        max-width: 500px;
+        margin-left: auto; margin-right: auto;
+    }
+
+    .closing-body {
+        font-size: 0.95rem;
+        line-height: 2;
+        color: var(--ink-muted);
+        font-weight: 300;
+        max-width: 440px;
+        margin: 0 auto 2.8rem;
+    }
+
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.85rem 2rem;
+        background: linear-gradient(135deg, var(--ink-mid) 0%, var(--ink-dark) 100%);
+        color: rgba(240,228,205,0.92);
+        border-radius: var(--r-pill);
+        font-size: 0.86rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        box-shadow: 0 8px 24px -6px rgba(40,25,8,0.28);
+        transition: box-shadow 0.3s var(--ease), transform 0.3s var(--ease);
+    }
+    .back-btn:hover {
+        box-shadow: 0 14px 36px -8px rgba(40,25,8,0.38);
+        transform: translateY(-2px);
+    }
+    .back-btn i { font-size: 0.76rem; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════════════════════════ */
+    .footer-premium {
+        margin-top: 4rem;
+        padding: 2.2rem 0 1.8rem;
+        text-align: center;
+        border-top: 1px solid rgba(192,154,98,0.15);
+        font-size: 0.8rem;
+        color: var(--ink-muted);
+        font-weight: 300;
+        line-height: 2;
+        opacity: 0.65;
+    }
+    .footer-ornament {
+        display: flex; align-items:center; justify-content:center; gap:1rem;
+        margin-bottom: 1rem;
+    }
+    .footer-ornament-line {
+        width:50px; height:1px;
+        background: linear-gradient(90deg, transparent, rgba(192,154,98,0.35));
+    }
+    .footer-ornament-line.r { background: linear-gradient(90deg, rgba(192,154,98,0.35), transparent); }
+    .footer-ornament-center {
+        width:5px; height:5px;
+        background:rgba(192,154,98,0.4);
+        transform:rotate(45deg);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCROLL REVEAL
+    ═══════════════════════════════════════════════════════════════ */
+    [data-reveal] {
+        opacity: 0;
+        transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+    }
+    [data-reveal="up"]   { transform: translateY(22px); }
+    [data-reveal="fade"] { transform: translateY(10px); }
+    [data-reveal].revealed { opacity:1; transform:none; }
+
+    .member-row[data-reveal] { transition-delay: 0ms; }
+    .member-row[data-reveal]:nth-child(2) { transition-delay: 60ms; }
+    .member-row[data-reveal]:nth-child(3) { transition-delay: 120ms; }
+    .member-row[data-reveal]:nth-child(4) { transition-delay: 180ms; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 860px) {
+        .site-wrapper { padding: 1.5rem 1.5rem 0; }
+
+        .chairman-row {
+            gap: 2.2rem;
+            padding: 2.2rem 2rem;
+        }
+        .chairman-portrait { width: 140px; }
+        .chairman-photo-frame { width: 140px; }
+
+        .member-row { padding: 1.6rem 1.8rem; gap: 1.8rem; }
+        .member-portrait { width: 70px; }
+        .member-photo-frame { width: 70px; }
+    }
+
+    @media (max-width: 600px) {
+        .site-wrapper { padding: 1rem 1rem 0; }
+        .nav-container { flex-direction:column; align-items:flex-start; gap:1rem; }
+        .nav-links { gap:0.5rem 0.9rem; }
+        .nav-links a { font-size:0.8rem; }
+        .association-name-nav { font-size:1.05rem; }
+
+        .board-intro { padding: 2.8rem 0 2.5rem; }
+
+        /* Chairman: stack */
+        .chairman-row {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 2rem 1.8rem;
+            gap: 1.8rem;
+        }
+        .chairman-portrait { width: 120px; }
+        .chairman-photo-frame { width: 120px; }
+        .chairman-badge { justify-content: center; }
+        .chairman-name::after { margin-left:auto; margin-right:auto; }
+
+        /* Members: compact */
+        .member-row { padding: 1.3rem 1rem; gap: 1.2rem; }
+        .member-index { display: none; }
+        .member-accent { display: none; }
+        .member-portrait { width: 58px; }
+        .member-photo-frame { width: 58px; }
+        .member-name { font-size: 0.92rem; }
+        .member-role-ar { font-size: 0.76rem; }
+        .member-role-la { display: none; }
+
+        .closing-title { font-size: clamp(1.4rem, 5vw, 2rem); }
+    }
+
+    @media (max-width: 400px) {
+        .chairman-portrait { width: 100px; }
+        .chairman-photo-frame { width: 100px; }
+        .member-photo-frame { width: 52px; }
+    }
+    </style>
+</head>
+<body>
+<div class="site-wrapper">
+
+    <!-- ══════════════════════════════════════
+         NAVIGATION
+    ══════════════════════════════════════ -->
+    <nav class="nav-container" aria-label="التنقل الرئيسي">
+        <div class="logo-area-nav">
+            <img src="assets/الشعار/الشعار.png" alt="شعار جمعية إرث وحضارة بالقريات" style="height:52px;width:auto;object-fit:contain;display:block;flex-shrink:0;" loading="eager">
+            <span class="association-name-nav">جمعية إرث وحضارة بالقريات</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">الرئيسية</a>
+            <a href="activities.html">الفعاليات</a>
+            <a href="heritage-crafts.html">التراث والحرف</a>
+            <a href="volunteer.html">التطوع</a>
+            <a href="partnerships.html">الشراكات</a>
+            <a href="reports.html">التقارير</a>
+            <a href="board.html">مجلس الإدارة</a>
+            <a href="contact.html">اتصل بنا</a>
+        </div>
+    </nav>
+
+
+    <!-- ══════════════════════════════════════
+         PAGE INTRO
+    ══════════════════════════════════════ -->
+    <section class="board-intro" aria-label="مقدمة مجلس الإدارة">
+
+        <div class="intro-eyebrow" data-reveal="fade">
+            <span class="intro-eyebrow-text">Board of Directors · مجلس الإدارة</span>
+            <div class="intro-eyebrow-line"></div>
+            <div class="intro-eyebrow-dot"></div>
+        </div>
+
+        <h1 class="board-intro-title" data-reveal="up">مجلس الإدارة</h1>
+
+        <p class="board-intro-desc" data-reveal="up">
+            يضم مجلس الإدارة نخبة من الكفاءات الوطنية التي تسهم في دعم مسيرة الجمعية وتعزيز رسالتها الثقافية والمجتمعية.
+        </p>
+
+    </section>
+
+
+    <!-- ══════════════════════════════════════
+         رئيس مجلس الإدارة
+    ══════════════════════════════════════ -->
+    <section aria-labelledby="chairman-name">
+
+        <div class="section-rule" data-reveal="fade">
+            <span class="sr-text">Chairman · رئيس مجلس الإدارة</span>
+            <div class="sr-diamond"></div>
+            <div class="sr-line"></div>
+        </div>
+
+        <div class="chairman-row" data-reveal="up">
+
+            <!-- Portrait -->
+            <div class="chairman-portrait">
+                <div class="chairman-photo-frame">
+                    <div class="ph-corner ph-corner-tl"></div>
+                    <div class="ph-corner ph-corner-br"></div>
+                    
+                        <img src="assets/صور اعضاء الادارة/محمد المحارب.jpeg"
+                             alt="محمد حمد المحارب — رئيس مجلس الإدارة"
+                             loading="lazy">
+                   
+                    <div class="ph-placeholder">
+                        <i class="fas fa-user"></i>
+                        <span>Photo</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div class="chairman-info">
+                <div class="chairman-badge">
+                    <span class="chairman-badge-text">Chairman · رئيس المجلس</span>
+                </div>
+                <h2 class="chairman-name" id="chairman-name">محمد حمد المحارب</h2>
+                <div class="chairman-title-ar">رئيس مجلس الإدارة</div>
+                <div class="chairman-title-la">Board of Directors — Chairman</div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ══════════════════════════════════════
+         أعضاء المجلس
+    ══════════════════════════════════════ -->
+    <section class="members-list" aria-label="أعضاء مجلس الإدارة">
+
+        <div class="section-rule" data-reveal="fade">
+            <span class="sr-text">Members · أعضاء المجلس</span>
+            <div class="sr-diamond"></div>
+            <div class="sr-line"></div>
+        </div>
+
+        <!-- ── Member 1 ── -->
+        <article class="member-row" data-reveal="up">
+            <span class="member-index">٠١</span>
+            <div class="member-portrait">
+                <div class="member-photo-frame">
+
+                        <img src="assets/صور اعضاء الادارة/محمد يوسف الشمري.png"
+                             alt="محمد يوسف الشمري" loading="lazy">
+
+                    <div class="sm-placeholder">
+                        <i class="fas fa-user"></i>
+                        <span>Photo</span>
+                    </div>
+                </div>
+            </div>
+            <div class="member-text">
+                <div class="member-name">محمد يوسف الشمري</div>
+                <div class="member-role-ar">نائب رئيس مجلس الإدارة</div>
+                <div class="member-role-la">Vice Chairman</div>
+            </div>
+            <div class="member-accent">
+                <div class="member-accent-dash"></div>
+                <div class="member-accent-dot"></div>
+            </div>
+        </article>
+
+        <!-- ── Member 2 ── -->
+        <article class="member-row" data-reveal="up">
+            <span class="member-index">٠٢</span>
+            <div class="member-portrait">
+                <div class="member-photo-frame">
+
+                        <img src="assets/صور اعضاء الادارة/سلطان عبدالرحمن الجباب.png"
+                             alt="سلطان عبدالرحمن الجباب" loading="lazy">
+               
+                    <div class="sm-placeholder">
+                        <i class="fas fa-user"></i>
+                        <span>Photo</span>
+                    </div>
+                </div>
+            </div>
+            <div class="member-text">
+                <div class="member-name">سلطان عبدالرحمن الجباب</div>
+                <div class="member-role-ar">عضو مجلس إدارة</div>
+                <div class="member-role-la">Board Member</div>
+            </div>
+            <div class="member-accent">
+                <div class="member-accent-dash"></div>
+                <div class="member-accent-dot"></div>
+            </div>
+        </article>
+
+        <!-- ── Member 3 ── -->
+        <article class="member-row" data-reveal="up">
+            <span class="member-index">٠٣</span>
+            <div class="member-portrait">
+                <div class="member-photo-frame">
+                    
+                        <img src="assets/صور اعضاء الادارة/حمده العنزي.png"
+                             alt="حمده بواع العنزي" loading="lazy">
+                    
+                    <div class="sm-placeholder">
+                        <i class="fas fa-user"></i>
+                        <span>Photo</span>
+                    </div>
+                </div>
+            </div>
+            <div class="member-text">
+                <div class="member-name">حمده بواع العنزي</div>
+                <div class="member-role-ar">عضو مجلس إدارة</div>
+                <div class="member-role-la">Board Member</div>
+            </div>
+            <div class="member-accent">
+                <div class="member-accent-dash"></div>
+                <div class="member-accent-dot"></div>
+            </div>
+        </article>
+
+        <!-- ── Member 4 ── -->
+        <article class="member-row" data-reveal="up">
+            <span class="member-index">٠٤</span>
+            <div class="member-portrait">
+                <div class="member-photo-frame">
+                    
+                        <img src="assets/صور اعضاء الادارة/عبدالله مسير البلعاسي.png"
+                             alt="عبدالله مسير البلعاسي" loading="lazy">
+                    
+                    <div class="sm-placeholder">
+                        <i class="fas fa-user"></i>
+                        <span>Photo</span>
+                    </div>
+                </div>
+            </div>
+            <div class="member-text">
+                <div class="member-name">عبدالله مسير البلعاسي</div>
+                <div class="member-role-ar">عضو مجلس إدارة</div>
+                <div class="member-role-la">Board Member</div>
+            </div>
+            <div class="member-accent">
+                <div class="member-accent-dash"></div>
+                <div class="member-accent-dot"></div>
+            </div>
+        </article>
+
+    </section>
+
+
+    <!-- ══════════════════════════════════════
+         CLOSING
+    ══════════════════════════════════════ -->
+    <section class="board-closing" aria-label="ختام">
+
+        <div class="closing-ornament" data-reveal="fade">
+            <div class="closing-line"></div>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <rect x="9.5" y="0" width="3" height="22" rx="1.5" fill="rgba(192,154,98,0.22)"/>
+                <rect x="0" y="9.5" width="22" height="3" rx="1.5" fill="rgba(192,154,98,0.22)"/>
+                <circle cx="11" cy="11" r="5" stroke="#c09a62" stroke-width="1.2"/>
+            </svg>
+            <div class="closing-line r"></div>
+        </div>
+
+        <p class="closing-eyebrow" data-reveal="fade">Leadership · Heritage · القريات</p>
+
+        <h2 class="closing-title" data-reveal="up">
+            قيادة واعية ترسّخ الهوية
+        </h2>
+
+        <p class="closing-body" data-reveal="up">
+            يعمل مجلس الإدارة على توجيه مسيرة الجمعية نحو حفظ التراث الثقافي وبناء جسور الانتماء بين الأجيال.
+        </p>
+
+        <a href="index.html" class="back-btn" data-reveal="fade">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            العودة إلى الرئيسية
+        </a>
+
+    </section>
+
+
+    <!-- ══════════════════════════════════════
+         FOOTER
+    ══════════════════════════════════════ -->
+    <footer class="footer-premium">
+        <div class="footer-ornament">
+            <div class="footer-ornament-line"></div>
+            <div class="footer-ornament-center"></div>
+            <div class="footer-ornament-line r"></div>
+        </div>
+        <p>© 2026 جمعية إرث وحضارة بالقريات — حفظ التراث وبناء الهوية الثقافية</p>
+        <p>صفحة مجلس الإدارة — القريات · منطقة الجوف · المملكة العربية السعودية</p>
+    </footer>
+
+</div><!-- /.site-wrapper -->
+
+<script>
+(function () {
+    'use strict';
+
+    function initReveal() {
+        var targets = document.querySelectorAll('[data-reveal]');
+        if (!targets.length || !window.IntersectionObserver) {
+            targets.forEach(function(el) { el.classList.add('revealed'); });
+            return;
+        }
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    io.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+
+        /* Stagger member rows */
+        var rows = document.querySelectorAll('.member-row[data-reveal]');
+        rows.forEach(function(row, i) {
+            row.style.transitionDelay = (i * 70) + 'ms';
+        });
+
+        targets.forEach(function(el) { io.observe(el); });
+    }
+
+    function initNav() {
+        var page = window.location.pathname.split('/').pop();
+        document.querySelectorAll('.nav-links a').forEach(function(a) {
+            if (a.getAttribute('href') === page) a.classList.add('active');
+        });
+    }
+
+    function init() { initReveal(); initNav(); }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+}());
+</script>
+</body>
+</html>

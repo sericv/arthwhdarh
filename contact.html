@@ -1,0 +1,941 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>تواصل معنا | جمعية إرث وحضارة بالقريات</title>
+    <meta name="description" content="تواصل مع جمعية إرث وحضارة بالقريات عبر قنوات التواصل الاجتماعي أو البريد الإلكتروني أو الهاتف.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+    /* ═══════════════════════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+        --parchment:        #faf6ed;
+        --parchment-mid:    #f5ede0;
+        --parchment-deep:   #ede3cf;
+        --ink-dark:         #1e1610;
+        --ink:              #3a2a1c;
+        --ink-mid:          #4f3822;
+        --ink-soft:         #5c4430;
+        --ink-muted:        #6b4f35;
+        --gold:             #c09a62;
+        --gold-deep:        #b28a5a;
+        --gold-richer:      #9c6e38;
+        --gold-pale:        #e0c896;
+        --gold-faint:       #cbae86;
+        --amber:            #a07848;
+        --amber-lt:         #b07a3c;
+        --canvas:           rgba(253,250,240,0.7);
+        --canvas-strong:    rgba(245,237,224,0.92);
+        --r-card:           20px;
+        --r-pill:           100px;
+        --shadow:           0 8px 32px -8px rgba(40,25,8,0.13);
+        --shadow-deep:      0 24px 56px -16px rgba(40,25,8,0.20);
+        --ease:             cubic-bezier(0.22, 1, 0.36, 1);
+        --f-ar:             'Almarai', sans-serif;
+        --f-la:             'Montserrat', sans-serif;
+    }
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; overflow-x:hidden; }
+
+    body {
+        background: var(--parchment);
+        font-family: var(--f-ar);
+        color: var(--ink);
+        line-height: 1.5;
+        overflow-x: hidden;
+        direction: rtl;
+    }
+
+    /* Heritage paper texture */
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" opacity="0.05"><path fill="none" stroke="%23b28b5e" stroke-width="1.2" d="M200 150 L250 120 L300 150 L350 120 L400 150 L450 120 L500 150 L550 120 L600 150 M150 350 L200 320 L250 350 L300 320 L350 350 L400 320 L450 350 M100 550 L150 520 L200 550 L250 520 L300 550 L350 520 L400 550 M180 750 L230 720 L280 750 L330 720 L380 750 L430 720 L480 750 M220 950 L270 920 L320 950 L370 920 L420 950 L470 920 L520 950"/><circle cx="400" cy="500" r="25" stroke="%239c7a4b" fill="none" stroke-width="1.2"/></svg>');
+        background-repeat: repeat;
+        background-size: 160px;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    img { display:block; max-width:100%; }
+    a   { text-decoration:none; color:inherit; }
+
+    .site-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 2.5rem 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       NAVIGATION
+    ═══════════════════════════════════════════════════════════════ */
+    .nav-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 0.8rem 0 1.5rem;
+        border-bottom: 1px solid rgba(175,145,100,0.25);
+        margin-bottom: 2rem;
+    }
+    .logo-area-nav { display:flex; align-items:center; gap:12px; }
+    .nav-logo-emblem { font-size:2rem; color:#b48a5c; }
+    .association-name-nav { font-weight:800; font-size:1.3rem; color:var(--ink-mid); letter-spacing:-0.3px; }
+    .nav-links { display:flex; gap:2rem; flex-wrap:wrap; align-items:center; }
+    .nav-links a { color:var(--ink-soft); font-weight:500; transition:color 0.2s,border-color 0.2s; border-bottom:1px solid transparent; padding-bottom:4px; font-size:0.95rem; }
+    .nav-links a:hover, .nav-links a.active { color:var(--amber-lt); border-bottom-color:var(--gold-faint); }
+    .nav-links a.active { font-weight:700; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       PAGE INTRO
+    ═══════════════════════════════════════════════════════════════ */
+    .ct-intro {
+        padding: 4rem 0 3.5rem;
+        max-width: 620px;
+    }
+
+    .ct-eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        margin-bottom: 2rem;
+    }
+    .ct-eyebrow-text {
+        font-family: var(--f-la);
+        font-size: 0.56rem;
+        font-weight: 500;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--amber);
+        white-space: nowrap;
+    }
+    .ct-eyebrow-line {
+        width: 60px; height: 1px;
+        background: linear-gradient(90deg, rgba(192,154,98,0.5), transparent);
+    }
+    .ct-eyebrow-dot {
+        width: 4px; height: 4px;
+        background: var(--gold);
+        border-radius: 50%;
+        animation: ctdot 2.8s ease-in-out infinite;
+    }
+    @keyframes ctdot {
+        0%,100% { opacity:1; transform:scale(1); }
+        50%      { opacity:0.3; transform:scale(0.55); }
+    }
+
+    .ct-title {
+        font-size: clamp(2.2rem, 4vw, 3.4rem);
+        font-weight: 800;
+        color: var(--ink-dark);
+        line-height: 1.2;
+        letter-spacing: -0.03em;
+        margin-bottom: 1.5rem;
+    }
+    .ct-title::after {
+        content:"";
+        display:block;
+        width:44px; height:2px;
+        background: linear-gradient(90deg, var(--gold), var(--gold-pale));
+        margin-top:1.2rem;
+        border-radius:2px;
+    }
+
+    .ct-desc {
+        font-size: 1rem;
+        line-height: 2.1;
+        color: var(--ink-muted);
+        font-weight: 300;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SECTION RULE
+    ═══════════════════════════════════════════════════════════════ */
+    .sec-rule {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 3rem;
+    }
+    .sr-text {
+        font-family: var(--f-la);
+        font-size: 0.55rem;
+        font-weight: 500;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--amber);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .sr-diamond {
+        width: 5px; height: 5px;
+        background: var(--gold);
+        transform: rotate(45deg);
+        flex-shrink: 0;
+    }
+    .sr-line {
+        flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(192,154,98,0.38), transparent);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SOCIAL MEDIA — Icon mosaic (no labels)
+    ═══════════════════════════════════════════════════════════════ */
+    .social-section {
+        margin-bottom: 6rem;
+    }
+
+    .social-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.1rem;
+    }
+
+    .social-pill {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 62px;
+        height: 62px;
+        border-radius: 18px;
+        border: 1px solid rgba(192,154,98,0.18);
+        background: var(--canvas-strong);
+        box-shadow: var(--shadow);
+        text-decoration: none;
+        transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), border-color 0.3s;
+        position: relative;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    /* Shimmer on hover */
+    .social-pill::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(192,154,98,0.08) 0%, transparent 60%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        border-radius: inherit;
+    }
+    .social-pill:hover { transform: translateY(-3px); box-shadow: var(--shadow-deep); border-color: rgba(192,154,98,0.38); }
+    .social-pill:hover::before { opacity: 1; }
+
+    /* Icon SVG / FA base */
+    .social-pill svg,
+    .social-pill i {
+        position: relative;
+        z-index: 1;
+        transition: transform 0.3s var(--ease);
+    }
+    .social-pill:hover svg,
+    .social-pill:hover i { transform: scale(1.12); }
+
+    /* FA icon fallback color */
+    .social-pill i { font-size: 1.45rem; }
+
+    /* Individual platform tones */
+    .sp-snap   i { color: #171a00; }
+    .sp-insta  i { color: #E1306C; }
+    .sp-x      i { color: var(--ink-soft); }
+    .sp-tiktok i { color: var(--ink-soft); }
+    .sp-linkedin i { color: #0A66C2; }
+    .sp-yt     i { color: #FF0000; }
+    .sp-fb     i { color: #1877F2; }
+    .sp-tg     i { color: #2AABEE; }
+    .sp-wa     i { color: #25D366; }
+
+    /* X (Twitter) custom SVG icon */
+    .sp-x .x-icon { width:22px; height:22px; fill:var(--ink); }
+
+    /* TikTok custom SVG */
+    .sp-tiktok .tk-icon { width:22px; height:22px; }
+
+    /* Jaco custom logo pill */
+    .sp-jaco { background: var(--canvas-strong); }
+    .sp-jaco .jaco-mark {
+        font-family: var(--f-la);
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--ink-mid);
+        position: relative; z-index: 1;
+    }
+
+    /* Snapchat: yellow bg, ghost icon in dark ink — matches brand guidelines */
+    .sp-snap {
+        border-color: rgba(200,170,0,0.25);
+    }
+    .sp-snap:hover { border-color: rgba(200,170,0,0.25); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CONTACT DETAILS — institutional blocks
+    ═══════════════════════════════════════════════════════════════ */
+    .contact-section {
+        margin-bottom: 6rem;
+    }
+
+    .contact-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.4rem;
+    }
+
+    /* Contact info block */
+    .ct-block {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.4rem;
+        padding: 2rem 2.2rem;
+        background: var(--canvas-strong);
+        border: 1px solid rgba(192,154,98,0.15);
+        border-radius: var(--r-card);
+        box-shadow: var(--shadow);
+        transition: box-shadow 0.3s var(--ease), border-color 0.3s;
+        text-decoration: none;
+        color: inherit;
+        position: relative;
+        overflow: hidden;
+    }
+    .ct-block::before {
+        content:"";
+        position:absolute; top:0; right:0;
+        width:80px; height:80px;
+        background: radial-gradient(circle at top right, rgba(192,154,98,0.07) 0%, transparent 70%);
+        pointer-events:none;
+    }
+    .ct-block:hover { box-shadow: var(--shadow-deep); border-color: rgba(192,154,98,0.32); }
+
+    .ct-block-icon {
+        flex-shrink: 0;
+        width: 46px; height: 46px;
+        border-radius: 14px;
+        border: 1px solid rgba(192,154,98,0.2);
+        background: rgba(250,246,237,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: var(--amber);
+    }
+
+    .ct-block-content { flex: 1; min-width: 0; }
+
+    .ct-block-label {
+        font-family: var(--f-la);
+        font-size: 0.52rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--amber);
+        margin-bottom: 0.5rem;
+    }
+
+    .ct-block-value {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--ink-dark);
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    .ct-block-hint {
+        font-size: 0.78rem;
+        color: var(--ink-muted);
+        font-weight: 300;
+        margin-top: 0.25rem;
+    }
+
+    /* QR block — full-width, centered */
+    .ct-block-qr {
+        grid-column: span 2;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 1.6rem;
+        padding: 2.5rem 2.2rem;
+    }
+
+    .ct-block-qr .ct-block-icon {
+        width: 52px; height: 52px;
+        font-size: 1.4rem;
+    }
+
+    .qr-frame {
+        width: 140px; height: 140px;
+        border: 1.5px solid rgba(192,154,98,0.3);
+        border-radius: 14px;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        box-shadow: 0 4px 16px -4px rgba(40,25,8,0.12);
+    }
+
+    /* Corner marks on QR frame */
+    .qr-frame::before, .qr-frame::after {
+        content:"";
+        position:absolute;
+        width:18px; height:18px;
+        pointer-events:none;
+    }
+    .qr-frame::before {
+        top:6px; right:6px;
+        border-top:1.5px solid rgba(192,154,98,0.55);
+        border-right:1.5px solid rgba(192,154,98,0.55);
+    }
+    .qr-frame::after {
+        bottom:6px; left:6px;
+        border-bottom:1.5px solid rgba(192,154,98,0.55);
+        border-left:1.5px solid rgba(192,154,98,0.55);
+    }
+
+    .qr-placeholder-icon {
+        font-size: 3.5rem;
+        color: rgba(160,120,72,0.22);
+    }
+
+    .qr-placeholder-text {
+        font-family: var(--f-la);
+        font-size: 0.46rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(160,120,72,0.45);
+        position: absolute;
+        bottom: 8px;
+    }
+
+    .ct-block-qr .ct-block-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .ct-block-qr .ct-block-value {
+        font-size: 0.92rem;
+        text-align: center;
+    }
+
+    /* Location block special */
+    .ct-block-location {
+        grid-column: span 2;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CLOSING
+    ═══════════════════════════════════════════════════════════════ */
+    .ct-closing {
+        padding: 4rem 0 5.5rem;
+        text-align: center;
+    }
+
+    .closing-ornament {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        opacity: 0.5;
+    }
+    .cl-line {
+        width: 65px; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(192,154,98,0.5));
+    }
+    .cl-line.r { background: linear-gradient(90deg, rgba(192,154,98,0.5), transparent); }
+
+    .closing-eyebrow {
+        font-family: var(--f-la);
+        font-size: 0.54rem;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: var(--amber);
+        margin-bottom: 1.6rem;
+        opacity: 0.7;
+    }
+
+    .closing-title {
+        font-size: clamp(1.6rem, 2.8vw, 2.5rem);
+        font-weight: 800;
+        color: var(--ink-dark);
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+        margin-bottom: 1rem;
+        max-width: 480px;
+        margin-left: auto; margin-right: auto;
+    }
+
+    .closing-body {
+        font-size: 0.95rem;
+        line-height: 2;
+        color: var(--ink-muted);
+        font-weight: 300;
+        max-width: 400px;
+        margin: 0 auto 2.8rem;
+    }
+
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.85rem 2rem;
+        background: linear-gradient(135deg, var(--ink-mid) 0%, var(--ink-dark) 100%);
+        color: rgba(240,228,205,0.92);
+        border-radius: var(--r-pill);
+        font-size: 0.86rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        box-shadow: 0 8px 24px -6px rgba(40,25,8,0.28);
+        transition: box-shadow 0.3s var(--ease), transform 0.3s var(--ease);
+    }
+    .back-btn:hover { box-shadow:0 14px 36px -8px rgba(40,25,8,0.38); transform:translateY(-2px); }
+    .back-btn i { font-size: 0.76rem; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════════════════════════ */
+    .footer-premium {
+        margin-top: 4rem;
+        padding: 2.2rem 0 1.8rem;
+        text-align: center;
+        border-top: 1px solid rgba(192,154,98,0.15);
+        font-size: 0.8rem;
+        color: var(--ink-muted);
+        font-weight: 300;
+        line-height: 2;
+        opacity: 0.65;
+    }
+    .footer-ornament {
+        display:flex; align-items:center; justify-content:center; gap:1rem;
+        margin-bottom:1rem;
+    }
+    .footer-ornament-line {
+        width:50px; height:1px;
+        background:linear-gradient(90deg, transparent, rgba(192,154,98,0.35));
+    }
+    .footer-ornament-line.r { background:linear-gradient(90deg, rgba(192,154,98,0.35), transparent); }
+    .footer-ornament-center { width:5px; height:5px; background:rgba(192,154,98,0.4); transform:rotate(45deg); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCROLL REVEAL
+    ═══════════════════════════════════════════════════════════════ */
+    [data-reveal] {
+        opacity: 0;
+        transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+    }
+    [data-reveal="up"]   { transform: translateY(22px); }
+    [data-reveal="fade"] { transform: translateY(10px); }
+    [data-reveal].revealed { opacity:1; transform:none; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 860px) {
+        .contact-grid { grid-template-columns: 1fr 1fr; }
+        .ct-block-qr { grid-column: span 2; }
+        .ct-block-location { grid-column: span 2; }
+    }
+
+    @media (max-width: 600px) {
+        .site-wrapper { padding: 1rem 1rem 0; }
+        .nav-container { flex-direction:column; align-items:flex-start; gap:1rem; }
+        .nav-links { gap:0.5rem 0.9rem; }
+        .nav-links a { font-size:0.8rem; }
+        .association-name-nav { font-size:1.05rem; }
+
+        .ct-intro { padding: 2.8rem 0 2.5rem; }
+
+        .social-grid { gap: 0.85rem; }
+        .social-pill { width: 56px; height: 56px; border-radius: 15px; }
+        .social-pill i { font-size: 1.3rem; }
+
+        .contact-grid { grid-template-columns: 1fr; gap: 1rem; }
+        .ct-block-qr  { grid-column: span 1; }
+        .ct-block-location { grid-column: span 1; }
+
+        .ct-block { padding: 1.5rem 1.4rem; gap: 1.1rem; }
+        .ct-block-icon { width:40px; height:40px; font-size:1rem; border-radius:11px; }
+
+        .qr-frame { width:120px; height:120px; }
+
+        .closing-title { font-size: clamp(1.4rem, 5vw, 2rem); }
+    }
+
+    @media (max-width: 400px) {
+        .social-pill { width: 50px; height: 50px; border-radius: 13px; }
+        .social-pill i { font-size: 1.2rem; }
+    }
+    </style>
+</head>
+<body>
+<div class="site-wrapper">
+
+    <!-- ════════════════════════════════════════
+         NAVIGATION
+    ════════════════════════════════════════ -->
+    <nav class="nav-container" aria-label="التنقل الرئيسي">
+        <div class="logo-area-nav">
+            <img src="assets/الشعار/الشعار.png" alt="شعار جمعية إرث وحضارة بالقريات" style="height:52px;width:auto;object-fit:contain;display:block;flex-shrink:0;" loading="eager">
+            <span class="association-name-nav">جمعية إرث وحضارة بالقريات</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">الرئيسية</a>
+            <a href="activities.html">الفعاليات</a>
+            <a href="heritage-crafts.html">التراث والحرف</a>
+            <a href="volunteer.html">التطوع</a>
+            <a href="partnerships.html">الشراكات</a>
+            <a href="reports.html">التقارير</a>
+            <a href="board.html">مجلس الإدارة</a>
+            <a href="contact.html">اتصل بنا</a>
+        </div>
+    </nav>
+
+
+    <!-- ════════════════════════════════════════
+         PAGE INTRO
+    ════════════════════════════════════════ -->
+    <section class="ct-intro" aria-label="مقدمة صفحة التواصل">
+
+        <div class="ct-eyebrow" data-reveal="fade">
+            <span class="ct-eyebrow-text">Contact · تواصل معنا</span>
+            <div class="ct-eyebrow-line"></div>
+            <div class="ct-eyebrow-dot"></div>
+        </div>
+
+        <h1 class="ct-title" data-reveal="up">تواصل معنا</h1>
+
+        <p class="ct-desc" data-reveal="up">
+            يسعدنا تواصلكم ومشاركتكم في دعم التراث والثقافة والمبادرات المجتمعية.
+        </p>
+
+    </section>
+
+
+    <!-- ════════════════════════════════════════
+         SOCIAL MEDIA
+    ════════════════════════════════════════ -->
+    <section class="social-section" aria-label="قنوات التواصل الاجتماعي">
+
+        <div class="sec-rule" data-reveal="fade">
+            <span class="sr-text">Social Media · التواصل الاجتماعي</span>
+            <div class="sr-diamond"></div>
+            <div class="sr-line"></div>
+        </div>
+
+        <div class="social-grid" data-reveal="up" role="list" aria-label="منصات التواصل الاجتماعي">
+
+            <!-- Snapchat -->
+            <a href="https://t.snapchat.com/E3VbZjui"
+               class="social-pill sp-snap"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="Snapchat" role="listitem" title="Snapchat">
+                <i class="fa-brands fa-snapchat" style="position:relative;z-index:1;"></i>
+            </a>
+
+            <!-- Instagram -->
+            <a href="https://www.instagram.com/arthwhdarh"
+               class="social-pill sp-insta"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="Instagram" role="listitem" title="Instagram">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="26" height="26" style="position:relative;z-index:1;">
+                    <defs>
+                        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#f09433"/>
+                            <stop offset="25%" stop-color="#e6683c"/>
+                            <stop offset="50%" stop-color="#dc2743"/>
+                            <stop offset="75%" stop-color="#cc2366"/>
+                            <stop offset="100%" stop-color="#bc1888"/>
+                        </linearGradient>
+                    </defs>
+                    <rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#ig-grad)"/>
+                    <circle cx="12" cy="12" r="4.5" fill="none" stroke="white" stroke-width="1.6"/>
+                    <circle cx="17.1" cy="6.9" r="1.1" fill="white"/>
+                </svg>
+            </a>
+
+            <!-- X / Twitter -->
+            <a href="https://twitter.com/arthwhdarh"
+               class="social-pill sp-x"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="X / Twitter" role="listitem" title="X (Twitter)">
+                <svg class="x-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:22px;height:22px;">
+                    <path fill="var(--ink-dark)" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.258 5.632zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+            </a>
+
+            <!-- TikTok -->
+            <a href="https://www.tiktok.com/@arthwhdarh"
+               class="social-pill sp-tiktok"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="TikTok" role="listitem" title="TikTok">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:24px;height:24px;">
+                    <path fill="var(--ink-dark)" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+                </svg>
+            </a>
+
+            <!-- LinkedIn -->
+            <a href="https://www.linkedin.com/in/جمعية-إرث-وحضارة-5887b02b2"
+               class="social-pill sp-linkedin"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="LinkedIn" role="listitem" title="LinkedIn">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:24px;height:24px;">
+                    <path fill="#0A66C2" d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                </svg>
+            </a>
+
+            <!-- YouTube -->
+            <a href="https://www.youtube.com/channel/UCGVF4jC_fHiXTVrfDZkZ-fQ"
+               class="social-pill sp-yt"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="YouTube" role="listitem" title="YouTube">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:26px;height:26px;">
+                    <path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+            </a>
+
+            <!-- Facebook -->
+            <a href="https://www.facebook.com/share/p/mozC8b6YL3SKTNHv"
+               class="social-pill sp-fb"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="Facebook" role="listitem" title="Facebook">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:24px;height:24px;">
+                    <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+            </a>
+
+            <!-- Telegram -->
+            <a href="https://t.me/arthwhdarhx"
+               class="social-pill sp-tg"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="Telegram" role="listitem" title="Telegram">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:26px;height:26px;">
+                    <path fill="#2AABEE" d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.247l-2.016 9.505c-.149.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.604.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L6.973 14.39l-2.95-.924c-.641-.2-.654-.641.136-.949l11.532-4.448c.533-.194 1.002.12.871.878z"/>
+                </svg>
+            </a>
+
+            <!-- WhatsApp -->
+            <a href="https://wa.me/message/YM2GI6MVFQ77P1"
+               class="social-pill sp-wa"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="WhatsApp" role="listitem" title="WhatsApp">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:26px;height:26px;">
+                    <path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+                </svg>
+            </a>
+
+            <!-- Jaco -->
+            <a href="https://l.jaco.live/IwDqi5g"
+               class="social-pill sp-jaco"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="Jaco" role="listitem" title="Jaco">
+                <!-- Jaco wordmark / logomark -->
+                <svg viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:34px;height:34px;">
+                    <!-- Jaco-style abstract "J" mark -->
+                    <rect x="10" y="8" width="9" height="28" rx="4" fill="var(--ink-mid)"/>
+                    <path d="M19 32 Q19 42 10 42" fill="none" stroke="var(--ink-mid)" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="36" cy="26" r="10" fill="none" stroke="var(--amber)" stroke-width="7"/>
+                    <circle cx="36" cy="26" r="3.5" fill="var(--amber)"/>
+                </svg>
+            </a>
+
+        </div><!-- /.social-grid -->
+    </section>
+
+
+    <!-- ════════════════════════════════════════
+         CONTACT DETAILS
+    ════════════════════════════════════════ -->
+    <section class="contact-section" aria-label="بيانات التواصل">
+
+        <div class="sec-rule" data-reveal="fade">
+            <span class="sr-text">Contact Info · بيانات التواصل</span>
+            <div class="sr-diamond"></div>
+            <div class="sr-line"></div>
+        </div>
+
+        <div class="contact-grid" data-reveal="up">
+
+            <!-- Phone -->
+            <div class="ct-block">
+                <div class="ct-block-icon">
+                    <i class="fas fa-phone-alt"></i>
+                </div>
+                <div class="ct-block-content">
+                    <div class="ct-block-label">Phone · هاتف</div>
+                    <!--
+                        ══════════════════════════════════════════
+                        أضف رقم الهاتف هنا — Add phone number here
+                        ══════════════════════════════════════════
+                    -->
+                    <div class="ct-block-value" dir="ltr">+966 50 303 8520</div>
+                    <div class="ct-block-hint">أوقات العمل · 8 ص — 2 م</div>
+                </div>
+            </div>
+
+            <!-- Email -->
+            <a href="mailto:arthwhdarh@gmail.com" class="ct-block">
+                <div class="ct-block-icon">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <div class="ct-block-content">
+                    <div class="ct-block-label">Email · بريد إلكتروني</div>
+                    <div class="ct-block-value" dir="ltr">arthwhdarh@gmail.com</div>
+                    <div class="ct-block-hint">للمراسلات الرسمية</div>
+                </div>
+            </a>
+
+
+            <!-- Location — full width -->
+            <a href="https://maps.app.goo.gl/siQMVQjf8WjDYGrk7"
+               target="_blank" rel="noopener noreferrer"
+               class="ct-block ct-block-location">
+                <div class="ct-block-icon">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <div class="ct-block-content">
+                    <div class="ct-block-label">Location · الموقع</div>
+                    <!--
+                        ══════════════════════════════════════════════════════════
+                        أضف العنوان التفصيلي هنا — Add detailed address here
+                        ══════════════════════════════════════════════════════════
+                    -->
+                    <div class="ct-block-value">القريات · منطقة الجوف · المملكة العربية السعودية</div>
+                    <div class="ct-block-hint">افتح في خرائط Google · Open in Google Maps</div>
+                </div>
+            </a>
+
+        </div><!-- /.contact-grid -->
+    </section>
+
+
+    <!-- ════════════════════════════════════════
+         CLOSING
+    ════════════════════════════════════════ -->
+    <section class="ct-closing" aria-label="ختام صفحة التواصل">
+
+        <div class="closing-ornament" data-reveal="fade">
+            <div class="cl-line"></div>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <rect x="9.5" y="0" width="3" height="22" rx="1.5" fill="rgba(192,154,98,0.22)"/>
+                <rect x="0" y="9.5" width="22" height="3" rx="1.5" fill="rgba(192,154,98,0.22)"/>
+                <circle cx="11" cy="11" r="5" stroke="#c09a62" stroke-width="1.2"/>
+            </svg>
+            <div class="cl-line r"></div>
+        </div>
+
+        <p class="closing-eyebrow" data-reveal="fade">Connect · Heritage · القريات</p>
+
+        <h2 class="closing-title" data-reveal="up">
+            نحن هنا لكم دائماً
+        </h2>
+
+        <p class="closing-body" data-reveal="up">
+            شراكتكم ودعمكم يُعزز مسيرتنا في صون التراث وبناء الهوية الثقافية للأجيال القادمة.
+        </p>
+
+        <a href="index.html" class="back-btn" data-reveal="fade">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            العودة إلى الرئيسية
+        </a>
+
+    </section>
+
+
+    <!-- ════════════════════════════════════════
+         FOOTER
+    ════════════════════════════════════════ -->
+    <footer class="footer-premium">
+        <div class="footer-ornament">
+            <div class="footer-ornament-line"></div>
+            <div class="footer-ornament-center"></div>
+            <div class="footer-ornament-line r"></div>
+        </div>
+        <p>© 2026 جمعية إرث وحضارة بالقريات — حفظ التراث وبناء الهوية الثقافية</p>
+        <p>صفحة التواصل — القريات · منطقة الجوف · المملكة العربية السعودية</p>
+    </footer>
+
+</div><!-- /.site-wrapper -->
+
+<script>
+(function () {
+    'use strict';
+
+    function initReveal() {
+        var targets = document.querySelectorAll('[data-reveal]');
+        if (!targets.length || !window.IntersectionObserver) {
+            targets.forEach(function(el) { el.classList.add('revealed'); });
+            return;
+        }
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    io.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+        targets.forEach(function(el) { io.observe(el); });
+    }
+
+    function initNav() {
+        var page = window.location.pathname.split('/').pop();
+        document.querySelectorAll('.nav-links a').forEach(function(a) {
+            if (a.getAttribute('href') === page) a.classList.add('active');
+        });
+    }
+
+    /* Stagger social icons on reveal */
+    function initSocialStagger() {
+        var pills = document.querySelectorAll('.social-pill');
+        if (!window.IntersectionObserver) {
+            pills.forEach(function(p){ p.style.opacity='1'; p.style.transform='none'; });
+            return;
+        }
+        pills.forEach(function(pill, i) {
+            pill.style.opacity = '0';
+            pill.style.transform = 'translateY(14px)';
+            pill.style.transition = 'opacity 0.55s cubic-bezier(0.22,1,0.36,1), transform 0.55s cubic-bezier(0.22,1,0.36,1)';
+            pill.style.transitionDelay = (i * 45) + 'ms';
+        });
+
+        var io = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    var parent = entry.target;
+                    parent.querySelectorAll('.social-pill').forEach(function(pill) {
+                        pill.style.opacity = '1';
+                        pill.style.transform = 'none';
+                    });
+                    io.unobserve(parent);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        var grid = document.querySelector('.social-grid');
+        if (grid) io.observe(grid);
+    }
+
+    function init() {
+        initReveal();
+        initNav();
+        initSocialStagger();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+}());
+</script>
+</body>
+</html>
