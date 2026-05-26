@@ -176,12 +176,31 @@
         font-family: var(--f-la);
         font-size: 0.56rem;
         font-weight: 500;
-        letter-spacing: 0.26em;
+        letter-spacing: normal;
         text-transform: uppercase;
         color: var(--amber);
         white-space: nowrap;
         flex-shrink: 0;
     }
+
+.sr-text {
+    font-family: var(--f-la);
+    font-size: 0.56rem;
+    font-weight: 500;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--amber);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* للجوال */
+@media (max-width: 768px) {
+    .sr-text {
+        letter-spacing: 0.05em;
+    }
+}
+
     .sr-diamond {
         width: 5px; height: 5px;
         background: var(--gold);
