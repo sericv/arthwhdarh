@@ -345,6 +345,7 @@
             z-index: 2;
             overflow: hidden;
             background: #2a1c0e;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.15);
         }
 
         .hero-visual-panel::after {
@@ -352,9 +353,10 @@
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(to right, rgba(245, 237, 224, 0.55) 0%, transparent 35%),
-                linear-gradient(to top, rgba(20, 12, 5, 0.45) 0%, transparent 50%);
+                linear-gradient(to right, rgba(245, 237, 224, 0.35) 0%, rgba(245, 237, 224, 0.08) 25%, transparent 45%),
+                linear-gradient(to top, rgba(20, 12, 5, 0.32) 0%, transparent 55%);
             z-index: 2;
+            pointer-events: none;
         }
 
         .hero-frame-overlay {
@@ -366,7 +368,7 @@
         .hero-frame-overlay svg {
             width: 100%;
             height: 100%;
-            opacity: 0.18;
+            opacity: 0.25;
         }
 
         .hero-visual-bg {
@@ -376,13 +378,18 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
             opacity: 0;
             animation: heroPanelReveal 1.6s ease 0.3s forwards;
         }
-        .hero-visual-bg svg {
-            width: 110%;
-            height: 110%;
+
+        .hero-image {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
+            object-position: center;
+            display: block;
+            will-change: opacity;
         }
 
         .hero-badge {
@@ -390,14 +397,15 @@
             bottom: 2.5rem;
             right: 2.5rem;
             z-index: 5;
-            background: rgba(245, 237, 224, 0.92);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(178, 138, 88, 0.35);
+            background: rgba(245, 237, 224, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(178, 138, 88, 0.4);
             border-radius: 16px;
             padding: 1rem 1.4rem;
             max-width: 200px;
             opacity: 0;
             animation: heroFadeUp 1s ease 1.3s forwards;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
         }
         .hero-badge-icon {
             font-size: 1.4rem;
@@ -424,11 +432,12 @@
             font-family: 'Montserrat', sans-serif;
             font-size: 0.65rem;
             letter-spacing: 0.2em;
-            color: rgba(245, 237, 224, 0.6);
+            color: rgba(245, 237, 224, 0.7);
             writing-mode: vertical-rl;
             transform: rotate(180deg);
             opacity: 0;
             animation: heroFadeUp 1s ease 1.4s forwards;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         @keyframes heroFadeUp {
@@ -465,9 +474,19 @@
             }
             .hero-title { font-size: clamp(1.8rem, 5.5vw, 2.8rem); }
             .hero-eyebrow { margin-bottom: 1rem; }
+            .hero-visual-panel::after {
+                background:
+                    linear-gradient(to right, rgba(245, 237, 224, 0.25) 0%, transparent 40%),
+                    linear-gradient(to top, rgba(20, 12, 5, 0.25) 0%, transparent 50%);
+            }
         }
         @media (max-width: 600px) {
             .hero-visual-panel { aspect-ratio: 4 / 3; }
+            .hero-visual-panel::after {
+                background:
+                    linear-gradient(to bottom, rgba(245, 237, 224, 0.1) 0%, transparent 30%),
+                    linear-gradient(to right, rgba(245, 237, 224, 0.15) 0%, transparent 30%);
+            }
         }
         @media (max-width: 540px) {
             .hero-wrapper { border-radius: 24px; }
@@ -475,6 +494,14 @@
             .hero-meta-strip { gap: 1.2rem; flex-wrap: wrap; }
             .hero-badge { bottom: 1rem; right: 1rem; max-width: 160px; }
             .hero-title { font-size: clamp(1.7rem, 7vw, 2.4rem); }
+            .hero-visual-panel {
+                aspect-ratio: 4 / 3.2;
+            }
+            .hero-visual-panel::after {
+                background:
+                    linear-gradient(to bottom, rgba(245, 237, 224, 0.08) 0%, transparent 25%),
+                    linear-gradient(to right, rgba(245, 237, 224, 0.12) 0%, transparent 25%);
+            }
         }
         @media (max-width: 480px) {
             .hero-sub { font-size: 0.92rem; max-width: 100%; line-height: 1.75; }
@@ -1563,7 +1590,7 @@
 
             <!-- Subtext -->
             <p class="hero-sub">
-                جمعية ثقافية غير ربحية تُعنى بحفظ التراث والموروث الوطني وتعزيز الهوية الثقافية في القريات والجوف — نربط الجذور بالمستقبل.
+                جمعية ثقافية غير ربحية تُعنى بحفظ التراث والموروث الوطني وتعزيز الهوية الثقافية في القريات  .
             </p>
 
             <!-- CTA Row -->
@@ -1582,69 +1609,15 @@
         <!-- ── RIGHT: VISUAL PANEL ── -->
         <div class="hero-visual-panel">
 
-            <!-- Slow drifting arabesque illustration -->
-            <div class="hero-visual-bg hero-visual-animated">
-                <svg viewBox="0 0 700 800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-                    <defs>
-                        <radialGradient id="hBg" cx="50%" cy="42%" r="70%">
-                            <stop offset="0%" stop-color="#5c3a18"/>
-                            <stop offset="100%" stop-color="#1e0f05"/>
-                        </radialGradient>
-                        <radialGradient id="hGlow" cx="50%" cy="50%" r="50%">
-                            <stop offset="0%" stop-color="#c09050" stop-opacity="0.25"/>
-                            <stop offset="100%" stop-color="#c09050" stop-opacity="0"/>
-                        </radialGradient>
-                        <filter id="hSoft">
-                            <feGaussianBlur stdDeviation="2.5"/>
-                        </filter>
-                    </defs>
-                    <rect width="700" height="800" fill="url(#hBg)"/>
-                    <ellipse cx="350" cy="390" rx="280" ry="340" fill="url(#hGlow)"/>
-                    <g transform="translate(350,390)" fill="none" stroke="#c09050" stroke-width="1.2" opacity="0.7">
-                        <circle r="240" stroke-width="0.6" stroke-dasharray="4,8" opacity="0.4"/>
-                        <circle r="185" stroke-width="0.5" opacity="0.3"/>
-                        <circle r="132" stroke-width="0.8" opacity="0.5"/>
-                        <circle r="80"  stroke-width="1"   opacity="0.6"/>
-                        <circle r="38"  stroke-width="1.5" opacity="0.8"/>
-                        <g opacity="0.85">
-                            <polygon points="0,-180 18,-60 60,-60 28,18 45,90 0,55 -45,90 -28,18 -60,-60 -18,-60" stroke="#d4a96a" stroke-width="1" fill="#c09050" fill-opacity="0.08"/>
-                            <polygon points="0,-125 14,-42 42,-42 20,14 32,64 0,40 -32,64 -20,14 -42,-42 -14,-42" stroke="#d4a96a" stroke-width="0.8" fill="#d4a96a" fill-opacity="0.06"/>
-                            <polygon points="0,-70 8,-24 24,-24 11,8 18,36 0,22 -18,36 -11,8 -24,-24 -8,-24" stroke="#e0b97a" stroke-width="1.2" fill="#e0b97a" fill-opacity="0.12"/>
-                        </g>
-                        <g stroke="#b8904a" stroke-width="0.5" opacity="0.4">
-                            <line x1="0" y1="-240" x2="0" y2="-80"/>
-                            <line x1="0" y1="80" x2="0" y2="240"/>
-                            <line x1="-240" y1="0" x2="-80" y2="0"/>
-                            <line x1="80" y1="0" x2="240" y2="0"/>
-                            <line x1="-170" y1="-170" x2="-56" y2="-56"/>
-                            <line x1="56" y1="56" x2="170" y2="170"/>
-                            <line x1="170" y1="-170" x2="56" y2="-56"/>
-                            <line x1="-56" y1="56" x2="-170" y2="170"/>
-                        </g>
-                        <g opacity="0.45" stroke="#c09050" stroke-width="0.8" fill="none">
-                            <path d="M-240,-240 Q-180,-160 -132,0 Q-80,90 0,132"/>
-                            <path d="M240,-240 Q180,-160 132,0 Q80,90 0,132"/>
-                            <path d="M-240,240 Q-180,160 -132,0 Q-80,-90 0,-132"/>
-                            <path d="M240,240 Q180,160 132,0 Q80,-90 0,-132"/>
-                        </g>
-                    </g>
-                    <g transform="translate(580,100)" opacity="0.55" stroke="#c09050" stroke-width="0.9" fill="none">
-                        <circle r="30"/>
-                        <circle r="20" stroke-dasharray="3,6"/>
-                        <line x1="0" y1="-38" x2="0" y2="38"/>
-                        <line x1="-38" y1="0" x2="38" y2="0"/>
-                    </g>
-                    <g transform="translate(120,680)" opacity="0.5" stroke="#c09050" stroke-width="0.9" fill="none">
-                        <circle r="28"/>
-                        <circle r="18" stroke-dasharray="3,6"/>
-                        <line x1="0" y1="-36" x2="0" y2="36"/>
-                        <line x1="-36" y1="0" x2="36" y2="0"/>
-                    </g>
-                    <rect x="24" y="24" width="652" height="752" rx="4" fill="none" stroke="#c09050" stroke-width="0.6" opacity="0.25"/>
-                    <rect x="40" y="40" width="620" height="720" rx="2" fill="none" stroke="#c09050" stroke-width="0.3" opacity="0.15"/>
-                    <line x1="80" y1="110" x2="310" y2="110" stroke="#c09050" stroke-width="0.5" opacity="0.3"/>
-                    <line x1="390" y1="690" x2="620" y2="690" stroke="#c09050" stroke-width="0.5" opacity="0.3"/>
-                </svg>
+            <!-- Premium hero image with sophisticated overlay -->
+            <div class="hero-visual-bg">
+                <img
+                    src="assets/Hero/Hero.png"
+                    alt="الموقع الرسمي لجمعية إرث وحضارة بالقريات"
+                    class="hero-image"
+                    loading="eager"
+                    decoding="async"
+                >
             </div>
 
             <!-- Heritage arabesque frame overlay (corners) -->
