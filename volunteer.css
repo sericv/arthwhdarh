@@ -999,3 +999,35 @@ a   { text-decoration: none; color: inherit; }
     .vl-closing-actions { flex-direction: column; align-items: stretch; }
     .vl-btn--primary { justify-content: center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE LETTER-SPACING  (≤ 768px)
+   Reduces excessive letter-spacing on small screens without
+   changing desktop appearance, colors, layout, or design style.
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+    /* Eyebrow labels (section headers) */
+    .sec-eyebrow             { letter-spacing: 0.13em; }
+
+    /* Activity category tag */
+    .act-tag                 { letter-spacing: 0.10em; }
+
+    /* Page intro eyebrow */
+    .vl-intro-eyebrow        { letter-spacing: 0.14em; }
+
+    /* Stat strip labels */
+    .vl-stat-label           { letter-spacing: 0.09em; }
+
+    /* Visual footer caption */
+    .vl-visual-footer-text   { letter-spacing: 0.09em; }
+
+    /* Highlight item labels */
+    .vl-highlight-label      { letter-spacing: 0.09em; }
+
+    /* Availability note */
+    .vl-programme-note       { letter-spacing: 0.07em; }
+
+    /* Closing eyebrow */
+    .vl-closing-eyebrow      { letter-spacing: 0.14em; }
+}

@@ -1534,6 +1534,29 @@
             opacity: 1;
             transform: none;
         }
+
+        /* ═══════════════════════════════════════════════════════════════
+           MOBILE LETTER-SPACING  (≤ 768px)
+           Reduces excessive character gaps on small screens.
+           Desktop appearance is unchanged.
+        ═══════════════════════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            .hero-eyebrow          { letter-spacing: 0.10em; }
+            .hero-meta-label       { letter-spacing: 0.08em; }
+            .hero-year-stamp       { letter-spacing: 0.09em; }
+            .vm-header-eyebrow     { letter-spacing: 0.12em; }
+            .vm-tag                { letter-spacing: 0.09em; }
+            .vm-pullquote cite     { letter-spacing: 0.07em; }
+            .hp-acts-eyebrow       { letter-spacing: 0.11em; }
+            .hp-act-card-num       { letter-spacing: 0.09em; }
+            .hp-act-card-tag       { letter-spacing: 0.09em; }
+            .hp-heritage-eyebrow   { letter-spacing: 0.11em; }
+            .hp-heritage-card-num  { letter-spacing: 0.09em; }
+            .hp-heritage-card-tag  { letter-spacing: 0.09em; }
+            .hp-volunteer-eyebrow  { letter-spacing: 0.11em; }
+            .hp-volunteer-card-tag { letter-spacing: 0.09em; }
+            .hp-final-cta-eyebrow  { letter-spacing: 0.12em; }
+        }
     </style>
     <link rel="stylesheet" href="style.css">
 </head>

@@ -985,3 +985,32 @@ a   { text-decoration: none; color: inherit; }
     .rp-card-actions { flex-direction: column; }
     .rp-btn { justify-content: center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE LETTER-SPACING  (≤ 768px)
+   Reduces excessive letter-spacing on small screens without
+   changing desktop appearance, colors, layout, or design style.
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+    /* Eyebrow labels (section headers) */
+    .sec-eyebrow           { letter-spacing: 0.13em; }
+
+    /* Page intro eyebrow */
+    .rp-intro-eyebrow      { letter-spacing: 0.14em; }
+
+    /* Stat strip labels */
+    .rp-stat-label         { letter-spacing: 0.09em; }
+
+    /* Card category tag */
+    .rp-card-tag           { letter-spacing: 0.09em; }
+
+    /* PDF badge */
+    .rp-preview-badge      { letter-spacing: 0.06em; }
+
+    /* Sequential number */
+    .rp-preview-number     { letter-spacing: 0.07em; }
+
+    /* Closing eyebrow */
+    .rp-closing-eyebrow    { letter-spacing: 0.14em; }
+}

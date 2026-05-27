@@ -1033,3 +1033,35 @@ a {
     .association-name-nav { font-size: 1rem; }
     .nav-links a { font-size: 0.75rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE LETTER-SPACING  (≤ 768px)
+   Reduces excessive letter-spacing on small screens without
+   changing desktop appearance, colors, layout, or design style.
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+    /* Eyebrow labels (section headers) */
+    .sec-eyebrow          { letter-spacing: 0.13em; }
+
+    /* Activity category tag */
+    .act-tag              { letter-spacing: 0.10em; }
+
+    /* Image overlay badge */
+    .act-img-badge        { letter-spacing: 0.09em; }
+
+    /* Stamp sub-label */
+    .stamp-sub            { letter-spacing: 0.03em; }
+
+    /* Date note inside event badge */
+    .ev-date-note         { letter-spacing: 0.08em; }
+
+    /* Quote citation */
+    .ev-quote-cite        { letter-spacing: 0.08em; }
+
+    /* Nortona meta labels */
+    .nortona-meta-label   { letter-spacing: 0.09em; }
+
+    /* Closing section eyebrow */
+    .acts-closing-eyebrow { letter-spacing: 0.13em; }
+}
