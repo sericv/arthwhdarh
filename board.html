@@ -694,6 +694,7 @@
             <a href="activities.html">الفعاليات</a>
             <a href="heritage-crafts.html">التراث والحرف</a>
             <a href="volunteer.html">التطوع</a>
+            <a href="news.html">الأخبار</a>
             <a href="partnerships.html">الشراكات</a>
             <a href="reports.html">التقارير</a>
             <a href="board.html">مجلس الإدارة</a>
@@ -723,9 +724,9 @@
 
 
     <!-- ══════════════════════════════════════
-         رئيس مجلس الإدارة
+         رئيس مجلس الإدارة — Firebase dynamic
     ══════════════════════════════════════ -->
-    <section aria-labelledby="chairman-name">
+    <section aria-labelledby="chairman-name" id="chairmanSection">
 
         <div class="section-rule" data-reveal="fade">
             <span class="sr-text">Chairman · رئيس مجلس الإدارة</span>
@@ -733,42 +734,38 @@
             <div class="sr-line"></div>
         </div>
 
-        <div class="chairman-row" data-reveal="up">
-
-            <!-- Portrait -->
-            <div class="chairman-portrait">
-                <div class="chairman-photo-frame">
-                    <div class="ph-corner ph-corner-tl"></div>
-                    <div class="ph-corner ph-corner-br"></div>
-                    
+        <!-- populated by Firebase; static fallback shown until loaded -->
+        <div id="chairmanContainer">
+            <div class="chairman-row" data-reveal="up">
+                <div class="chairman-portrait">
+                    <div class="chairman-photo-frame">
+                        <div class="ph-corner ph-corner-tl"></div>
+                        <div class="ph-corner ph-corner-br"></div>
                         <img src="assets/صور اعضاء الادارة/محمد المحارب.jpeg"
                              alt="محمد حمد المحارب — رئيس مجلس الإدارة"
                              loading="lazy">
-                   
-                    <div class="ph-placeholder">
-                        <i class="fas fa-user"></i>
-                        <span>Photo</span>
+                        <div class="ph-placeholder">
+                            <i class="fas fa-user"></i>
+                            <span>Photo</span>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Info -->
-            <div class="chairman-info">
-                <div class="chairman-badge">
-                    <span class="chairman-badge-text">Chairman · رئيس المجلس</span>
+                <div class="chairman-info">
+                    <div class="chairman-badge">
+                        <span class="chairman-badge-text">Chairman · رئيس المجلس</span>
+                    </div>
+                    <h2 class="chairman-name" id="chairman-name">محمد حمد المحارب</h2>
+                    <div class="chairman-title-ar">رئيس مجلس الإدارة</div>
+                    <div class="chairman-title-la">Board of Directors — Chairman</div>
                 </div>
-                <h2 class="chairman-name" id="chairman-name">محمد حمد المحارب</h2>
-                <div class="chairman-title-ar">رئيس مجلس الإدارة</div>
-                <div class="chairman-title-la">Board of Directors — Chairman</div>
             </div>
-
         </div>
 
     </section>
 
 
     <!-- ══════════════════════════════════════
-         أعضاء المجلس
+         أعضاء المجلس — Firebase dynamic
     ══════════════════════════════════════ -->
     <section class="members-list" aria-label="أعضاء مجلس الإدارة">
 
@@ -778,109 +775,69 @@
             <div class="sr-line"></div>
         </div>
 
-        <!-- ── Member 1 ── -->
-        <article class="member-row" data-reveal="up">
-            <span class="member-index">٠١</span>
-            <div class="member-portrait">
-                <div class="member-photo-frame">
-
-                        <img src="assets/صور اعضاء الادارة/محمد يوسف الشمري.png"
-                             alt="محمد يوسف الشمري" loading="lazy">
-
-                    <div class="sm-placeholder">
-                        <i class="fas fa-user"></i>
-                        <span>Photo</span>
+        <!-- populated by Firebase; static fallback shown until loaded -->
+        <div id="membersContainer">
+            <article class="member-row" data-reveal="up">
+                <span class="member-index">٠١</span>
+                <div class="member-portrait">
+                    <div class="member-photo-frame">
+                        <img src="assets/صور اعضاء الادارة/محمد يوسف الشمري.png" alt="محمد يوسف الشمري" loading="lazy">
+                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
                     </div>
                 </div>
-            </div>
-            <div class="member-text">
-                <div class="member-name">محمد يوسف الشمري</div>
-                <div class="member-role-ar">نائب رئيس مجلس الإدارة</div>
-                <div class="member-role-la">Vice Chairman</div>
-            </div>
-            <div class="member-accent">
-                <div class="member-accent-dash"></div>
-                <div class="member-accent-dot"></div>
-            </div>
-        </article>
-
-        <!-- ── Member 2 ── -->
-        <article class="member-row" data-reveal="up">
-            <span class="member-index">٠٢</span>
-            <div class="member-portrait">
-                <div class="member-photo-frame">
-
-                        <img src="assets/صور اعضاء الادارة/سلطان عبدالرحمن الجباب.png"
-                             alt="سلطان عبدالرحمن الجباب" loading="lazy">
-               
-                    <div class="sm-placeholder">
-                        <i class="fas fa-user"></i>
-                        <span>Photo</span>
+                <div class="member-text">
+                    <div class="member-name">محمد يوسف الشمري</div>
+                    <div class="member-role-ar">نائب رئيس مجلس الإدارة</div>
+                    <div class="member-role-la">Vice Chairman</div>
+                </div>
+                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
+            </article>
+            <article class="member-row" data-reveal="up">
+                <span class="member-index">٠٢</span>
+                <div class="member-portrait">
+                    <div class="member-photo-frame">
+                        <img src="assets/صور اعضاء الادارة/سلطان عبدالرحمن الجباب.png" alt="سلطان عبدالرحمن الجباب" loading="lazy">
+                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
                     </div>
                 </div>
-            </div>
-            <div class="member-text">
-                <div class="member-name">سلطان عبدالرحمن الجباب</div>
-                <div class="member-role-ar">عضو مجلس إدارة</div>
-                <div class="member-role-la">Board Member</div>
-            </div>
-            <div class="member-accent">
-                <div class="member-accent-dash"></div>
-                <div class="member-accent-dot"></div>
-            </div>
-        </article>
-
-        <!-- ── Member 3 ── -->
-        <article class="member-row" data-reveal="up">
-            <span class="member-index">٠٣</span>
-            <div class="member-portrait">
-                <div class="member-photo-frame">
-                    
-                        <img src="assets/صور اعضاء الادارة/حمده العنزي.png"
-                             alt="حمده بواع العنزي" loading="lazy">
-                    
-                    <div class="sm-placeholder">
-                        <i class="fas fa-user"></i>
-                        <span>Photo</span>
+                <div class="member-text">
+                    <div class="member-name">سلطان عبدالرحمن الجباب</div>
+                    <div class="member-role-ar">عضو مجلس إدارة</div>
+                    <div class="member-role-la">Board Member</div>
+                </div>
+                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
+            </article>
+            <article class="member-row" data-reveal="up">
+                <span class="member-index">٠٣</span>
+                <div class="member-portrait">
+                    <div class="member-photo-frame">
+                        <img src="assets/صور اعضاء الادارة/حمده العنزي.png" alt="حمده بواع العنزي" loading="lazy">
+                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
                     </div>
                 </div>
-            </div>
-            <div class="member-text">
-                <div class="member-name">حمده بواع العنزي</div>
-                <div class="member-role-ar">عضو مجلس إدارة</div>
-                <div class="member-role-la">Board Member</div>
-            </div>
-            <div class="member-accent">
-                <div class="member-accent-dash"></div>
-                <div class="member-accent-dot"></div>
-            </div>
-        </article>
-
-        <!-- ── Member 4 ── -->
-        <article class="member-row" data-reveal="up">
-            <span class="member-index">٠٤</span>
-            <div class="member-portrait">
-                <div class="member-photo-frame">
-                    
-                        <img src="assets/صور اعضاء الادارة/عبدالله مسير البلعاسي.png"
-                             alt="عبدالله مسير البلعاسي" loading="lazy">
-                    
-                    <div class="sm-placeholder">
-                        <i class="fas fa-user"></i>
-                        <span>Photo</span>
+                <div class="member-text">
+                    <div class="member-name">حمده بواع العنزي</div>
+                    <div class="member-role-ar">عضو مجلس إدارة</div>
+                    <div class="member-role-la">Board Member</div>
+                </div>
+                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
+            </article>
+            <article class="member-row" data-reveal="up">
+                <span class="member-index">٠٤</span>
+                <div class="member-portrait">
+                    <div class="member-photo-frame">
+                        <img src="assets/صور اعضاء الادارة/عبدالله مسير البلعاسي.png" alt="عبدالله مسير البلعاسي" loading="lazy">
+                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
                     </div>
                 </div>
-            </div>
-            <div class="member-text">
-                <div class="member-name">عبدالله مسير البلعاسي</div>
-                <div class="member-role-ar">عضو مجلس إدارة</div>
-                <div class="member-role-la">Board Member</div>
-            </div>
-            <div class="member-accent">
-                <div class="member-accent-dash"></div>
-                <div class="member-accent-dot"></div>
-            </div>
-        </article>
+                <div class="member-text">
+                    <div class="member-name">عبدالله مسير البلعاسي</div>
+                    <div class="member-role-ar">عضو مجلس إدارة</div>
+                    <div class="member-role-la">Board Member</div>
+                </div>
+                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
+            </article>
+        </div>
 
     </section>
 
@@ -925,6 +882,114 @@
     </footer>
 
 </div><!-- /.site-wrapper -->
+
+<!-- Firebase: dynamic board members -->
+<script type="module">
+import { initializeApp }  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp({
+    apiKey: "AIzaSyDnWUCjJKkMqORT8SeLYHszAIP0bv8PCSg",
+    authDomain: "arthwhdarh-782ec.firebaseapp.com",
+    projectId: "arthwhdarh-782ec",
+    storageBucket: "arthwhdarh-782ec.firebasestorage.app",
+    messagingSenderId: "597405952213",
+    appId: "1:597405952213:web:5ffeab6adc7e451a265a5c"
+});
+const db = getFirestore(app);
+
+function esc(s) { return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const arNums = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+function arIdx(n) {
+    return String(n).padStart(2,'0').split('').map(d=>/\d/.test(d)?arNums[+d]:d).join('');
+}
+
+function initRevealTargets(container) {
+    if (!window.IntersectionObserver) {
+        container.querySelectorAll('[data-reveal]').forEach(el=>el.classList.add('revealed'));
+        return;
+    }
+    const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); } });
+    }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+    container.querySelectorAll('[data-reveal]').forEach((el, i) => {
+        if (el.classList.contains('member-row')) el.style.transitionDelay = (i * 70) + 'ms';
+        io.observe(el);
+    });
+}
+
+async function loadBoard() {
+    try {
+        const snap = await getDocs(query(collection(db, 'members'), orderBy('order', 'asc')));
+        if (snap.empty) return; // keep static fallback
+
+        const members = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Chairman = order 0 or first entry
+        const chairman = members[0];
+        const rest     = members.slice(1);
+
+        // — Chairman section —
+        const chairEl = document.getElementById('chairmanContainer');
+        if (chairEl && chairman) {
+            chairEl.innerHTML = `
+            <div class="chairman-row" data-reveal="up">
+                <div class="chairman-portrait">
+                    <div class="chairman-photo-frame">
+                        <div class="ph-corner ph-corner-tl"></div>
+                        <div class="ph-corner ph-corner-br"></div>
+                        ${chairman.imageUrl
+                            ? `<img src="${esc(chairman.imageUrl)}" alt="${esc(chairman.name)}" loading="lazy">`
+                            : `<div class="ph-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>`}
+                    </div>
+                </div>
+                <div class="chairman-info">
+                    <div class="chairman-badge">
+                        <span class="chairman-badge-text">Chairman · رئيس المجلس</span>
+                    </div>
+                    <h2 class="chairman-name" id="chairman-name">${esc(chairman.name)}</h2>
+                    <div class="chairman-title-ar">${esc(chairman.position||'رئيس مجلس الإدارة')}</div>
+                    <div class="chairman-title-la">Board of Directors — Chairman</div>
+                </div>
+            </div>`;
+            initRevealTargets(chairEl);
+        }
+
+        // — Members list —
+        const memEl = document.getElementById('membersContainer');
+        if (memEl && rest.length) {
+            memEl.innerHTML = rest.map((m, i) => `
+            <article class="member-row" data-reveal="up">
+                <span class="member-index">${arIdx(i + 1)}</span>
+                <div class="member-portrait">
+                    <div class="member-photo-frame">
+                        ${m.imageUrl
+                            ? `<img src="${esc(m.imageUrl)}" alt="${esc(m.name)}" loading="lazy">`
+                            : ''}
+                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
+                    </div>
+                </div>
+                <div class="member-text">
+                    <div class="member-name">${esc(m.name)}</div>
+                    <div class="member-role-ar">${esc(m.position||'عضو مجلس إدارة')}</div>
+                    <div class="member-role-la">Board Member</div>
+                </div>
+                <div class="member-accent">
+                    <div class="member-accent-dash"></div>
+                    <div class="member-accent-dot"></div>
+                </div>
+            </article>`).join('');
+            initRevealTargets(memEl);
+        }
+    } catch(e) {
+        // silently keep static fallback on error
+        console.warn('Board Firebase load error:', e);
+    }
+}
+
+loadBoard();
+</script>
 
 <script>
 (function () {

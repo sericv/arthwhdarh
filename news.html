@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>الأخبار والمستجدات | جمعية إرث وحضارة بالقريات</title>
+    <meta name="description" content="آخر الأخبار والمستجدات والأنشطة والمبادرات الخاصة بجمعية إرث وحضارة بالقريات.">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <style>
+        /* ═══════════════════════════════════════════════════════════════════
+           NEWS.CSS — جمعية إرث وحضارة بالقريات
+           Premium Editorial News Archive
+        ═══════════════════════════════════════════════════════════════════ */
+
+        /* ── DESIGN TOKENS ── */
+        :root {
+            --color-parchment:      #faf6ed;
+            --color-parchment-mid:  #f5ede0;
+            --color-parchment-deep: #ede3cf;
+            --color-ink-dark:       #1e1610;
+            --color-ink:            #3a2a1c;
+            --color-ink-mid:        #4f3822;
+            --color-ink-soft:       #5c4430;
+            --color-ink-muted:      #6b4f35;
+            --color-gold-bright:    #c09a62;
+            --color-gold:           #b28a5a;
+            --color-gold-deep:      #9c6e38;
+            --color-gold-pale:      #e0c896;
+            --color-gold-faint:     #cbae86;
+            --color-amber:          #a07848;
+            --color-amber-light:    #b07a3c;
+        }
+
+        /* ── RESET & BASE ── */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
+        body {
+            background-color: var(--color-parchment);
+            font-family: 'Almarai', 'Montserrat', sans-serif;
+            color: var(--color-ink);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        /* Heritage background texture */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" opacity="0.05"><path fill="none" stroke="%23b28b5e" stroke-width="1.2" d="M200 150 L250 120 L300 150 L350 120 L400 150 L450 120 L500 150 L550 120 L600 150 M150 350 L200 320 L250 350 L300 320 L350 350 L400 320 L450 350 M100 550 L150 520 L200 550 L250 520 L300 550 L350 520 L400 550 M180 750 L230 720 L280 750 L330 720 L380 750 L430 720 L480 750 M220 950 L270 920 L320 950 L370 920 L420 950 L470 920 L520 950 M500 180 L540 150 L580 180 L620 150 L660 180 L700 150 M600 380 L640 350 L680 380 L720 350 L760 380 M550 580 L590 550 L630 580 L670 550 L710 580 M580 780 L620 750 L660 780 L700 750 L740 780 M620 1000 L660 970 L700 1000 L740 970"/><circle cx="400" cy="500" r="25" stroke="%239c7a4b" fill="none" stroke-width="1.2"/></svg>');
+            background-repeat: repeat;
+            background-size: 160px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── SITE WRAPPER ── */
+        .site-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 2rem 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ═══════════════════════════════════════════
+           NAVIGATION
+        ═══════════════════════════════════════════ */
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 0.8rem 0 1.5rem;
+            border-bottom: 1px solid rgba(175, 145, 100, 0.25);
+            margin-bottom: 2rem;
+        }
+
+        .logo-area-nav {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .nav-logo-img {
+            height: 52px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+            flex-shrink: 0;
+        }
+
+        .association-name-nav {
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: #4f3822;
+            letter-spacing: -0.3px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #5c4430;
+            font-weight: 500;
+            transition: 0.2s;
+            border-bottom: 1px solid transparent;
+            padding-bottom: 4px;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #b7874b;
+            border-bottom-color: #cbae86;
+        }
+
+        /* ═══════════════════════════════════════════
+           PAGE INTRO — Calm institutional header
+        ═══════════════════════════════════════════ */
+        .news-page-intro {
+            padding: 4rem 0 3.5rem;
+            position: relative;
+        }
+
+        /* Subtle bottom border */
+        .news-page-intro::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(192,154,98,0.2) 20%,
+                rgba(192,154,98,0.45) 50%,
+                rgba(192,154,98,0.2) 80%,
+                transparent 100%);
+        }
+
+        /* Eyebrow row */
+        .news-intro-eyebrow-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.6rem;
+        }
+
+        .news-intro-eyebrow {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.6rem;
+            font-weight: 500;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: #a07848;
+            white-space: nowrap;
+        }
+
+        .news-intro-rule {
+            flex: 1;
+            max-width: 120px;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(192,154,98,0.5), transparent);
+        }
+
+        .news-intro-diamond {
+            width: 6px;
+            height: 6px;
+            background: #c09a62;
+            transform: rotate(45deg);
+            flex-shrink: 0;
+        }
+
+        /* Page title */
+        .news-intro-title {
+            font-size: clamp(2rem, 3.5vw, 3.2rem);
+            font-weight: 800;
+            color: #1e1610;
+            letter-spacing: -0.025em;
+            line-height: 1.2;
+            margin-bottom: 1.4rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .news-intro-title::after {
+            content: "";
+            position: absolute;
+            bottom: -12px;
+            right: 0;
+            width: 56px;
+            height: 2px;
+            background: linear-gradient(90deg, #c09a62, #e5cfb0);
+        }
+
+        /* Description */
+        .news-intro-desc {
+            font-size: 0.98rem;
+            line-height: 1.95;
+            color: #6b4f35;
+            font-weight: 300;
+            max-width: 520px;
+            margin-top: 1.8rem;
+        }
+
+        /* ═══════════════════════════════════════════
+           NEWS ARCHIVE SECTION
+        ═══════════════════════════════════════════ */
+        .news-archive {
+            padding: 4rem 0 5rem;
+        }
+
+        /* Archive heading row */
+        .news-archive-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .news-archive-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #3a2a1c;
+            letter-spacing: -0.01em;
+        }
+
+        .news-archive-count {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.62rem;
+            font-weight: 500;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #a07848;
+        }
+
+        /* ── Editorial grid ── */
+        /* Featured row: 1 wide + 1 tall (asymmetric) */
+        .news-grid-featured {
+            display: grid;
+            grid-template-columns: 1.35fr 1fr;
+            gap: 1.8rem;
+            margin-bottom: 1.8rem;
+        }
+
+        /* Standard archive grid — 3 columns */
+        .news-grid-standard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.8rem;
+            margin-bottom: 1.8rem;
+        }
+
+        /* Secondary standard grid — 2 columns */
+        .news-grid-pair {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.8rem;
+            margin-bottom: 1.8rem;
+        }
+
+        /* ── Archive divider ── */
+        .news-archive-divider {
+            height: 1px;
+            background: linear-gradient(90deg,
+                rgba(192,154,98,0.15),
+                rgba(192,154,98,0.38) 40%,
+                rgba(192,154,98,0.38) 60%,
+                rgba(192,154,98,0.15));
+            margin: 0.5rem 0 1.8rem;
+        }
+
+        /* ═══════════════════════════════════════════
+           NEWS CARD — Editorial Minimal
+        ═══════════════════════════════════════════ */
+        .news-card {
+            display: flex;
+            flex-direction: column;
+            background: rgba(253, 250, 240, 0.65);
+            border: 1px solid rgba(180, 145, 95, 0.2);
+            border-radius: 18px;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            transition:
+                transform 0.4s cubic-bezier(0.22,1,0.36,1),
+                box-shadow 0.4s cubic-bezier(0.22,1,0.36,1),
+                border-color 0.3s;
+            box-shadow: 0 4px 16px -5px rgba(40,25,8,0.08);
+        }
+
+        .news-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(192,154,98,0.4);
+            box-shadow: 0 18px 38px -12px rgba(40,25,8,0.15);
+        }
+
+        /* Featured card variant — taller image */
+        .news-card--featured .news-card-img-wrap {
+            aspect-ratio: 4 / 3;
+        }
+
+        /* Image wrapper */
+        .news-card-img-wrap {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+            background: #1e1208;
+        }
+
+        /* Elegant inset frame */
+        .news-card-img-wrap::before {
+            content: "";
+            position: absolute;
+            inset: 10px;
+            border: 1px solid rgba(192,154,98,0.16);
+            border-radius: 7px;
+            z-index: 3;
+            pointer-events: none;
+            transition: border-color 0.3s;
+        }
+
+        .news-card:hover .news-card-img-wrap::before {
+            border-color: rgba(192,154,98,0.36);
+        }
+
+        .news-card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.7s cubic-bezier(0.22,1,0.36,1);
+        }
+
+        .news-card:hover .news-card-img {
+            transform: scale(1.05);
+        }
+
+        /* Image overlay gradient */
+        .news-card-img-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top,
+                rgba(12,7,2,0.35) 0%,
+                transparent 55%);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* Placeholder when no image is available */
+        .news-card-img-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2a1c0e 0%, #3d2810 55%, #2a1c0e 100%);
+            gap: 0.8rem;
+        }
+
+        .news-card-img-placeholder i {
+            font-size: 2.2rem;
+            color: rgba(192,154,98,0.4);
+        }
+
+        .news-card-img-placeholder span {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.56rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(192,154,98,0.3);
+        }
+
+        /* Card body */
+        .news-card-body {
+            padding: 1.5rem 1.7rem 1.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+        }
+
+        /* Meta row: date · category */
+        .news-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .news-card-date {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.58rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #a07848;
+        }
+
+        .news-card-meta-dot {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: rgba(192,154,98,0.45);
+            flex-shrink: 0;
+        }
+
+        .news-card-category {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.58rem;
+            font-weight: 500;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            color: #b07a3c;
+        }
+
+        /* Title */
+        .news-card-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #1e1610;
+            letter-spacing: -0.015em;
+            line-height: 1.3;
+        }
+
+        .news-card--featured .news-card-title {
+            font-size: 1.25rem;
+        }
+
+        /* Excerpt */
+        .news-card-excerpt {
+            font-size: 0.86rem;
+            line-height: 1.88;
+            color: #6b4f35;
+            font-weight: 300;
+            flex: 1;
+        }
+
+        /* Divider line */
+        .news-card-divider {
+            height: 1px;
+            background: linear-gradient(90deg, rgba(192,154,98,0.18), transparent);
+            margin-top: 0.35rem;
+        }
+
+        /* Read link */
+        .news-card-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #9c6e38;
+            border-bottom: 1px solid rgba(156,110,56,0.28);
+            padding-bottom: 2px;
+            align-self: flex-start;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .news-card:hover .news-card-link {
+            color: #6b4a22;
+            border-color: #6b4a22;
+        }
+
+        .news-card-link i { font-size: 0.68rem; }
+
+        /* ── "Load more" area (placeholder for Firebase) ── */
+        .news-load-more {
+            text-align: center;
+            padding: 2.5rem 0 1rem;
+            position: relative;
+        }
+
+        .news-load-more::before {
+            content: "";
+            position: absolute;
+            top: 0; right: 0; left: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(192,154,98,0.18) 25%,
+                rgba(192,154,98,0.38) 50%,
+                rgba(192,154,98,0.18) 75%,
+                transparent 100%);
+        }
+
+        .btn-heritage {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: transparent;
+            border: 1px solid #b28a5a;
+            padding: 0.7rem 2rem;
+            border-radius: 40px;
+            color: #7a5a3a;
+            font-weight: 600;
+            font-family: 'Almarai', sans-serif;
+            font-size: 0.9rem;
+            transition: 0.25s;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .btn-heritage:hover {
+            background: rgba(203,174,134,0.18);
+            border-color: #a57c48;
+            transform: translateY(-2px);
+        }
+
+        /* ═══════════════════════════════════════════
+           FOOTER
+        ═══════════════════════════════════════════ */
+        .footer-premium {
+            margin-top: 5rem;
+            padding: 2rem 0;
+            border-top: 1px solid rgba(170, 135, 85, 0.3);
+            text-align: center;
+            font-size: 0.85rem;
+            color: #a58660;
+        }
+
+        /* ═══════════════════════════════════════════
+           SCROLL REVEAL
+        ═══════════════════════════════════════════ */
+        [data-reveal] {
+            opacity: 0;
+            transition:
+                opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        [data-reveal="right"] { transform: translateX(-24px); }
+        [data-reveal="up"]    { transform: translateY(24px); }
+
+        [data-reveal].revealed {
+            opacity: 1;
+            transform: none;
+        }
+
+        /* ═══════════════════════════════════════════
+           RESPONSIVE
+        ═══════════════════════════════════════════ */
+        @media (max-width: 1100px) {
+            .news-grid-featured {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .news-grid-standard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .news-grid-featured,
+            .news-grid-standard,
+            .news-grid-pair {
+                grid-template-columns: 1fr;
+                gap: 1.4rem;
+            }
+
+            .nav-container {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .site-wrapper { padding: 1rem; }
+
+            .news-card--featured .news-card-img-wrap {
+                aspect-ratio: 16 / 9;
+            }
+
+            .news-card--featured .news-card-title {
+                font-size: 1.1rem;
+            }
+
+            .news-page-intro { padding: 2.5rem 0 2.5rem; }
+            .news-intro-title { font-size: clamp(1.8rem, 6vw, 2.4rem); }
+        }
+
+        @media (max-width: 480px) {
+            .nav-links { gap: 0.55rem 0.9rem; row-gap: 0.4rem; }
+            .nav-links a { font-size: 0.82rem; }
+            .association-name-nav { font-size: 1.1rem; }
+            .nav-logo-img { height: 42px; }
+            .news-intro-desc { font-size: 0.92rem; }
+            .news-card-body { padding: 1.2rem 1.4rem 1.5rem; }
+            .news-card-title { font-size: 1rem; }
+            .news-intro-eyebrow { letter-spacing: 0.11em; }
+            .news-card-date { letter-spacing: 0.07em; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="site-wrapper">
+
+    <!-- ════════════════════════════════════════
+         NAVIGATION
+    ════════════════════════════════════════ -->
+    <nav class="nav-container" aria-label="التنقل الرئيسي">
+        <div class="logo-area-nav">
+            <img
+                src="assets/الشعار/الشعار.png"
+                alt="شعار جمعية إرث وحضارة بالقريات"
+                class="nav-logo-img"
+                loading="eager"
+            >
+            <span class="association-name-nav">جمعية إرث وحضارة بالقريات</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">الرئيسية</a>
+            <a href="activities.html">الفعاليات</a>
+            <a href="heritage-crafts.html">التراث والحرف</a>
+            <a href="volunteer.html">التطوع</a>
+            <a href="news.html" class="active">الأخبار</a>
+            <a href="partnerships.html">الشراكات</a>
+            <a href="reports.html">التقارير</a>
+            <a href="board.html">مجلس الإدارة</a>
+            <a href="contact.html">اتصل بنا</a>
+        </div>
+    </nav>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         PAGE INTRO — Calm institutional header (no giant hero)
+    ════════════════════════════════════════════════════════════════ -->
+    <div class="news-page-intro" data-reveal="up">
+
+        <!-- Eyebrow -->
+        <div class="news-intro-eyebrow-row">
+            <span class="news-intro-eyebrow">News & Updates · المستجدات</span>
+            <div class="news-intro-rule"></div>
+            <div class="news-intro-diamond"></div>
+        </div>
+
+        <!-- Title -->
+        <h1 class="news-intro-title">الأخبار والمستجدات</h1>
+
+        <!-- Description -->
+        <p class="news-intro-desc">
+            نستعرض من خلال هذه الصفحة آخر الأخبار والأنشطة والمبادرات الخاصة بالجمعية.
+        </p>
+
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         NEWS ARCHIVE — Firebase-powered
+    ════════════════════════════════════════════════════════════════ -->
+    <section class="news-archive" aria-label="أرشيف الأخبار">
+
+        <!-- Archive header -->
+        <div class="news-archive-header" data-reveal="up">
+            <span class="news-archive-title">المستجدات الأخيرة</span>
+            <span class="news-archive-count" id="newsCount"></span>
+        </div>
+
+        <!-- Dynamic news loaded from Firebase -->
+        <div id="newsArchiveContainer">
+            <div style="text-align:center;padding:4rem 2rem;">
+                <i class="fas fa-spinner fa-spin" style="font-size:2rem;color:rgba(192,154,98,0.5);"></i>
+            </div>
+        </div>
+
+        <!-- ── STATIC FALLBACK (hidden when Firebase loads) ── -->
+        <div id="staticFallback" style="display:none;">
+        <!-- ── FEATURED ROW: 2 prominent cards (asymmetric) ── -->
+        <div class="news-grid-featured" data-reveal="up">
+
+            <!-- Featured Card 1 — Wide -->
+            <a href="#" class="news-card news-card--featured" aria-label="إطلاق مبادرة توثيق الموروث الشعبي">
+                <div class="news-card-img-wrap">
+                    <div class="news-card-img-placeholder">
+                        <i class="fas fa-scroll" aria-hidden="true"></i>
+                        <span>Heritage Archive</span>
+                    </div>
+                    <div class="news-card-img-overlay"></div>
+                </div>
+                <div class="news-card-body">
+                    <div class="news-card-meta">
+                        <span class="news-card-date">١٥ مايو ٢٠٢٦</span>
+                        <span class="news-card-meta-dot" aria-hidden="true"></span>
+                        <span class="news-card-category">مبادرة</span>
+                    </div>
+                    <h2 class="news-card-title">إطلاق مبادرة توثيق الموروث الشعبي في القريات</h2>
+                    <p class="news-card-excerpt">
+                        أطلقت جمعية إرث وحضارة مبادرةً ميدانية لتوثيق الموروث الشعبي والحرف التقليدية في محافظة القريات، بهدف حفظ هذا الإرث الثمين للأجيال القادمة وإتاحته لمراكز الأبحاث والمهتمين بالتراث الوطني.
+                    </p>
+                    <div class="news-card-divider" aria-hidden="true"></div>
+                    <span class="news-card-link">
+                        قراءة الخبر
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                </div>
+            </a>
+
+            <!-- Featured Card 2 — Tall -->
+            <a href="#" class="news-card news-card--featured" aria-label="اتفاقية تعاون مع جهات ثقافية إقليمية">
+                <div class="news-card-img-wrap">
+                    <div class="news-card-img-placeholder">
+                        <i class="fas fa-handshake" aria-hidden="true"></i>
+                        <span>Cultural Partnership</span>
+                    </div>
+                    <div class="news-card-img-overlay"></div>
+                </div>
+                <div class="news-card-body">
+                    <div class="news-card-meta">
+                        <span class="news-card-date">٣ مايو ٢٠٢٦</span>
+                        <span class="news-card-meta-dot" aria-hidden="true"></span>
+                        <span class="news-card-category">شراكة</span>
+                    </div>
+                    <h2 class="news-card-title">اتفاقية تعاون مع جهات ثقافية إقليمية لتعزيز الهوية التراثية</h2>
+                    <p class="news-card-excerpt">
+                        وقّعت الجمعية اتفاقيةَ شراكة استراتيجية مع عدد من الجهات الثقافية في منطقة الجوف، تهدف إلى تكامل الجهود في مجال الحفاظ على التراث وصون الهوية الوطنية.
+                    </p>
+                    <div class="news-card-divider" aria-hidden="true"></div>
+                    <span class="news-card-link">
+                        قراءة الخبر
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                </div>
+            </a>
+
+        </div><!-- /.news-grid-featured -->
+
+        <!-- Archive divider -->
+        <div class="news-archive-divider" aria-hidden="true"></div>
+
+        <!-- ── STANDARD ARCHIVE GRID: 3 columns ── -->
+        <div class="news-grid-standard" data-reveal="up">
+
+            <!-- Card 3 -->
+            <a href="#" class="news-card" aria-label="ورشة عمل حرفة السدو">
+                <div class="news-card-img-wrap">
+                    <div class="news-card-img-placeholder">
+                        <i class="fas fa-tools" aria-hidden="true"></i>
+                        <span>Workshop</span>
+                    </div>
+                    <div class="news-card-img-overlay"></div>
+                </div>
+                <div class="news-card-body">
+                    <div class="news-card-meta">
+                        <span class="news-card-date">٢٢ أبريل ٢٠٢٦</span>
+                        <span class="news-card-meta-dot" aria-hidden="true"></span>
+                        <span class="news-card-category">ورشة عمل</span>
+                    </div>
+                    <h3 class="news-card-title">ورشة تعليمية متخصصة في حرفة السدو التراثية</h3>
+                    <p class="news-card-excerpt">نظّمت الجمعية ورشةَ عملٍ لتعليم حرفة السدو ونسج الصوف على الأنوال التقليدية، بمشاركة حرفيات متمرسات من المنطقة.</p>
+                    <div class="news-card-divider" aria-hidden="true"></div>
+                    <span class="news-card-link">
+                        قراءة الخبر
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                </div>
+            </a>
+
+            <!-- Card 4 -->
+            <a href="#" class="news-card" aria-label="المشاركة في مهرجان التراث">
+                <div class="news-card-img-wrap">
+                    <div class="news-card-img-placeholder">
+                        <i class="fas fa-landmark" aria-hidden="true"></i>
+                        <span>Cultural Event</span>
+                    </div>
+                    <div class="news-card-img-overlay"></div>
+                </div>
+                <div class="news-card-body">
+                    <div class="news-card-meta">
+                        <span class="news-card-date">١٠ أبريل ٢٠٢٦</span>
+                        <span class="news-card-meta-dot" aria-hidden="true"></span>
+                        <span class="news-card-category">فعالية</span>
+                    </div>
+                    <h3 class="news-card-title">مشاركة الجمعية في مهرجان التراث الوطني بالرياض</h3>
+                    <p class="news-card-excerpt">شاركت جمعية إرث وحضارة في الجناح المخصص لمنطقة الجوف ضمن مهرجان التراث الوطني، وعرضت نماذج من الحرف اليدوية الأصيلة للقريات.</p>
+                    <div class="news-card-divider" aria-hidden="true"></div>
+                    <span class="news-card-link">
+                        قراءة الخبر
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                </div>
+            </a>
+
+            <!-- Card 5 -->
+            <a href="#" class="news-card" aria-label="تقرير الأنشطة السنوي">
+                <div class="news-card-img-wrap">
+                    <div class="news-card-img-placeholder">
+                        <i class="fas fa-file-alt" aria-hidden="true"></i>
+                        <span>Annual Report</span>
+                    </div>
+                    <div class="news-card-img-overlay"></div>
+                </div>
+                <div class="news-card-body">
+                    <div class="news-card-meta">
+                        <span class="news-card-date">٢٨ مارس ٢٠٢٦</span>
+                        <span class="news-card-meta-dot" aria-hidden="true"></span>
+                        <span class="news-card-category">تقرير</span>
+                    </div>
+                    <h3 class="news-card-title">إصدار التقرير السنوي للأنشطة والمبادرات لعام ١٤٤٧هـ</h3>
+                    <p class="news-card-excerpt">أصدرت الجمعية تقريرها السنوي الشامل الذي يستعرض إنجازات العام في مجالات التوثيق التراثي والفعاليات الثقافية والتدريب الحرفي.</p>
+                    <div class="news-card-divider" aria-hidden="true"></div>
+                    <span class="news-card-link">
+                        قراءة الخبر
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                </div>
+            </a>
+
+        </div><!-- /.news-grid-standard -->
+
+        <!-- Archive divider -->
+        <div class="news-archive-divider" aria-hidden="true"></div>
+
+        <!-- ── SECOND PAIR ROW ── -->
+        <div class="news-grid-pair" data-reveal="up">
+
+            <!-- Card 6 -->
+            <a href="#" class="news-card" aria-label="برنامج بيدي حرفة الجديد">
+                <div class="news-card-img-wrap">
+                    <div class="news-card-img-placeholder">
+                        <i class="fas fa-hands" aria-hidden="true"></i>
+                        <span>Program Launch</span>
+                    </div>
+                    <div class="news-card-img-overlay"></div>
+                </div>
+                <div class="news-card-body">
+                    <div class="news-card-meta">
+                        <span class="news-card-date">١٥ مارس ٢٠٢٦</span>
+                        <span class="news-card-meta-dot" aria-hidden="true"></span>
+                        <span class="news-card-category">برنامج</span>
+                    </div>
+                    <h3 class="news-card-title">انطلاق الدفعة الجديدة من برنامج "بيدي حرفة" لتأهيل الحرفيين</h3>
+                    <p class="news-card-excerpt">أعلنت الجمعية عن انطلاق دورة جديدة من برنامج "بيدي حرفة" التدريبي الذي يهدف إلى تأهيل حرفيين شباب وتمكينهم من امتلاك مهنة أصيلة تُعزز استدامتهم الاقتصادية.</p>
+                    <div class="news-card-divider" aria-hidden="true"></div>
+                    <span class="news-card-link">
+                        قراءة الخبر
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                </div>
+            </a>
+
+            <!-- Card 7 -->
+            <a href="#" class="news-card" aria-label="زيارة المعرض الميداني">
+                <div class="news-card-img-wrap">
+                    <div class="news-card-img-placeholder">
+                        <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+                        <span>Field Visit</span>
+                    </div>
+                    <div class="news-card-img-overlay"></div>
+                </div>
+                <div class="news-card-body">
+                    <div class="news-card-meta">
+                        <span class="news-card-date">٢ مارس ٢٠٢٦</span>
+                        <span class="news-card-meta-dot" aria-hidden="true"></span>
+                        <span class="news-card-category">زيارة ميدانية</span>
+                    </div>
+                    <h3 class="news-card-title">زيارة ميدانية لمواقع التراث العمراني في محافظة القريات</h3>
+                    <p class="news-card-excerpt">نفّذ فريق الجمعية زيارةً ميدانية لمجموعة من مواقع التراث العمراني، ضمن مشروع الرصد والتوثيق الشامل لمعالم القريات التاريخية والأثرية.</p>
+                    <div class="news-card-divider" aria-hidden="true"></div>
+                    <span class="news-card-link">
+                        قراءة الخبر
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                </div>
+            </a>
+
+        </div><!-- /.news-grid-pair -->
+
+        </div><!-- /#staticFallback -->
+
+        <!-- Load more -->
+        <div class="news-load-more" data-reveal="up" id="loadMoreWrap" style="display:none;">
+            <button class="btn-heritage" id="news-load-more-btn" aria-label="تحميل المزيد من الأخبار">
+                <i class="fas fa-plus" aria-hidden="true" style="font-size:0.72rem;"></i>
+                عرض المزيد من الأخبار
+            </button>
+        </div>
+
+    </section>
+
+    <!-- ════════════════════════════════════════
+         FOOTER
+    ════════════════════════════════════════ -->
+    <footer class="footer-premium">
+        <p>© 2026 جمعية إرث وحضارة بالقريات — حفظ التراث وبناء الهوية الثقافية</p>
+        <p style="margin-top: 0.5rem;">القريات · منطقة الجوف · المملكة العربية السعودية</p>
+    </footer>
+
+</div><!-- /.site-wrapper -->
+
+<!-- Firebase: load news from Firestore -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+    getFirestore, collection, getDocs, query, orderBy, limit, startAfter
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDnWUCjJKkMqORT8SeLYHszAIP0bv8PCSg",
+    authDomain: "arthwhdarh-782ec.firebaseapp.com",
+    projectId: "arthwhdarh-782ec",
+    storageBucket: "arthwhdarh-782ec.firebasestorage.app",
+    messagingSenderId: "597405952213",
+    appId: "1:597405952213:web:5ffeab6adc7e451a265a5c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const PAGE_SIZE   = 6;
+let lastDoc       = null;
+let allLoaded     = false;
+let newsTotal     = 0;
+let renderedNews  = [];
+
+function fmtDate(ts) {
+    if (!ts) return '';
+    let d = ts.toDate ? ts.toDate() : (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts));
+    return d.toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
+}
+
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function buildCard(item, featured) {
+    const cls = featured ? 'news-card news-card--featured' : 'news-card';
+    const articleUrl = `news-article.html?id=${encodeURIComponent(item.id)}`;
+    // Support both legacy imageUrl field and new Base64 images array
+    const thumbSrc = (Array.isArray(item.images) && item.images[0])
+        ? item.images[0]
+        : (item.imageUrl || null);
+    return `
+    <a href="${articleUrl}" class="${cls}" aria-label="${esc(item.title)}">
+        <div class="news-card-img-wrap">
+            ${thumbSrc
+                ? `<img class="news-card-img" src="${esc(thumbSrc)}" alt="${esc(item.title)}" loading="lazy">`
+                : `<div class="news-card-img-placeholder"><i class="fas fa-newspaper" aria-hidden="true"></i><span>Heritage · Culture</span></div>`}
+            <div class="news-card-img-overlay"></div>
+        </div>
+        <div class="news-card-body">
+            <div class="news-card-meta">
+                <span class="news-card-date">${fmtDate(item.date || item.createdAt)}</span>
+                ${item.category ? `<span class="news-card-meta-dot" aria-hidden="true"></span><span class="news-card-category">${esc(item.category)}</span>` : ''}
+            </div>
+            <h2 class="news-card-title">${esc(item.title)}</h2>
+            <p class="news-card-excerpt">${esc(item.excerpt)}</p>
+            <div class="news-card-divider" aria-hidden="true"></div>
+            <span class="news-card-link">قراءة الخبر <i class="fas fa-arrow-left" aria-hidden="true"></i></span>
+        </div>
+    </a>`;
+}
+
+function renderNewsArchive(items) {
+    const container = document.getElementById('newsArchiveContainer');
+    if (!items.length) {
+        container.innerHTML = `
+            <div style="text-align:center;padding:5rem 2rem;">
+                <i class="fas fa-newspaper" style="font-size:2.5rem;color:rgba(192,154,98,0.3);display:block;margin-bottom:1rem;"></i>
+                <p style="color:#6b4f35;font-size:0.95rem;font-weight:300;">لا توجد أخبار حتى الآن.</p>
+            </div>`;
+        document.getElementById('staticFallback').style.display = 'none';
+        return;
+    }
+
+    // Featured: first 2
+    const featured = items.slice(0, 2);
+    // Standard grid: next 3
+    const standard = items.slice(2, 5);
+    // Pair: remainder
+    const pair     = items.slice(5);
+
+    let html = '';
+
+    if (featured.length) {
+        html += `<div class="news-grid-featured" data-reveal="up">
+            ${featured.map((n, i) => buildCard(n, true)).join('')}
+        </div>`;
+    }
+
+    if (standard.length) {
+        html += `<div class="news-archive-divider" aria-hidden="true"></div>
+        <div class="news-grid-standard" data-reveal="up">
+            ${standard.map(n => buildCard(n, false)).join('')}
+        </div>`;
+    }
+
+    if (pair.length) {
+        html += `<div class="news-archive-divider" aria-hidden="true"></div>
+        <div class="news-grid-pair" data-reveal="up">
+            ${pair.map(n => buildCard(n, false)).join('')}
+        </div>`;
+    }
+
+    container.innerHTML = html;
+    document.getElementById('staticFallback').style.display = 'none';
+
+    // Re-init scroll reveal for dynamically injected elements
+    if (window.IntersectionObserver) {
+        const newTargets = container.querySelectorAll('[data-reveal]');
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); } });
+        }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+        newTargets.forEach(el => io.observe(el));
+    } else {
+        container.querySelectorAll('[data-reveal]').forEach(el => el.classList.add('revealed'));
+    }
+}
+
+async function loadNews(append = false) {
+    try {
+        let q;
+        if (append && lastDoc) {
+            q = query(collection(db, 'news'), orderBy('createdAt','desc'), startAfter(lastDoc), limit(PAGE_SIZE));
+        } else {
+            q = query(collection(db, 'news'), orderBy('createdAt','desc'), limit(PAGE_SIZE));
+        }
+
+        const snap = await getDocs(q);
+
+        if (snap.empty && !append) {
+            // No Firebase news — show static fallback
+            document.getElementById('newsArchiveContainer').innerHTML = '';
+            document.getElementById('staticFallback').style.display = 'block';
+            document.getElementById('newsCount').textContent = '';
+            return;
+        }
+
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (append) {
+            renderedNews = [...renderedNews, ...items];
+        } else {
+            renderedNews = items;
+        }
+
+        lastDoc   = snap.docs[snap.docs.length - 1];
+        newsTotal += items.length;
+        allLoaded  = items.length < PAGE_SIZE;
+
+        document.getElementById('newsCount').textContent = `${renderedNews.length} خبر`;
+        renderNewsArchive(renderedNews);
+
+        if (!allLoaded) {
+            document.getElementById('loadMoreWrap').style.display = 'block';
+        } else {
+            document.getElementById('loadMoreWrap').style.display = 'none';
+        }
+    } catch (e) {
+        // On error: show static fallback
+        document.getElementById('newsArchiveContainer').innerHTML = '';
+        document.getElementById('staticFallback').style.display = 'block';
+        console.warn('Firebase news load error:', e);
+    }
+}
+
+// Load more button
+document.getElementById('news-load-more-btn').addEventListener('click', () => loadNews(true));
+
+// Init
+loadNews();
+</script>
+
+<script>
+    /* ── Scroll-reveal ── */
+    (function () {
+        function initReveal() {
+            var targets = document.querySelectorAll('[data-reveal]');
+            if (!targets.length || !window.IntersectionObserver) {
+                targets.forEach(function (el) { el.classList.add('revealed'); });
+                return;
+            }
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        io.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+            targets.forEach(function (el) { io.observe(el); });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initReveal);
+        } else { initReveal(); }
+    })();
+</script>
+</body>
+</html>

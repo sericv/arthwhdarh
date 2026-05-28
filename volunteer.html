@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -36,6 +36,7 @@
             <a href="activities.html">الفعاليات</a>
             <a href="heritage-crafts.html">التراث والحرف</a>
             <a href="volunteer.html">التطوع</a>
+            <a href="news.html">الأخبار</a>
             <a href="partnerships.html">الشراكات</a>
             <a href="reports.html">التقارير</a>
             <a href="board.html">مجلس الإدارة</a>
@@ -167,11 +168,10 @@
                 </div>
 
                                     <div class="vl-programme-actions">
-                    <a href="#" class="vl-btn vl-btn--primary">
+                    <button type="button" class="vl-btn vl-btn--primary" id="openBidayaBtn" aria-haspopup="dialog">
                         <i class="fas fa-pen-nib" aria-hidden="true"></i>
                         التسجيل في البرنامج
-                    </a>
-
+                    </button>
                 </div>
 
   
@@ -387,6 +387,1032 @@
     </footer>
 
 </div><!-- /.site-wrapper -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     بيدي حرفة — Registration Modal
+══════════════════════════════════════════════════════════════ -->
+<div id="bidayaOverlay" class="bdy-overlay" role="dialog" aria-modal="true" aria-labelledby="bdyTitle" hidden>
+  <div class="bdy-backdrop" id="bdyBackdrop"></div>
+
+  <div class="bdy-shell" id="bdyShell">
+
+    <!-- Grain texture -->
+    <div class="bdy-grain" aria-hidden="true"></div>
+
+    <!-- Gold accent bar -->
+    <div class="bdy-accent-bar" aria-hidden="true"></div>
+
+    <!-- Close -->
+    <button class="bdy-close" id="bdyClose" aria-label="إغلاق">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+    </button>
+
+    <!-- ── STEP 1: FORM ── -->
+    <div id="bdyStepForm" class="bdy-step">
+
+      <!-- Header -->
+      <div class="bdy-header">
+        <div class="bdy-eyebrow-row">
+          <div class="bdy-eyebrow-line"></div>
+          <span class="bdy-eyebrow">Heritage Craft Programme · التسجيل</span>
+          <div class="bdy-eyebrow-line bdy-eyebrow-line--rev"></div>
+        </div>
+        <h2 class="bdy-title" id="bdyTitle">التسجيل في برنامج<br><span class="bdy-title-accent">بيدي حرفة</span></h2>
+        <p class="bdy-subtitle">أكمل بياناتك لتنضم إلى مسيرة إحياء الحرف اليدوية التراثية في القريات.</p>
+      </div>
+
+      <!-- Form -->
+      <form id="bdyForm" class="bdy-form" novalidate>
+
+        <!-- Row 1: Name + Phone -->
+        <div class="bdy-row bdy-row--2">
+          <div class="bdy-field">
+            <label class="bdy-label" for="bdy_name">الاسم الكامل</label>
+            <input type="text" id="bdy_name" name="name" class="bdy-input" placeholder="أدخل اسمك الكامل…" autocomplete="name" required/>
+            <span class="bdy-err" id="err_name"></span>
+          </div>
+          <div class="bdy-field">
+            <label class="bdy-label" for="bdy_phone">رقم التواصل</label>
+            <input type="tel" id="bdy_phone" name="phone" class="bdy-input" placeholder="05XXXXXXXX" autocomplete="tel" required/>
+            <span class="bdy-err" id="err_phone"></span>
+          </div>
+        </div>
+
+        <!-- Row 2: Gender + Birth date -->
+        <div class="bdy-row bdy-row--2">
+          <div class="bdy-field">
+            <label class="bdy-label">الجنس</label>
+            <div class="bdy-gender-row">
+              <label class="bdy-radio-card" id="genderMaleCard">
+                <input type="radio" name="gender" value="ذكر" required class="bdy-radio-input"/>
+                <span class="bdy-radio-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1" stroke-linecap="round"/></svg>
+                  ذكر
+                </span>
+              </label>
+              <label class="bdy-radio-card" id="genderFemaleCard">
+                <input type="radio" name="gender" value="أنثى" class="bdy-radio-input"/>
+                <span class="bdy-radio-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 18h6" stroke-linecap="round"/></svg>
+                  أنثى
+                </span>
+              </label>
+            </div>
+            <span class="bdy-err" id="err_gender"></span>
+          </div>
+          <div class="bdy-field">
+            <label class="bdy-label">تاريخ الميلاد</label>
+            <!-- Calendar type toggle — built & managed by JS -->
+            <div class="bdy-cal-toggle" role="group" aria-label="نوع التقويم" id="dobCalToggle">
+              <button type="button" class="bdy-cal-btn active" data-cal="hijri">هجري</button>
+              <button type="button" class="bdy-cal-btn" data-cal="gregorian">ميلادي</button>
+            </div>
+            <!-- Date parts — populated by JS for both modes -->
+            <div class="bdy-dob-parts" id="dobPartsWrap">
+              <!-- JS will render: day / month / year selects here -->
+            </div>
+            <span class="bdy-err" id="err_dob"></span>
+          </div>
+        </div>
+
+        <!-- Row 3: ID + City -->
+        <div class="bdy-row bdy-row--2">
+          <div class="bdy-field">
+            <label class="bdy-label" for="bdy_id">رقم الهوية الوطنية</label>
+            <input type="text" id="bdy_id" name="idNumber" class="bdy-input" placeholder="10 أرقام" maxlength="10" inputmode="numeric" required/>
+            <span class="bdy-err" id="err_id"></span>
+          </div>
+          <div class="bdy-field">
+            <label class="bdy-label" for="bdy_city">مكان الإقامة</label>
+            <div class="bdy-select-wrap">
+              <select id="bdy_city" name="city" class="bdy-select" required>
+                <option value="" disabled selected>اختر المدينة…</option>
+                <option value="سكاكا">سكاكا</option>
+                <option value="القريات">القريات</option>
+                <option value="طبرجل">طبرجل</option>
+                <option value="دومة الجندل">دومة الجندل</option>
+                <option value="صوير">صوير</option>
+              </select>
+              <svg class="bdy-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span class="bdy-err" id="err_city"></span>
+          </div>
+        </div>
+
+        <!-- Row 4: Craft type -->
+        <div class="bdy-row">
+          <div class="bdy-field">
+            <label class="bdy-label">نوع الحرفة / النشاط</label>
+            <div class="bdy-craft-grid">
+              <label class="bdy-craft-card">
+                <input type="radio" name="craft" value="نسيج" class="bdy-radio-input"/>
+                <span class="bdy-craft-box">
+                  <i class="fas fa-scroll" aria-hidden="true"></i>
+                  نسيج
+                </span>
+              </label>
+              <label class="bdy-craft-card">
+                <input type="radio" name="craft" value="طبخ" class="bdy-radio-input"/>
+                <span class="bdy-craft-box">
+                  <i class="fas fa-utensils" aria-hidden="true"></i>
+                  طبخ
+                </span>
+              </label>
+              <label class="bdy-craft-card">
+                <input type="radio" name="craft" value="استخراج ملح" class="bdy-radio-input"/>
+                <span class="bdy-craft-box">
+                  <i class="fas fa-mountain" aria-hidden="true"></i>
+                  استخراج ملح
+                </span>
+              </label>
+              <label class="bdy-craft-card">
+                <input type="radio" name="craft" value="بناء طين" class="bdy-radio-input"/>
+                <span class="bdy-craft-box">
+                  <i class="fas fa-home" aria-hidden="true"></i>
+                  بناء طين
+                </span>
+              </label>
+              <label class="bdy-craft-card" id="craftOtherCard">
+                <input type="radio" name="craft" value="أخرى" class="bdy-radio-input" id="craftOtherRadio"/>
+                <span class="bdy-craft-box">
+                  <i class="fas fa-plus-circle" aria-hidden="true"></i>
+                  أخرى
+                </span>
+              </label>
+            </div>
+            <div class="bdy-other-wrap" id="craftOtherWrap">
+              <input type="text" id="bdy_craft_other" class="bdy-input" placeholder="اذكر نوع الحرفة هنا…"/>
+            </div>
+            <span class="bdy-err" id="err_craft"></span>
+          </div>
+        </div>
+
+        <!-- Row 5: Experience + Event participation -->
+        <div class="bdy-row bdy-row--2">
+          <div class="bdy-field">
+            <label class="bdy-label">مستوى الخبرة</label>
+            <div class="bdy-level-row">
+              <label class="bdy-level-card">
+                <input type="radio" name="level" value="مبتدئ" class="bdy-radio-input" required/>
+                <span class="bdy-level-box">
+                  <span class="bdy-level-dots"><span></span></span>
+                  مبتدئ
+                </span>
+              </label>
+              <label class="bdy-level-card">
+                <input type="radio" name="level" value="متوسط" class="bdy-radio-input"/>
+                <span class="bdy-level-box">
+                  <span class="bdy-level-dots"><span></span><span></span></span>
+                  متوسط
+                </span>
+              </label>
+              <label class="bdy-level-card">
+                <input type="radio" name="level" value="محترف" class="bdy-radio-input"/>
+                <span class="bdy-level-box">
+                  <span class="bdy-level-dots"><span></span><span></span><span></span></span>
+                  محترف
+                </span>
+              </label>
+            </div>
+            <span class="bdy-err" id="err_level"></span>
+          </div>
+          <div class="bdy-field">
+            <label class="bdy-label">المشاركة في معارض أو فعاليات سابقة</label>
+            <div class="bdy-yesno-row">
+              <label class="bdy-yesno-card">
+                <input type="radio" name="hasEvent" value="نعم" class="bdy-radio-input" required/>
+                <span class="bdy-yesno-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  نعم
+                </span>
+              </label>
+              <label class="bdy-yesno-card">
+                <input type="radio" name="hasEvent" value="لا" class="bdy-radio-input"/>
+                <span class="bdy-yesno-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round"/></svg>
+                  لا
+                </span>
+              </label>
+            </div>
+            <span class="bdy-err" id="err_event"></span>
+          </div>
+        </div>
+
+        <!-- Submit row -->
+        <div class="bdy-submit-row">
+          <button type="submit" class="bdy-submit-btn" id="bdySubmitBtn">
+            <span id="bdySubmitLabel">مراجعة البيانات</span>
+            <svg id="bdySubmitIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg id="bdySpinner" class="bdy-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+      </form>
+
+    </div><!-- /#bdyStepForm -->
+
+    <!-- ── STEP 2: REVIEW ── -->
+    <div id="bdyStepReview" class="bdy-step" style="display:none">
+      <div class="bdy-header">
+        <div class="bdy-eyebrow-row">
+          <div class="bdy-eyebrow-line"></div>
+          <span class="bdy-eyebrow">Review · مراجعة البيانات</span>
+          <div class="bdy-eyebrow-line bdy-eyebrow-line--rev"></div>
+        </div>
+        <h2 class="bdy-title">تأكيد <span class="bdy-title-accent">طلب التسجيل</span></h2>
+        <p class="bdy-subtitle">تفضّل بمراجعة بياناتك قبل الإرسال النهائي — يمكنك التعديل في أي وقت.</p>
+      </div>
+
+      <div class="bdy-review-card" id="bdyReviewCard"></div>
+
+      <div class="bdy-review-actions">
+        <button type="button" class="bdy-back-btn" id="bdyBackBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          تعديل البيانات
+        </button>
+        <button type="button" class="bdy-confirm-btn" id="bdyConfirmBtn">
+          <span id="bdyConfirmLabel">إرسال الطلب الرسمي</span>
+          <svg id="bdyConfirmIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg id="bdyConfirmSpinner" class="bdy-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div><!-- /#bdyStepReview -->
+
+    <!-- ── STEP 3: SUCCESS ── -->
+    <div id="bdyStepSuccess" class="bdy-step bdy-step--success" style="display:none">
+      <div class="bdy-success-ornament" aria-hidden="true">
+        <div class="bdy-success-ring">
+          <svg viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="22" stroke="rgba(192,154,98,0.25)" stroke-width="1.5"/>
+            <circle cx="24" cy="24" r="16" stroke="rgba(192,154,98,0.18)" stroke-width="1"/>
+            <path d="M14 24l7 7 13-14" stroke="#c09a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="bdy-success-ornament-line" aria-hidden="true">
+        <div class="bdy-orn-l"></div>
+        <div class="bdy-orn-diamond"></div>
+        <div class="bdy-orn-l bdy-orn-l--rev"></div>
+      </div>
+      <h2 class="bdy-success-title">وصل طلبك بنجاح</h2>
+      <p class="bdy-success-msg">شكراً على انضمامك لمسيرة إحياء التراث في القريات.<br>سيتواصل معك فريق الجمعية قريباً لتأكيد مشاركتك في برنامج <strong>بيدي حرفة</strong>.</p>
+      <button type="button" class="bdy-done-btn" id="bdyDoneBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" stroke-linecap="round"/><path d="M14 15l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        إغلاق
+      </button>
+    </div><!-- /#bdyStepSuccess -->
+
+  </div><!-- /.bdy-shell -->
+</div><!-- /#bidayaOverlay -->
+
+<!-- ══ STYLES ══ -->
+<style>
+/* ─── TOKENS ─── */
+:root{
+  --bdy-parchment:#faf6ed; --bdy-paper:#f5ede0; --bdy-deep:#ede3cf;
+  --bdy-ink:#1e1610; --bdy-ink-s:#3a2a1c; --bdy-ink-m:#4f3822; --bdy-ink-mut:#6b4f35;
+  --bdy-gold:#c09a62; --bdy-gold-s:#b28a5a; --bdy-gold-d:#9c6e38; --bdy-gold-p:#e0c896;
+  --bdy-line:rgba(60,40,20,0.14); --bdy-line-s:rgba(60,40,20,0.08);
+  --bdy-danger:#7a2518;
+  --bdy-ease:cubic-bezier(0.22,1,0.36,1);
+  --bdy-ease-in:cubic-bezier(0.77,0,0.175,1);
+}
+
+/* ─── OVERLAY ─── */
+.bdy-overlay{
+  position:fixed;inset:0;z-index:9000;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.4s var(--bdy-ease);
+}
+.bdy-overlay.open{opacity:1;pointer-events:all;}
+
+.bdy-backdrop{
+  position:absolute;inset:0;
+  background:rgba(15,9,3,0.72);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+
+/* ─── SHELL ─── */
+.bdy-shell{
+  position:relative;z-index:1;
+  width:100%;max-width:780px;
+  max-height:90vh;overflow-y:auto;
+  background:var(--bdy-parchment);
+  border-radius:20px;
+  border:1px solid rgba(192,154,98,0.22);
+  box-shadow:0 40px 100px -30px rgba(10,5,1,0.55),0 0 0 1px rgba(192,154,98,0.1);
+  transform:translateY(20px) scale(0.97);
+  transition:transform 0.45s var(--bdy-ease);
+  scroll-behavior:smooth;
+  overscroll-behavior:contain;
+}
+.bdy-overlay.open .bdy-shell{transform:none;}
+
+/* scrollbar */
+.bdy-shell::-webkit-scrollbar{width:4px;}
+.bdy-shell::-webkit-scrollbar-track{background:transparent;}
+.bdy-shell::-webkit-scrollbar-thumb{background:rgba(192,154,98,0.25);border-radius:2px;}
+
+/* grain */
+.bdy-grain{
+  position:absolute;inset:0;pointer-events:none;border-radius:20px;z-index:0;
+  opacity:0.18;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.12  0 0 0 0 0.08  0 0 0 0.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* accent bar */
+.bdy-accent-bar{position:absolute;top:0;right:0;width:3px;height:56px;background:var(--bdy-gold);border-radius:0 20px 0 0;z-index:2;}
+
+/* close button */
+.bdy-close{
+  position:absolute;top:18px;left:18px;z-index:10;
+  width:34px;height:34px;border-radius:50%;
+  border:1px solid var(--bdy-line);background:rgba(250,246,237,0.8);
+  display:grid;place-items:center;cursor:pointer;color:var(--bdy-ink-m);
+  transition:all 0.2s;backdrop-filter:blur(4px);
+}
+.bdy-close:hover{border-color:var(--bdy-ink);color:var(--bdy-ink);}
+.bdy-close svg{width:13px;height:13px;}
+
+/* ─── STEP ─── */
+.bdy-step{padding:44px 44px 36px;position:relative;z-index:1;}
+
+/* ─── HEADER ─── */
+.bdy-header{margin-bottom:34px;text-align:center;}
+.bdy-eyebrow-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:18px;}
+.bdy-eyebrow-line{height:1px;width:40px;background:linear-gradient(90deg,transparent,rgba(192,154,98,0.4));}
+.bdy-eyebrow-line--rev{background:linear-gradient(90deg,rgba(192,154,98,0.4),transparent);}
+.bdy-eyebrow{font-family:"Montserrat",sans-serif;font-style:italic;font-size:10.5px;color:var(--bdy-ink-mut);letter-spacing:0.18em;text-transform:uppercase;}
+.bdy-title{font-family:"Almarai",sans-serif;font-weight:800;font-size:clamp(1.6rem,3vw,2.4rem);color:var(--bdy-ink);line-height:1.25;margin-bottom:12px;}
+.bdy-title-accent{color:var(--bdy-gold-d);}
+.bdy-subtitle{font-size:14px;color:var(--bdy-ink-m);line-height:1.85;font-weight:300;max-width:520px;margin:0 auto;}
+
+/* ─── FORM ─── */
+.bdy-form{display:flex;flex-direction:column;gap:22px;}
+.bdy-row{display:flex;flex-direction:column;gap:22px;}
+.bdy-row.bdy-row--2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.bdy-field{display:flex;flex-direction:column;gap:8px;}
+.bdy-label{font-size:12.5px;font-weight:700;color:var(--bdy-ink-m);font-family:"Almarai",sans-serif;}
+.bdy-input{
+  padding:11px 14px;
+  background:var(--bdy-paper);
+  border:1px solid var(--bdy-line);
+  border-radius:8px;
+  font-size:14px;font-family:"Almarai",sans-serif;color:var(--bdy-ink);
+  outline:none;transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
+  width:100%;
+}
+.bdy-input:focus{border-color:var(--bdy-gold-s);background:var(--bdy-parchment);box-shadow:0 0 0 3px rgba(192,154,98,0.1);}
+.bdy-input.invalid{border-color:var(--bdy-danger);}
+.bdy-err{font-size:11.5px;color:var(--bdy-danger);min-height:16px;font-family:"Montserrat",sans-serif;font-style:italic;}
+
+/* select */
+.bdy-select-wrap{position:relative;}
+.bdy-select{
+  width:100%;padding:11px 14px;padding-left:36px;
+  appearance:none;-webkit-appearance:none;
+  background:var(--bdy-paper);border:1px solid var(--bdy-line);border-radius:8px;
+  font-size:14px;font-family:"Almarai",sans-serif;color:var(--bdy-ink);
+  outline:none;cursor:pointer;transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
+}
+.bdy-select:focus{border-color:var(--bdy-gold-s);background:var(--bdy-parchment);box-shadow:0 0 0 3px rgba(192,154,98,0.1);}
+.bdy-select.invalid{border-color:var(--bdy-danger);}
+.bdy-select-arrow{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--bdy-ink-mut);pointer-events:none;}
+
+/* ─── GENDER ─── */
+.bdy-gender-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.bdy-radio-input{position:absolute;opacity:0;pointer-events:none;}
+.bdy-radio-card{cursor:pointer;}
+.bdy-radio-box{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px 16px;border-radius:8px;
+  border:1px solid var(--bdy-line);
+  background:var(--bdy-paper);
+  font-size:14px;font-weight:700;color:var(--bdy-ink-m);
+  transition:all 0.25s var(--bdy-ease);
+  user-select:none;
+}
+.bdy-radio-box svg{width:16px;height:16px;color:var(--bdy-ink-mut);transition:color 0.2s;}
+.bdy-radio-card:hover .bdy-radio-box{border-color:var(--bdy-gold-s);background:var(--bdy-deep);}
+.bdy-radio-input:checked + .bdy-radio-box{
+  background:var(--bdy-ink);color:var(--bdy-parchment);border-color:var(--bdy-ink);
+}
+.bdy-radio-input:checked + .bdy-radio-box svg{color:var(--bdy-gold);}
+
+/* ─── CRAFT GRID ─── */
+.bdy-craft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;}
+.bdy-craft-card{cursor:pointer;}
+.bdy-craft-box{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:14px 10px;border-radius:10px;
+  border:1px solid var(--bdy-line);background:var(--bdy-paper);
+  font-size:13px;font-weight:700;color:var(--bdy-ink-m);text-align:center;
+  transition:all 0.25s var(--bdy-ease);user-select:none;
+  min-height:76px;
+}
+.bdy-craft-box i{font-size:1.3rem;color:var(--bdy-ink-mut);transition:color 0.2s;}
+.bdy-craft-card:hover .bdy-craft-box{border-color:var(--bdy-gold-s);background:var(--bdy-deep);}
+.bdy-radio-input:checked + .bdy-craft-box{
+  background:var(--bdy-ink);color:var(--bdy-parchment);border-color:var(--bdy-ink);
+}
+.bdy-radio-input:checked + .bdy-craft-box i{color:var(--bdy-gold);}
+
+/* other craft input */
+.bdy-other-wrap{
+  max-height:0;overflow:hidden;
+  transition:max-height 0.35s var(--bdy-ease),opacity 0.3s;
+  opacity:0;
+}
+.bdy-other-wrap.open{max-height:80px;opacity:1;margin-top:10px;}
+
+/* ─── LEVEL ─── */
+.bdy-level-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.bdy-level-card{cursor:pointer;}
+.bdy-level-box{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:12px 8px;border-radius:8px;
+  border:1px solid var(--bdy-line);background:var(--bdy-paper);
+  font-size:12.5px;font-weight:700;color:var(--bdy-ink-m);text-align:center;
+  transition:all 0.25s var(--bdy-ease);user-select:none;
+}
+.bdy-level-dots{display:flex;gap:4px;align-items:center;}
+.bdy-level-dots span{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--bdy-ink-mut);opacity:0.3;
+  transition:opacity 0.2s,background 0.2s;
+}
+.bdy-level-card:nth-child(2) .bdy-level-dots span:nth-child(-n+2){opacity:0.5;}
+.bdy-level-card:nth-child(3) .bdy-level-dots span{opacity:0.7;}
+.bdy-level-card:hover .bdy-level-box{border-color:var(--bdy-gold-s);background:var(--bdy-deep);}
+.bdy-radio-input:checked + .bdy-level-box{background:var(--bdy-ink);color:var(--bdy-parchment);border-color:var(--bdy-ink);}
+.bdy-radio-input:checked + .bdy-level-box .bdy-level-dots span{background:var(--bdy-gold);opacity:1;}
+
+/* ─── YES/NO ─── */
+.bdy-yesno-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.bdy-yesno-card{cursor:pointer;}
+.bdy-yesno-box{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 14px;border-radius:8px;
+  border:1px solid var(--bdy-line);background:var(--bdy-paper);
+  font-size:13.5px;font-weight:700;color:var(--bdy-ink-m);
+  transition:all 0.25s var(--bdy-ease);user-select:none;
+}
+.bdy-yesno-box svg{width:15px;height:15px;color:var(--bdy-ink-mut);transition:color 0.2s;}
+.bdy-yesno-card:hover .bdy-yesno-box{border-color:var(--bdy-gold-s);background:var(--bdy-deep);}
+.bdy-radio-input:checked + .bdy-yesno-box{background:var(--bdy-ink);color:var(--bdy-parchment);border-color:var(--bdy-ink);}
+.bdy-radio-input:checked + .bdy-yesno-box svg{color:var(--bdy-gold);}
+
+/* ─── SUBMIT BUTTON ─── */
+.bdy-submit-row{margin-top:8px;}
+.bdy-submit-btn{
+  width:100%;padding:15px 28px;
+  background:linear-gradient(135deg,var(--bdy-ink) 0%,#2e1e0f 100%);
+  color:var(--bdy-parchment);
+  border:1px solid rgba(192,154,98,0.2);
+  border-radius:10px;
+  font-family:"Almarai",sans-serif;font-size:15px;font-weight:800;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  transition:transform 0.35s var(--bdy-ease),box-shadow 0.35s var(--bdy-ease),background 0.25s;
+  box-shadow:0 8px 28px -8px rgba(20,10,2,0.38),inset 0 1px 0 rgba(255,255,255,0.06);
+  letter-spacing:0.01em;
+}
+.bdy-submit-btn:hover{transform:translateY(-2px);box-shadow:0 16px 40px -10px rgba(20,10,2,0.42),inset 0 1px 0 rgba(255,255,255,0.06);}
+.bdy-submit-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.bdy-submit-btn svg{width:16px;height:16px;}
+@keyframes bdySpin{to{transform:rotate(360deg);}}
+.bdy-spin{animation:bdySpin 0.9s linear infinite;}
+
+/* ─── REVIEW CARD ─── */
+.bdy-review-card{
+  background:var(--bdy-paper);
+  border:1px solid var(--bdy-line);
+  border-radius:12px;
+  padding:28px 32px;
+  margin-bottom:28px;
+  position:relative;
+}
+.bdy-review-card::before{content:"";position:absolute;top:0;right:0;width:2px;height:36px;background:var(--bdy-gold);border-radius:0 12px 0 0;}
+.bdy-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.bdy-review-item{display:flex;flex-direction:column;gap:3px;padding:10px 0;border-bottom:1px solid var(--bdy-line-s);}
+.bdy-review-item:nth-last-child(-n+2){border-bottom:0;}
+.bdy-review-key{font-family:"Montserrat",sans-serif;font-style:italic;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--bdy-ink-mut);}
+.bdy-review-val{font-size:14px;font-weight:700;color:var(--bdy-ink);}
+
+.bdy-review-actions{display:flex;align-items:center;gap:12px;}
+.bdy-back-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 20px;border-radius:8px;
+  border:1px solid var(--bdy-line);background:transparent;
+  font-family:"Almarai",sans-serif;font-size:13.5px;font-weight:700;color:var(--bdy-ink-m);
+  cursor:pointer;transition:all 0.2s;
+}
+.bdy-back-btn:hover{border-color:var(--bdy-ink-m);color:var(--bdy-ink);}
+.bdy-back-btn svg{width:14px;height:14px;}
+.bdy-confirm-btn{
+  flex:1;padding:14px 24px;
+  background:var(--bdy-gold-d);
+  color:var(--bdy-parchment);
+  border:none;border-radius:10px;
+  font-family:"Almarai",sans-serif;font-size:14.5px;font-weight:800;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:background 0.25s,transform 0.3s var(--bdy-ease),box-shadow 0.3s;
+  box-shadow:0 8px 24px -6px rgba(156,110,56,0.4);
+}
+.bdy-confirm-btn:hover{background:#8a5e2a;transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(156,110,56,0.45);}
+.bdy-confirm-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.bdy-confirm-btn svg{width:14px;height:14px;}
+
+/* ─── SUCCESS ─── */
+.bdy-step--success{text-align:center;padding:56px 44px 48px;}
+.bdy-success-ornament{margin-bottom:24px;}
+.bdy-success-ring{width:80px;height:80px;margin:0 auto;}
+.bdy-success-ring svg{width:100%;height:100%;}
+.bdy-success-ornament-line{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:28px;}
+.bdy-orn-l{height:1px;width:52px;background:linear-gradient(90deg,transparent,rgba(192,154,98,0.4));}
+.bdy-orn-l--rev{background:linear-gradient(90deg,rgba(192,154,98,0.4),transparent);}
+.bdy-orn-diamond{width:7px;height:7px;background:var(--bdy-gold);transform:rotate(45deg);}
+.bdy-success-title{font-family:"Almarai",sans-serif;font-weight:800;font-size:clamp(1.6rem,3vw,2.2rem);color:var(--bdy-ink);margin-bottom:16px;}
+.bdy-success-msg{font-size:14.5px;color:var(--bdy-ink-m);line-height:1.9;font-weight:300;max-width:480px;margin:0 auto 24px;}
+.bdy-success-msg strong{font-weight:800;color:var(--bdy-gold-d);}
+.bdy-success-ref{font-family:"Montserrat",sans-serif;font-style:italic;font-size:11px;color:var(--bdy-ink-mut);letter-spacing:0.14em;margin-bottom:32px;min-height:18px;}
+.bdy-done-btn{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:13px 32px;border-radius:10px;
+  background:var(--bdy-ink);color:var(--bdy-parchment);
+  border:1px solid rgba(192,154,98,0.2);
+  font-family:"Almarai",sans-serif;font-size:14px;font-weight:800;
+  cursor:pointer;
+  transition:transform 0.3s var(--bdy-ease),box-shadow 0.3s;
+  box-shadow:0 8px 24px -6px rgba(20,10,2,0.32);
+}
+.bdy-done-btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(20,10,2,0.36);}
+.bdy-done-btn svg{width:15px;height:15px;}
+
+/* ─── CALENDAR TOGGLE ─── */
+.bdy-cal-toggle{
+  display:inline-flex;align-items:center;
+  background:var(--bdy-paper);
+  border:1px solid var(--bdy-line);
+  border-radius:8px;
+  padding:3px;
+  gap:2px;
+  margin-bottom:10px;
+  width:100%;
+}
+.bdy-cal-btn{
+  flex:1;padding:9px 0;border-radius:6px;
+  border:none;background:transparent;
+  font-family:"Almarai",sans-serif;font-size:13.5px;font-weight:700;
+  color:var(--bdy-ink-m);cursor:pointer;
+  transition:all 0.3s cubic-bezier(0.22,1,0.36,1);
+  white-space:nowrap;text-align:center;
+  position:relative;
+}
+.bdy-cal-btn.active{
+  background:var(--bdy-ink);color:var(--bdy-parchment);
+  border-radius:6px;
+  box-shadow:0 3px 10px -3px rgba(30,22,10,.3);
+}
+.bdy-cal-btn:not(.active):hover{
+  background:var(--bdy-deep);color:var(--bdy-ink);
+}
+
+/* DOB date parts — unified 3-column grid for both modes */
+.bdy-dob-parts{
+  display:grid;
+  grid-template-columns:0.9fr 1.5fr 1fr;
+  gap:8px;
+}
+.bdy-dob-parts.mode-transition{
+  opacity:0;transform:translateY(6px);
+  transition:opacity 0.25s var(--bdy-ease),transform 0.25s var(--bdy-ease);
+}
+.bdy-dob-parts.mode-visible{
+  opacity:1;transform:none;
+}
+
+/* Custom date dropdown — same style as bdy-select */
+.bdy-date-select-wrap{
+  position:relative;min-width:0;
+}
+.bdy-date-sel{
+  width:100%;
+  padding:10px 32px 10px 10px; /* arrow space on left (RTL) */
+  appearance:none;-webkit-appearance:none;
+  background:var(--bdy-paper);
+  border:1px solid var(--bdy-line);
+  border-radius:8px;
+  font-size:13.5px;font-family:"Almarai",sans-serif;color:var(--bdy-ink);
+  outline:none;cursor:pointer;
+  transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
+  line-height:1.4;
+  /* Prevent text overflow on small screens */
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.bdy-date-sel:focus{
+  border-color:var(--bdy-gold-s);
+  background:var(--bdy-parchment);
+  box-shadow:0 0 0 3px rgba(192,154,98,0.12);
+}
+.bdy-date-sel.invalid{border-color:var(--bdy-danger);}
+.bdy-date-sel:invalid,:where(.bdy-date-sel) option[value=""]{
+  color:var(--bdy-ink-mut);
+}
+.bdy-date-sel-arrow{
+  position:absolute;left:8px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;color:var(--bdy-ink-mut);
+  pointer-events:none;flex-shrink:0;
+}
+.bdy-date-sel-label{
+  display:block;
+  font-family:"Montserrat",sans-serif;font-style:italic;
+  font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--bdy-ink-mut);margin-bottom:5px;
+}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:640px){
+  .bdy-step{padding:36px 22px 30px;}
+  .bdy-row.bdy-row--2{grid-template-columns:1fr;}
+  .bdy-dob-parts{grid-template-columns:0.8fr 1.4fr 1fr;gap:6px;}
+  .bdy-date-sel{font-size:13px;padding:9px 28px 9px 8px;}
+  .bdy-review-grid{grid-template-columns:1fr;}
+  .bdy-review-item:last-child{border-bottom:0;}
+  .bdy-craft-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));}
+  .bdy-review-actions{flex-direction:column;}
+  .bdy-back-btn,.bdy-confirm-btn{width:100%;justify-content:center;}
+  .bdy-step--success{padding:36px 22px 32px;}
+}
+@media(max-width:400px){
+  .bdy-gender-row,.bdy-level-row,.bdy-yesno-row{grid-template-columns:1fr;}
+  .bdy-dob-parts{grid-template-columns:1fr;}
+  .bdy-cal-toggle{width:100%;}
+}
+</style>
+
+<!-- ══ FIREBASE + LOGIC ══ -->
+<script type="module">
+import { initializeApp }  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyDnWUCjJKkMqORT8SeLYHszAIP0bv8PCSg",
+  authDomain:"arthwhdarh-782ec.firebaseapp.com",
+  projectId:"arthwhdarh-782ec",
+  storageBucket:"arthwhdarh-782ec.firebasestorage.app",
+  messagingSenderId:"597405952213",
+  appId:"1:597405952213:web:5ffeab6adc7e451a265a5c"
+});
+const db = getFirestore(app);
+
+/* ── helpers ── */
+const esc = s => (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const $ = id => document.getElementById(id);
+const fmtDate = d => { try{ return new Date(d).toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'}); }catch{return d;} };
+
+/* ── Open / Close modal ── */
+const overlay   = $('bidayaOverlay');
+const openBtn   = $('openBidayaBtn');
+const closeBtn  = $('bdyClose');
+const backdrop  = $('bdyBackdrop');
+const doneBtn   = $('bdyDoneBtn');
+
+function openModal(){
+  overlay.hidden = false;
+  requestAnimationFrame(()=>{ overlay.classList.add('open'); });
+  document.body.style.overflow = 'hidden';
+  setTimeout(()=>{ $('bdy_name')?.focus(); }, 450);
+}
+
+function closeModal(){
+  overlay.classList.remove('open');
+  setTimeout(()=>{ overlay.hidden = true; document.body.style.overflow = ''; }, 420);
+}
+
+openBtn.addEventListener('click', openModal);
+closeBtn.addEventListener('click', closeModal);
+backdrop.addEventListener('click', closeModal);
+doneBtn.addEventListener('click', closeModal);
+document.addEventListener('keydown', e => { if(e.key==='Escape' && overlay.classList.contains('open')) closeModal(); });
+
+/* ════════════════════════════════════════════════
+   UNIFIED DATE PICKER SYSTEM
+   Builds identical DOM structure for both modes.
+   No template literals in HTML — all built via JS.
+════════════════════════════════════════════════ */
+
+/* Data */
+const HIJRI_MONTHS = [
+  'محرم','صفر','ربيع الأول','ربيع الثاني',
+  'جمادى الأولى','جمادى الثانية','رجب','شعبان',
+  'رمضان','شوال','ذو القعدة','ذو الحجة'
+];
+const GREGORIAN_MONTHS = [
+  'يناير','فبراير','مارس','أبريل','مايو','يونيو',
+  'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'
+];
+
+function buildDateSelects(mode) {
+  const parts = $('dobPartsWrap');
+  if (!parts) return;
+
+  /* Transition out */
+  parts.classList.remove('mode-visible');
+  parts.classList.add('mode-transition');
+
+  setTimeout(() => {
+    parts.innerHTML = '';
+
+    /* ── Day ── */
+    const dayCount = mode === 'hijri' ? 30 : 31;
+    parts.appendChild(makeDateSelect({
+      id: 'dob_day',
+      label: 'اليوم',
+      placeholder: 'اليوم',
+      options: Array.from({length: dayCount}, (_, i) => ({
+        value: String(i + 1),
+        label: String(i + 1)
+      }))
+    }));
+
+    /* ── Month ── */
+    const months = mode === 'hijri' ? HIJRI_MONTHS : GREGORIAN_MONTHS;
+    parts.appendChild(makeDateSelect({
+      id: 'dob_month',
+      label: 'الشهر',
+      placeholder: 'الشهر',
+      options: months.map((m, i) => ({
+        value: mode === 'hijri' ? m : String(i + 1).padStart(2,'0'),
+        label: m
+      }))
+    }));
+
+    /* ── Year ── */
+    let yearOptions;
+    if (mode === 'hijri') {
+      yearOptions = Array.from({length: 80}, (_, i) => {
+        const y = 1446 - i;
+        return { value: String(y), label: y + 'هـ' };
+      });
+    } else {
+      const thisYear = new Date().getFullYear();
+      yearOptions = Array.from({length: 80}, (_, i) => {
+        const y = thisYear - i;
+        return { value: String(y), label: String(y) + 'م' };
+      });
+    }
+    parts.appendChild(makeDateSelect({
+      id: 'dob_year',
+      label: 'السنة',
+      placeholder: 'السنة',
+      options: yearOptions
+    }));
+
+    /* Transition in */
+    parts.classList.remove('mode-transition');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        parts.classList.add('mode-visible');
+      });
+    });
+  }, 180);
+}
+
+function makeDateSelect({ id, label, placeholder, options }) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bdy-date-select-wrap';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'bdy-date-sel-label';
+  lbl.textContent = label;
+
+  const sel = document.createElement('select');
+  sel.id        = id;
+  sel.className = 'bdy-date-sel';
+  sel.setAttribute('aria-label', label);
+
+  /* Placeholder option */
+  const ph = document.createElement('option');
+  ph.value    = '';
+  ph.textContent = placeholder;
+  ph.disabled = true;
+  ph.selected = true;
+  sel.appendChild(ph);
+
+  /* Data options */
+  options.forEach(({ value, label: optLabel }) => {
+    const opt = document.createElement('option');
+    opt.value       = value;
+    opt.textContent = optLabel;
+    sel.appendChild(opt);
+  });
+
+  const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  arrow.setAttribute('viewBox','0 0 24 24');
+  arrow.setAttribute('fill','none');
+  arrow.setAttribute('stroke','currentColor');
+  arrow.setAttribute('stroke-width','1.5');
+  arrow.classList.add('bdy-date-sel-arrow');
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d','M6 9l6 6 6-6');
+  path.setAttribute('stroke-linecap','round');
+  path.setAttribute('stroke-linejoin','round');
+  arrow.appendChild(path);
+
+  wrap.appendChild(lbl);
+  wrap.appendChild(sel);
+  wrap.appendChild(arrow);
+  return wrap;
+}
+
+/* ── Calendar toggle ── */
+let calMode = 'hijri';
+
+function initCalToggle() {
+  $('dobCalToggle').querySelectorAll('.bdy-cal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.cal === calMode) return; /* no-op if same mode */
+      calMode = btn.dataset.cal;
+      $('dobCalToggle').querySelectorAll('.bdy-cal-btn').forEach(b =>
+        b.classList.toggle('active', b === btn)
+      );
+      buildDateSelects(calMode);
+      setErr('err_dob', '');
+    });
+  });
+}
+
+/* ── DOB read helper ── */
+function readDob() {
+  const day   = $('dob_day')?.value   || '';
+  const month = $('dob_month')?.value || '';
+  const year  = $('dob_year')?.value  || '';
+  if (!day || !month || !year) return '';
+  if (calMode === 'hijri') {
+    return `${day} ${month} ${year}هـ`;
+  } else {
+    const mIdx = parseInt(month, 10);
+    const mName = GREGORIAN_MONTHS[mIdx - 1] || month;
+    return `${day} ${mName} ${year}م`;
+  }
+}
+
+/* ── Boot calendar ── */
+initCalToggle();
+buildDateSelects('hijri');
+
+/* ── "Craft: other" toggle ── */
+document.getElementById('craftOtherRadio').addEventListener('change', e => {
+  const wrap = $('craftOtherWrap');
+  if(e.target.checked){
+    wrap.classList.add('open');
+    setTimeout(()=>{ $('bdy_craft_other')?.focus(); }, 360);
+  }
+});
+document.querySelectorAll('input[name="craft"]').forEach(r => {
+  if(r.value !== 'أخرى'){
+    r.addEventListener('change', () => {
+      $('craftOtherWrap').classList.remove('open');
+      $('bdy_craft_other').value = '';
+    });
+  }
+});
+
+/* ── Validation ── */
+function setErr(id, msg){
+  const el = $(id);
+  if(el) el.textContent = msg;
+}
+function clearErrs(){
+  ['err_name','err_phone','err_gender','err_dob','err_id','err_city','err_craft','err_level','err_event']
+    .forEach(id => setErr(id,''));
+  document.querySelectorAll('.bdy-input.invalid,.bdy-select.invalid').forEach(el=>el.classList.remove('invalid'));
+}
+
+function getFormData(){
+  const f = $('bdyForm');
+  const name     = f.bdy_name?.value.trim() || '';
+  const phone    = f.bdy_phone?.value.trim() || '';
+  const gender   = (f.querySelector('input[name="gender"]:checked'))?.value || '';
+
+  /* DOB — read from unified date picker */
+  const dob = readDob();
+  const dobCalendar = calMode;
+
+  const idNumber = f.bdy_id?.value.trim() || '';
+  const city     = f.bdy_city?.value || '';
+  const craftRaw = (f.querySelector('input[name="craft"]:checked'))?.value || '';
+  const craft    = craftRaw === 'أخرى' ? ($('bdy_craft_other').value.trim() || 'أخرى') : craftRaw;
+  const level    = (f.querySelector('input[name="level"]:checked'))?.value || '';
+  const hasEvent = (f.querySelector('input[name="hasEvent"]:checked'))?.value || '';
+  return { name, phone, gender, dob, dobCalendar, idNumber, city, craft, level, hasEvent };
+}
+
+function validateForm(d){
+  let ok = true;
+  if(!d.name){ setErr('err_name','الرجاء إدخال الاسم الكامل'); $('bdy_name').classList.add('invalid'); ok=false; }
+  if(!d.phone || !/^05\d{8}$/.test(d.phone)){ setErr('err_phone','رقم الجوال غير صحيح (05XXXXXXXX)'); $('bdy_phone').classList.add('invalid'); ok=false; }
+  if(!d.gender){ setErr('err_gender','الرجاء اختيار الجنس'); ok=false; }
+  if(!d.dob){ setErr('err_dob','الرجاء إدخال تاريخ الميلاد'); ok=false; }
+  if(!d.idNumber || !/^\d{10}$/.test(d.idNumber)){ setErr('err_id','رقم الهوية يجب أن يكون 10 أرقام'); $('bdy_id').classList.add('invalid'); ok=false; }
+  if(!d.city){ setErr('err_city','الرجاء اختيار مكان الإقامة'); $('bdy_city').classList.add('invalid'); ok=false; }
+  if(!d.craft){ setErr('err_craft','الرجاء اختيار نوع الحرفة'); ok=false; }
+  if(!d.level){ setErr('err_level','الرجاء اختيار مستوى الخبرة'); ok=false; }
+  if(!d.hasEvent){ setErr('err_event','الرجاء الإجابة على هذا السؤال'); ok=false; }
+  return ok;
+}
+
+/* ── Step management ── */
+function showStep(id){
+  ['bdyStepForm','bdyStepReview','bdyStepSuccess'].forEach(s => {
+    const el = $(s);
+    if(el) el.style.display = (s === id) ? 'block' : 'none';
+  });
+  $('bdyShell').scrollTop = 0;
+}
+
+/* ── Step 1 → Step 2 (Review) ── */
+let pendingData = null;
+
+$('bdyForm').addEventListener('submit', e => {
+  e.preventDefault();
+  clearErrs();
+  const d = getFormData();
+  if(!validateForm(d)) return;
+  pendingData = d;
+  renderReview(d);
+  showStep('bdyStepReview');
+});
+
+function renderReview(d){
+  const labels = {
+    name:'الاسم الكامل', phone:'رقم التواصل', gender:'الجنس', dob:'تاريخ الميلاد',
+    idNumber:'رقم الهوية', city:'مكان الإقامة', craft:'نوع الحرفة',
+    level:'مستوى الخبرة', hasEvent:'المشاركة في فعاليات'
+  };
+  // Skip internal fields
+  const skip = new Set(['dobCalendar']);
+  /* DOB is already formatted by readDob() — display as-is */
+  const displayVal = (k,v) => esc(v);
+  const items = Object.entries(d)
+    .filter(([k]) => !skip.has(k) && labels[k])
+    .map(([k,v]) => `
+    <div class="bdy-review-item">
+      <span class="bdy-review-key">${labels[k]}</span>
+      <span class="bdy-review-val">${displayVal(k,v)}</span>
+    </div>`).join('');
+  $('bdyReviewCard').innerHTML = `<div class="bdy-review-grid">${items}</div>`;
+}
+
+/* ── Back button ── */
+$('bdyBackBtn').addEventListener('click', () => showStep('bdyStepForm'));
+
+/* ── Step 2 → Firebase → Step 3 (Success) ── */
+$('bdyConfirmBtn').addEventListener('click', async () => {
+  if(!pendingData) return;
+  const btn    = $('bdyConfirmBtn');
+  const lbl    = $('bdyConfirmLabel');
+  const icon   = $('bdyConfirmIcon');
+  const spin   = $('bdyConfirmSpinner');
+
+  btn.disabled = true;
+  lbl.textContent = 'جارٍ الإرسال…';
+  icon.style.display = 'none';
+  spin.style.display = 'inline-block';
+
+  try {
+    await addDoc(collection(db, 'crafts'), {
+      ...pendingData,
+      status: 'جديد',
+      reviewed: false,
+      createdAt: serverTimestamp()
+    });
+
+    // Show success — no request number displayed
+    showStep('bdyStepSuccess');
+
+    // Reset form for next use
+    $('bdyForm').reset();
+    $('craftOtherWrap').classList.remove('open');
+    pendingData = null;
+
+  } catch(err){
+    console.error('Firestore error:', err);
+    lbl.textContent = 'حدث خطأ — حاول مجدداً';
+    icon.style.display = 'inline-block';
+    spin.style.display = 'none';
+    btn.disabled = false;
+  }
+});
+
+</script>
 
 <script src="volunteer.js"></script>
 </body>
