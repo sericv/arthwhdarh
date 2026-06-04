@@ -1,0 +1,13 @@
+{
+  "name": "erth-portal-push-worker",
+  "description": "Cloudflare Worker — مُرسِل إشعارات الدفع (بديل Cloud Functions، يعمل على خطة Spark)",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.97.0"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "firestore": {
+    "rules": "portal/firestore.rules",
+    "indexes": "portal/firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "portal/storage.rules"
+  },
+  "functions": [
+    {
+      "source": "portal/functions",
+      "codebase": "default",
+      "runtime": "nodejs20",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "portal/functions/**",
+      "portal/*.rules",
+      "portal/firestore.indexes.json",
+      "portal/.env*",
+      "portal/*.md",
+      "التراث والحرف/**"
+    ],
+    "cleanUrls": true,
+    "headers": [
+      {
+        "source": "/portal/firebase-sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+          { "key": "Service-Worker-Allowed", "value": "/portal/" }
+        ]
+      },
+      {
+        "source": "/portal/manifest.webmanifest",
+        "headers": [
+          { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }
+        ]
+      }
+    ]
+  }
+}

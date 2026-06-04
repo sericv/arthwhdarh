@@ -1,0 +1,17 @@
+name = "erth-portal-push"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+# ── متغيّرات عامة (غير سرّية) ──
+[vars]
+PROJECT_ID = "arthwhdarh-782ec"
+# نطاق البوابة المسموح له بمناداة الـ Worker (CORS).
+# غيّره لنطاقك الفعلي بعد النشر، مثل: "https://erth.org"
+# اترك "*" أثناء التطوير المحلي فقط.
+ALLOWED_ORIGIN = "*"
+
+# ── الأسرار (لا تُكتب هنا) ──
+# تُضبط بأمر منفصل:
+#   wrangler secret put SERVICE_ACCOUNT
+# والقيمة = محتوى ملف JSON كامل لحساب الخدمة من:
+#   Firebase Console → Project Settings → Service accounts → Generate new private key

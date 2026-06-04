@@ -1,0 +1,78 @@
+rules_version = '2';
+// ══════════════════════════════════════════════════════════
+// قواعد أمان Firestore — البوابة الداخلية
+// جمعية إرث وحضارة بالقريات
+// انشرها عبر: Firebase Console → Firestore → Rules
+// ══════════════════════════════════════════════════════════
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/portal_users/$(request.auth.uid)).data;
+    }
+    function role() { return userDoc().role; }
+    function isExec() { return signedIn() && role() == 'executive'; }
+    function myDept() { return role(); } // الدور = رمز الإدارة لغير التنفيذي
+
+    // ── المستخدمون ──
+    match /portal_users/{uid} {
+      allow read:  if signedIn();
+      allow write: if isExec();                 // الإدارة التنفيذية فقط تدير الحسابات
+      allow update: if request.auth.uid == uid  // المستخدم يحدّث fcmToken فقط
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['fcmToken']);
+    }
+
+    // ── الملفات ──
+    match /portal_files/{id} {
+      allow read:   if isExec() || (signedIn() && resource.data.department == myDept());
+      allow create: if signedIn()
+                    && (isExec() || request.resource.data.department == myDept());
+      // الاعتماد للتنفيذي؛ صاحب الملف يمكنه حذف ملفه
+      allow update: if isExec()
+                    || (signedIn() && resource.data.uploadedBy == request.auth.uid);
+      allow delete: if isExec()
+                    || (signedIn() && resource.data.uploadedBy == request.auth.uid);
+    }
+
+    // ── المهام ──
+    match /portal_tasks/{id} {
+      allow read:   if signedIn();              // التصفية تتم في الواجهة
+      allow create: if isExec();                // الإدارة التنفيذية تنشئ المهام
+      allow update: if isExec()
+                    || (signedIn()
+                        && resource.data.assignType == 'user'
+                        && resource.data.assignTo == request.auth.uid)
+                    || (signedIn()
+                        && resource.data.assignType == 'department'
+                        && resource.data.assignTo == myDept());
+      allow delete: if isExec();
+    }
+
+    // ── الإشعارات ──
+    match /portal_notifications/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn();              // تعليم كمقروء
+      allow delete: if isExec();
+    }
+
+    // ── سجل النشاط (إلحاق فقط) ──
+    match /portal_activity/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if false;           // غير قابل للتعديل
+    }
+
+    // ── رموز FCM (متعددة الأجهزة) ──
+    // مُعرّف المستند = التوكن. كل مستخدم يدير رموزه فقط.
+    match /portal_fcm_tokens/{token} {
+      allow read:   if signedIn() && (resource.data.uid == request.auth.uid || isExec());
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isExec());
+    }
+  }
+}

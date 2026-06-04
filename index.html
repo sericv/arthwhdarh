@@ -95,6 +95,22 @@
             color: #b7874b;
             border-bottom-color: #cbae86;
         }
+        /* Employee Portal link — subtle gold pill */
+        .nav-links a.nav-portal-link {
+            color: #9c6e38;
+            font-weight: 700;
+            border: 1px solid rgba(192,154,98,0.4);
+            border-radius: 100px;
+            padding: 5px 14px 6px;
+            background: rgba(192,154,98,0.06);
+            transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
+        }
+        .nav-links a.nav-portal-link:hover {
+            color: #fff;
+            background: linear-gradient(135deg, #9c6e38, #c09a62);
+            border-color: #9c6e38;
+            box-shadow: 0 6px 18px -6px rgba(156,110,56,0.5);
+        }
 
         /* ========== FOOTER ========== */
         .footer-premium {
@@ -743,6 +759,164 @@
         @media (max-width: 480px) {
             .vm-title { font-size: clamp(1.45rem, 6vw, 1.7rem); }
             .vm-section { padding: 3rem 0; }
+        }
+
+        /* ========== OBJECTIVES SECTION ========== */
+        .obj-section {
+            position: relative;
+            padding: 5rem 0;
+            margin: 0 0 4rem;
+        }
+        .obj-section::before,
+        .obj-section::after {
+            content: "";
+            position: absolute;
+            right: 0; left: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(178,138,88,0.22) 20%,
+                rgba(192,154,98,0.45) 50%,
+                rgba(178,138,88,0.22) 80%,
+                transparent 100%);
+        }
+        .obj-section::before { top: 0; }
+        .obj-section::after  { bottom: 0; }
+
+        .obj-header {
+            display: flex;
+            align-items: center;
+            gap: 1.6rem;
+            margin-bottom: 3.5rem;
+        }
+        .obj-header-eyebrow {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 500;
+            letter-spacing: 0.26em;
+            text-transform: uppercase;
+            color: #a07848;
+            white-space: nowrap;
+        }
+        .obj-header-rule {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(178,138,88,0.5), transparent);
+        }
+        .obj-header-diamond {
+            width: 6px; height: 6px;
+            background: #c09a62;
+            transform: rotate(45deg);
+            flex-shrink: 0;
+        }
+        .obj-heading {
+            font-size: clamp(1.6rem, 2.2vw, 2.2rem);
+            font-weight: 800;
+            color: #1e1610;
+            letter-spacing: -0.025em;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        .obj-heading::after {
+            content: "";
+            display: block;
+            width: 36px; height: 2px;
+            background: linear-gradient(90deg, #c09a62, #e0c896);
+            margin-top: 1.1rem;
+        }
+
+        .obj-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.4rem;
+            justify-content: center;
+        }
+
+        .obj-item {
+            flex: 0 1 calc((100% - 2.8rem) / 3);
+            min-width: 220px;
+            background: rgba(245,237,224,0.5);
+            border: 1px solid rgba(192,154,98,0.15);
+            border-radius: 18px;
+            padding: 2rem 1.8rem 1.6rem;
+            position: relative;
+            overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+        }
+        .obj-item:hover {
+            background: rgba(245,237,224,0.78);
+            border-color: rgba(192,154,98,0.32);
+            transform: translateY(-3px);
+        }
+
+        /* Faint large numeral watermark */
+        .obj-numeral {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 6.5rem;
+            font-weight: 600;
+            line-height: 1;
+            color: rgba(192,154,98,0.07);
+            position: absolute;
+            top: 0.8rem;
+            left: 1.2rem;
+            pointer-events: none;
+            user-select: none;
+            letter-spacing: -0.05em;
+        }
+
+        /* Circular gold badge */
+        .obj-badge {
+            width: 38px; height: 38px;
+            border: 1.5px solid rgba(192,154,98,0.38);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #9c6e38;
+            margin-bottom: 1.1rem;
+            background: rgba(253,250,240,0.85);
+            position: relative;
+            z-index: 1;
+            transition: border-color 0.3s ease;
+        }
+        .obj-item:hover .obj-badge { border-color: rgba(192,154,98,0.62); }
+
+        .obj-text {
+            font-size: 0.93rem;
+            font-weight: 700;
+            color: #2e1e0e;
+            line-height: 1.7;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Bottom ornament */
+        .obj-foot {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 1.4rem;
+            opacity: 0.38;
+        }
+        .obj-foot::before {
+            content: "";
+            width: 22px; height: 1px;
+            background: #c09a62;
+        }
+        .obj-foot-dot {
+            width: 3px; height: 3px;
+            border-radius: 50%;
+            background: #c09a62;
+        }
+
+        @media (max-width: 860px) {
+            .obj-item { flex-basis: calc((100% - 1.4rem) / 2); }
+        }
+        @media (max-width: 540px) {
+            .obj-item { flex-basis: 100%; min-width: unset; }
+            .obj-section { padding: 3.5rem 0; }
+            .obj-numeral { font-size: 5rem; }
         }
 
         /* ========== HOMEPAGE ACTIVITIES PREVIEW ========== */
@@ -1994,22 +2168,9 @@
         <!-- Two-panel editorial grid -->
         <div class="vm-grid">
 
-            <!-- ── PANEL 1: الرسالة ── -->
+            <!-- ── PANEL 1: الرؤية ── -->
             <div class="vm-panel">
                 <div class="vm-panel-numeral">١</div>
-                <h2 class="vm-title">الرسالة</h2>
-                <p class="vm-body">
-                    العمل على المحافظة على التراث الثقافي والحضاري المحلي ونشره بين الأجيال الجديدة والجمهور بشكل عام من خلال الفعاليات الثقافية والتدريب على الحرف التقليدية وتمكين المستهدفين بامتلاك مهنة تكون مصدر رزق لهم وكذلك البحث وتوفير مصادر علمية ذات مرجعية في مجال التراث والموروث الوطني.
-                </p>
-                <div class="vm-panel-ornament">
-                    <div class="vm-panel-ornament-dot"></div>
-                    <div class="vm-panel-ornament-dot"></div>
-                </div>
-            </div>
-
-            <!-- ── PANEL 2: الرؤية ── -->
-            <div class="vm-panel">
-                <div class="vm-panel-numeral">٢</div>
                 <h2 class="vm-title">الرؤية</h2>
                 <p class="vm-body">
                     أن تكون الجمعية مرجعاً رائداً في حفظ وتوثيق التراث الثقافي والحضاري المحلي وأن تساهم في نشر الوعي بالتراث الوطني وإبرازه من خلال الأنشطة الثقافية والتعليمية والمشاركة المجتمعية.
@@ -2020,7 +2181,73 @@
                 </div>
             </div>
 
+            <!-- ── PANEL 2: الرسالة ── -->
+            <div class="vm-panel">
+                <div class="vm-panel-numeral">٢</div>
+                <h2 class="vm-title">الرسالة</h2>
+                <p class="vm-body">
+                    العمل على المحافظة على التراث الثقافي والحضاري المحلي ونشره بين الأجيال الجديدة والجمهور بشكل عام من خلال الفعاليات الثقافية والتدريب على الحرف التقليدية وتمكين المستهدفين بامتلاك مهنة تكون مصدر رزق لهم وكذلك البحث وتوفير مصادر علمية ذات مرجعية في مجال التراث والموروث الوطني.
+                </p>
+                <div class="vm-panel-ornament">
+                    <div class="vm-panel-ornament-dot"></div>
+                    <div class="vm-panel-ornament-dot"></div>
+                </div>
+            </div>
+
         </div><!-- /.vm-grid -->
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         OBJECTIVES — الأهداف
+    ════════════════════════════════════════════ -->
+    <section class="obj-section">
+
+        <div class="obj-header">
+            <span class="obj-header-eyebrow">Objectives · الأهداف</span>
+            <div class="obj-header-diamond"></div>
+            <div class="obj-header-rule"></div>
+        </div>
+
+        <h2 class="obj-heading">أهداف الجمعية</h2>
+
+        <div class="obj-grid">
+
+            <div class="obj-item">
+                <div class="obj-numeral">١</div>
+                <div class="obj-badge">١</div>
+                <p class="obj-text">المساعدة في توفير فرص الاحتراف لأصحاب المواهب</p>
+                <div class="obj-foot"><div class="obj-foot-dot"></div><div class="obj-foot-dot"></div></div>
+            </div>
+
+            <div class="obj-item">
+                <div class="obj-numeral">٢</div>
+                <div class="obj-badge">٢</div>
+                <p class="obj-text">رفع الوعي بمجالات التراث</p>
+                <div class="obj-foot"><div class="obj-foot-dot"></div><div class="obj-foot-dot"></div></div>
+            </div>
+
+            <div class="obj-item">
+                <div class="obj-numeral">٣</div>
+                <div class="obj-badge">٣</div>
+                <p class="obj-text">تقديم المشورة للمهتمين بالمجالات التراثية</p>
+                <div class="obj-foot"><div class="obj-foot-dot"></div><div class="obj-foot-dot"></div></div>
+            </div>
+
+            <div class="obj-item">
+                <div class="obj-numeral">٤</div>
+                <div class="obj-badge">٤</div>
+                <p class="obj-text">إتاحة فرصة التعليم والتدريب للعاملين في مجالات التراث</p>
+                <div class="obj-foot"><div class="obj-foot-dot"></div><div class="obj-foot-dot"></div></div>
+            </div>
+
+            <div class="obj-item">
+                <div class="obj-numeral">٥</div>
+                <div class="obj-badge">٥</div>
+                <p class="obj-text">دعم الباحثين في مجالات التراث</p>
+                <div class="obj-foot"><div class="obj-foot-dot"></div><div class="obj-foot-dot"></div></div>
+            </div>
+
+        </div><!-- /.obj-grid -->
     </section>
 
     <!-- ════════════════════════════════════════════════════════════════════

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>تهيئة موظفي البوابة — إرث وحضارة</title>
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#faf6ed;color:#1e1610;font-family:"Almarai",sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .wrap{width:100%;max-width:560px;}
+  .card{background:#f7f2e6;border:1px solid rgba(60,40,20,.1);border-radius:18px;padding:34px 34px 30px;position:relative;box-shadow:0 30px 70px -28px rgba(30,22,10,.28);}
+  .card::before{content:"";position:absolute;top:0;right:0;width:3px;height:48px;background:linear-gradient(180deg,#c09a62,transparent);border-radius:0 18px 0 0;}
+  h1{font-size:22px;font-weight:800;margin-bottom:5px;}
+  .sub{font-family:"Montserrat";font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#6b4f35;margin-bottom:22px;}
+  .warn{background:rgba(192,154,98,.1);border:1px solid rgba(192,154,98,.3);border-radius:10px;padding:13px 15px;font-size:12.5px;color:#4f3822;line-height:1.7;margin-bottom:22px;}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+  label{font-size:12.5px;font-weight:700;color:#4f3822;}
+  input,select{padding:11px 13px;background:#faf6ed;border:1px solid rgba(60,40,20,.12);border-radius:8px;font-size:14px;font-family:inherit;outline:none;}
+  input:focus,select:focus{border-color:#c09a62;}
+  .btn{width:100%;padding:13px;background:#1e1610;color:#faf6ed;border:0;border-radius:8px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:6px;}
+  .btn:hover{background:#3a2a1c;}
+  .btn:disabled{opacity:.5;}
+  .msg{font-size:12.5px;margin-top:14px;min-height:18px;line-height:1.6;}
+  .msg.ok{color:#3a5e2e;}.msg.err{color:#7a2518;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin .9s linear infinite;display:inline-block;}
+  code{background:#ede3cf;padding:2px 6px;border-radius:4px;font-family:Montserrat;font-size:11px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>تهيئة موظف جديد</h1>
+    <div class="sub">Seed Employee · Internal Portal</div>
+    <div class="warn">
+      <i class="fa-solid fa-circle-info"></i>
+      هذه الأداة تُنشئ حساب موظف في Firebase Authentication وتضيف ملفه في مجموعة <code>portal_users</code> دفعةً واحدة.
+      استخدمها مرة لإنشاء الحسابات ثم احذف الملف أو امنع الوصول إليه.
+    </div>
+
+    <div class="field"><label>الاسم الكامل</label><input id="name" placeholder="محمد أحمد"></div>
+    <div class="row">
+      <div class="field"><label>البريد الإلكتروني</label><input id="email" type="email" placeholder="name@erth.sa"></div>
+      <div class="field"><label>كلمة المرور</label><input id="pass" type="password" placeholder="6 أحرف على الأقل"></div>
+    </div>
+    <div class="field"><label>الدور / الإدارة</label>
+      <select id="role">
+        <option value="executive">الإدارة التنفيذية (وصول كامل)</option>
+        <option value="finance">الإدارة المالية</option>
+        <option value="projects">إدارة المشاريع</option>
+        <option value="media">الإعلام والعلاقات العامة</option>
+      </select>
+    </div>
+    <button class="btn" id="seedBtn"><i class="fa-solid fa-user-plus"></i> إنشاء الحساب</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { FIREBASE_CONFIG, COL } from "./config.js";
+
+const app=initializeApp(FIREBASE_CONFIG);
+const auth=getAuth(app), db=getFirestore(app);
+const $=s=>document.querySelector(s);
+
+$("#seedBtn").addEventListener("click",async()=>{
+  const name=$("#name").value.trim(), email=$("#email").value.trim(),
+        pass=$("#pass").value, role=$("#role").value;
+  const msg=$("#msg"); msg.className="msg"; msg.textContent="";
+  if(!name||!email||pass.length<6){ msg.className="msg err"; msg.textContent="أكمل الحقول (كلمة المرور 6 أحرف على الأقل)"; return; }
+  const btn=$("#seedBtn"); btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner spin"></i> جارٍ الإنشاء…';
+  try{
+    const cred=await createUserWithEmailAndPassword(auth,email,pass);
+    await setDoc(doc(db,COL.users,cred.user.uid),{
+      name, email, role, createdAt:serverTimestamp()
+    });
+    msg.className="msg ok";
+    msg.innerHTML=`✓ تم إنشاء حساب <b>${name}</b> بدور <b>${role}</b>. يمكنه الآن الدخول من البوابة.`;
+    $("#name").value="";$("#email").value="";$("#pass").value="";
+  }catch(e){
+    msg.className="msg err";
+    const map={"auth/email-already-in-use":"البريد مستخدم مسبقاً","auth/invalid-email":"صيغة البريد غير صحيحة","auth/weak-password":"كلمة المرور ضعيفة"};
+    msg.textContent=map[e.code]||("خطأ: "+e.message);
+  }
+  btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-user-plus"></i> إنشاء الحساب';
+});
+</script>
+</body>
+</html>

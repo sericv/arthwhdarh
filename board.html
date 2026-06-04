@@ -214,276 +214,290 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       CHAIRMAN ROW — horizontal editorial, not a giant card
+       COUNCIL OF HONOR PANEL  — ديوان الإدارة
     ═══════════════════════════════════════════════════════════════ */
-    .chairman-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 3.5rem;
-        padding: 3rem 3.5rem;
-        background: var(--canvas-strong);
-        border: 1px solid rgba(192,154,98,0.16);
-        border-radius: 20px;
-        box-shadow: 0 12px 40px -12px rgba(40,25,8,0.12);
-        margin-bottom: 5rem;
+    .council-panel {
         position: relative;
-        overflow: hidden;
+        padding: 4rem 0 5.5rem;
+        margin-bottom: 2rem;
+        border-top: 1px solid rgba(192,154,98,0.12);
+        border-bottom: 1px solid rgba(192,154,98,0.12);
     }
 
-    /* Subtle gold corner wash */
-    .chairman-row::before {
+    /* Radial gold spotlight from top */
+    .council-panel::before {
         content: "";
         position: absolute;
-        top: 0; right: 0;
-        width: 200px; height: 200px;
-        background: radial-gradient(circle at top right, rgba(192,154,98,0.07) 0%, transparent 60%);
+        top: -60px; left: 50%; transform: translateX(-50%);
+        width: 900px; height: 600px;
+        background: radial-gradient(ellipse at 50% 20%, rgba(192,154,98,0.07) 0%, transparent 58%);
         pointer-events: none;
+        z-index: 0;
     }
 
-    /* Portrait — restrained size */
-    .chairman-portrait {
-        flex-shrink: 0;
-        width: 168px;
-    }
-
-    .chairman-photo-frame {
-        width: 168px;
-        aspect-ratio: 3/4;
-        border-radius: 14px;
-        overflow: hidden;
-        background: var(--parchment-deep);
-        box-shadow: 0 10px 30px -8px rgba(40,25,8,0.22);
+    /* ═══ CHAIRMAN MEDALLION ═══ */
+    .chairman-medallion {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 4rem;
         position: relative;
+        z-index: 1;
     }
-    .chairman-photo-frame img {
+
+    /* Floating badge pill above portrait */
+    .ch-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        background: linear-gradient(135deg, var(--parchment-deep), var(--parchment));
+        border: 1px solid rgba(192,154,98,0.28);
+        border-radius: 100px;
+        padding: 0.3rem 1.1rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 10px -3px rgba(40,25,8,0.09);
+    }
+    .ch-badge-dot {
+        width: 4px; height: 4px; border-radius: 50%;
+        background: var(--gold);
+        flex-shrink: 0;
+    }
+    .ch-badge-text {
+        font-family: var(--f-la);
+        font-size: 0.49rem;
+        font-weight: 500;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--amber);
+    }
+
+    /* Three concentric rings */
+    .ch-rings {
+        position: relative;
+        margin-bottom: 1.9rem;
+    }
+
+    /* Outer slow-spinning dashed ring */
+    .ch-rings::before {
+        content: "";
+        position: absolute;
+        inset: -18px;
+        border-radius: 50%;
+        border: 1px dashed rgba(192,154,98,0.22);
+        animation: ch-spin 22s linear infinite;
+    }
+
+    /* Static inner ring */
+    .ch-rings::after {
+        content: "";
+        position: absolute;
+        inset: -9px;
+        border-radius: 50%;
+        border: 1.5px solid rgba(192,154,98,0.2);
+    }
+
+    @keyframes ch-spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+
+    /* Main chairman portrait */
+    .ch-portrait {
+        width: 192px;
+        height: 192px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 2.5px solid rgba(192,154,98,0.42);
+        box-shadow: 0 22px 64px -18px rgba(40,25,8,0.36),
+                    0 0 0 5px rgba(253,250,240,0.92),
+                    0 0 0 9px rgba(192,154,98,0.16);
+        position: relative;
+        transition: box-shadow 0.45s var(--ease);
+        cursor: default;
+    }
+    .ch-portrait:hover {
+        box-shadow: 0 28px 76px -18px rgba(40,25,8,0.4),
+                    0 0 0 5px rgba(253,250,240,0.94),
+                    0 0 0 9px rgba(192,154,98,0.38);
+    }
+    .ch-portrait img {
         width: 100%; height: 100%;
         object-fit: cover; object-position: center top;
         display: block;
+        transition: transform 0.65s var(--ease);
     }
-    .chairman-photo-frame::after {
-        content:"";
-        position:absolute; bottom:0; right:0; left:0;
-        height: 35%;
-        background: linear-gradient(to top, rgba(15,8,2,0.3), transparent);
-        pointer-events: none;
-    }
+    .ch-portrait:hover img { transform: scale(1.04); }
 
-    /* Corner marks */
-    .ph-corner {
-        position: absolute;
-        width: 16px; height: 16px;
-        pointer-events: none; z-index: 3;
-    }
-    .ph-corner-tl { top:10px; right:10px;
-        border-top:1px solid rgba(192,154,98,0.55);
-        border-right:1px solid rgba(192,154,98,0.55);
-        border-radius:0 3px 0 0; }
-    .ph-corner-br { bottom:10px; left:10px;
-        border-bottom:1px solid rgba(192,154,98,0.55);
-        border-left:1px solid rgba(192,154,98,0.55);
-        border-radius:0 0 3px 0; }
+    /* Chairman name block */
+    .ch-info { text-align: center; }
 
-    /* Photo placeholder */
-    .ph-placeholder {
-        width:100%; height:100%;
-        min-height: 200px;
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:center; gap:0.8rem;
-        background: linear-gradient(145deg, var(--parchment-deep), #ece0c8);
-    }
-    .ph-placeholder i { font-size:2.2rem; color:rgba(192,154,98,0.28); }
-    .ph-placeholder span {
-        font-family: var(--f-la);
-        font-size: 0.46rem; letter-spacing:0.2em;
-        text-transform:uppercase; color:rgba(160,120,72,0.4);
-    }
-
-    /* Chairman text */
-    .chairman-info {
-        flex: 1;
-        padding-top: 0.4rem;
-    }
-
-    .chairman-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.65rem;
-        margin-bottom: 1.4rem;
-    }
-    .chairman-badge::before {
-        content: "";
-        width: 22px; height: 1px;
-        background: var(--gold);
-    }
-    .chairman-badge-text {
-        font-family: var(--f-la);
-        font-size: 0.54rem;
-        font-weight: 500;
-        letter-spacing: 0.24em;
-        text-transform: uppercase;
-        color: var(--amber);
-    }
-
-    .chairman-name {
-        font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+    .ch-name {
+        font-size: clamp(1.55rem, 2.4vw, 2.15rem);
         font-weight: 800;
         color: var(--ink-dark);
-        line-height: 1.3;
         letter-spacing: -0.025em;
-        margin-bottom: 0.9rem;
-    }
-    .chairman-name::after {
-        content: "";
-        display: block;
-        width: 36px; height: 1.5px;
-        background: linear-gradient(90deg, var(--gold), var(--gold-pale));
-        margin-top: 1rem;
-        border-radius: 2px;
+        line-height: 1.3;
+        margin-bottom: 0.75rem;
     }
 
-    .chairman-title-ar {
-        font-size: 0.92rem;
-        font-weight: 700;
-        color: var(--ink-mid);
-        margin-bottom: 0.3rem;
-    }
-    .chairman-title-la {
-        font-family: var(--f-la);
-        font-size: 0.58rem;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--amber);
-    }
-
-    /* ═══════════════════════════════════════════════════════════════
-       MEMBERS — LIST TABLE STYLE (annual report feel)
-    ═══════════════════════════════════════════════════════════════ */
-    .members-list {
-        margin-bottom: 6rem;
-    }
-
-    .member-row {
+    .ch-role-line {
         display: flex;
         align-items: center;
-        gap: 2.4rem;
-        padding: 2rem 2.8rem;
-        border-bottom: 1px solid rgba(192,154,98,0.12);
-        transition: background 0.3s var(--ease);
-        position: relative;
+        justify-content: center;
+        gap: 0.8rem;
     }
-    .member-row:first-child {
-        border-top: 1px solid rgba(192,154,98,0.12);
-    }
-    .member-row::before {
-        content:"";
-        position:absolute;
-        right:0; top:0; bottom:0;
-        width:0;
-        background: rgba(192,154,98,0.045);
-        transition: width 0.35s var(--ease);
-        border-radius: 0 2px 2px 0;
-    }
-    .member-row:hover { background: rgba(245,237,224,0.55); }
-    .member-row:hover::before { width:3px; }
-
-    /* Index number */
-    .member-index {
-        font-family: var(--f-la);
-        font-size: 0.62rem;
-        font-weight: 500;
-        letter-spacing: 0.12em;
-        color: rgba(160,120,72,0.38);
-        width: 28px;
-        flex-shrink: 0;
-        text-align: center;
-        line-height: 1;
+    .ch-role-dash { width: 20px; height: 1px; background: var(--gold-faint); }
+    .ch-role-ar {
+        font-size: 0.88rem;
+        color: var(--ink-muted);
+        font-weight: 400;
+        letter-spacing: 0.01em;
     }
 
-    /* Portrait — small and elegant */
-    .member-portrait {
-        flex-shrink: 0;
-        width: 80px;
-    }
-
-    .member-photo-frame {
-        width: 80px;
-        aspect-ratio: 1/1;
-        border-radius: 10px;
-        overflow: hidden;
-        background: var(--parchment-deep);
-        box-shadow: 0 4px 16px -4px rgba(40,25,8,0.18);
-        border: 1px solid rgba(192,154,98,0.18);
-        position: relative;
-    }
-    .member-photo-frame img {
-        width:100%; height:100%;
-        object-fit:cover; object-position:center top;
-        display:block;
-        transition: transform 0.6s var(--ease);
-    }
-    .member-row:hover .member-photo-frame img { transform: scale(1.04); }
-
-    .member-photo-frame::after {
-        content:"";
-        position:absolute; inset:0;
-        border-radius:10px;
-        box-shadow: inset 0 0 0 1px rgba(192,154,98,0.15);
-        pointer-events:none;
-    }
-
-    /* Small placeholder */
-    .sm-placeholder {
-        width:100%; height:100%;
-        min-height:80px;
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:center; gap:0.4rem;
+    /* Shared circle placeholder */
+    .circle-ph {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
         background: linear-gradient(145deg, var(--parchment-deep), #ece0c8);
     }
-    .sm-placeholder i { font-size:1.5rem; color:rgba(192,154,98,0.3); }
-    .sm-placeholder span {
-        font-family:var(--f-la);
-        font-size:0.4rem; letter-spacing:0.18em;
-        text-transform:uppercase; color:rgba(160,120,72,0.4);
+    .circle-ph i { font-size: 3rem; color: rgba(192,154,98,0.3); }
+
+    /* ═══ COUNCIL ORNAMENTAL DIVIDER ═══ */
+    .council-divider {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.8rem;
+        margin-bottom: 4rem;
+        position: relative;
+        z-index: 1;
+        opacity: 0.8;
+    }
+    .cdiv-line {
+        height: 1px;
+        flex: 1;
+        max-width: 180px;
+        background: linear-gradient(90deg, transparent, rgba(192,154,98,0.36));
+    }
+    .cdiv-line.r { background: linear-gradient(90deg, rgba(192,154,98,0.36), transparent); }
+    .cdiv-center { display: flex; align-items: center; gap: 5px; }
+    .cdiv-diamond {
+        width: 5px; height: 5px;
+        background: var(--gold-pale);
+        transform: rotate(45deg);
+        flex-shrink: 0;
+    }
+    .cdiv-diamond.sm { width: 3px; height: 3px; background: var(--gold-faint); }
+
+    /* ═══ MEMBERS ASSEMBLY — صف الشرف ═══ */
+    .members-assembly {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 0 3rem;
+        flex-wrap: wrap;
+        row-gap: 3.2rem;
+        position: relative;
+        z-index: 1;
+        padding: 0 2rem;
     }
 
-    /* Member text */
-    .member-text {
-        flex: 1;
+    /* The "honor table" line connecting all portraits */
+    .members-assembly::before {
+        content: "";
+        position: absolute;
+        top: 69px;
+        left: 10%; right: 10%;
+        height: 1px;
+        background: linear-gradient(90deg,
+            transparent,
+            rgba(192,154,98,0.18) 20%,
+            rgba(192,154,98,0.24) 50%,
+            rgba(192,154,98,0.18) 80%,
+            transparent);
+        pointer-events: none;
+        z-index: 0;
     }
-    .member-name {
-        font-size: 1rem;
+
+    .member-medallion {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        cursor: default;
+        position: relative;
+        z-index: 1;
+        width: 155px;
+    }
+
+    .mem-portrait-wrap {
+        position: relative;
+        margin-bottom: 1.2rem;
+    }
+
+    .mem-portrait {
+        width: 138px;
+        height: 138px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 2px solid rgba(192,154,98,0.22);
+        box-shadow: 0 8px 32px -10px rgba(40,25,8,0.22),
+                    0 0 0 4px rgba(253,250,240,0.88),
+                    0 0 0 6px rgba(192,154,98,0.09);
+        transition: border-color 0.4s var(--ease), box-shadow 0.4s var(--ease), transform 0.4s var(--ease);
+        position: relative;
+        z-index: 2;
+    }
+    .member-medallion:hover .mem-portrait {
+        border-color: rgba(192,154,98,0.52);
+        box-shadow: 0 16px 46px -10px rgba(40,25,8,0.3),
+                    0 0 0 4px rgba(253,250,240,0.92),
+                    0 0 0 6px rgba(192,154,98,0.26);
+        transform: translateY(-6px);
+    }
+    .mem-portrait img {
+        width: 100%; height: 100%;
+        object-fit: cover; object-position: center top;
+        display: block;
+        transition: transform 0.55s var(--ease);
+    }
+    .member-medallion:hover .mem-portrait img { transform: scale(1.05); }
+
+    /* Small ordinal badge on portrait */
+    .mem-num {
+        position: absolute;
+        bottom: 5px; left: 5px;
+        width: 23px; height: 23px;
+        background: var(--parchment);
+        border: 1px solid rgba(192,154,98,0.28);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-family: var(--f-la);
+        font-size: 0.42rem;
+        font-weight: 600;
+        color: var(--amber);
+        z-index: 3;
+        transition: border-color 0.4s var(--ease);
+    }
+    .member-medallion:hover .mem-num { border-color: rgba(192,154,98,0.55); }
+
+    /* Member name + role */
+    .mem-name {
+        font-size: 0.9rem;
         font-weight: 800;
         color: var(--ink-dark);
         line-height: 1.4;
-        letter-spacing: -0.015em;
+        letter-spacing: -0.01em;
         margin-bottom: 0.28rem;
+        transition: color 0.3s var(--ease);
     }
-    .member-role-ar {
-        font-size: 0.82rem;
-        font-weight: 400;
-        color: var(--ink-muted);
-    }
-    .member-role-la {
-        font-family: var(--f-la);
-        font-size: 0.52rem;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: rgba(160,120,72,0.55);
-        margin-top: 0.2rem;
-    }
+    .member-medallion:hover .mem-name { color: var(--ink-mid); }
 
-    /* Gold dash accent on right side */
-    .member-accent {
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        opacity: 0.32;
-    }
-    .member-accent-dash { width:18px; height:1px; background:var(--gold); }
-    .member-accent-dot {
-        width:4px; height:4px; border-radius:50%;
-        background:var(--gold);
+    .mem-role {
+        font-size: 0.72rem;
+        color: var(--ink-muted);
+        font-weight: 300;
+        line-height: 1.4;
     }
 
     /* ═══════════════════════════════════════════════════════════════
@@ -598,10 +612,10 @@
     [data-reveal="fade"] { transform: translateY(10px); }
     [data-reveal].revealed { opacity:1; transform:none; }
 
-    .member-row[data-reveal] { transition-delay: 0ms; }
-    .member-row[data-reveal]:nth-child(2) { transition-delay: 60ms; }
-    .member-row[data-reveal]:nth-child(3) { transition-delay: 120ms; }
-    .member-row[data-reveal]:nth-child(4) { transition-delay: 180ms; }
+    .member-medallion[data-reveal] { transition-delay: 0ms; }
+    .member-medallion[data-reveal]:nth-child(2) { transition-delay: 80ms; }
+    .member-medallion[data-reveal]:nth-child(3) { transition-delay: 160ms; }
+    .member-medallion[data-reveal]:nth-child(4) { transition-delay: 240ms; }
 
     /* ═══════════════════════════════════════════════════════════════
        RESPONSIVE
@@ -609,16 +623,14 @@
     @media (max-width: 860px) {
         .site-wrapper { padding: 1.5rem 1.5rem 0; }
 
-        .chairman-row {
-            gap: 2.2rem;
-            padding: 2.2rem 2rem;
-        }
-        .chairman-portrait { width: 140px; }
-        .chairman-photo-frame { width: 140px; }
+        .ch-portrait { width: 164px; height: 164px; }
+        .ch-rings::before { inset: -15px; }
+        .ch-rings::after  { inset: -8px; }
 
-        .member-row { padding: 1.6rem 1.8rem; gap: 1.8rem; }
-        .member-portrait { width: 70px; }
-        .member-photo-frame { width: 70px; }
+        .members-assembly { gap: 0 2rem; }
+        .member-medallion { width: 134px; }
+        .mem-portrait { width: 118px; height: 118px; }
+        .members-assembly::before { top: 59px; }
     }
 
     @media (max-width: 600px) {
@@ -627,54 +639,39 @@
         .nav-links { gap:0.5rem 0.9rem; }
         .nav-links a { font-size:0.8rem; }
         .association-name-nav { font-size:1.05rem; }
-
         .board-intro { padding: 2.8rem 0 2.5rem; }
 
-        /* Chairman: stack */
-        .chairman-row {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            padding: 2rem 1.8rem;
-            gap: 1.8rem;
-        }
-        .chairman-portrait { width: 120px; }
-        .chairman-photo-frame { width: 120px; }
-        .chairman-badge { justify-content: center; }
-        .chairman-name::after { margin-left:auto; margin-right:auto; }
+        .ch-portrait { width: 144px; height: 144px; }
+        .ch-rings::before { inset: -12px; }
+        .ch-rings::after  { inset: -6px; }
+        .ch-name { font-size: clamp(1.3rem, 5vw, 1.75rem); }
 
-        /* Members: compact */
-        .member-row { padding: 1.3rem 1rem; gap: 1.2rem; }
-        .member-index { display: none; }
-        .member-accent { display: none; }
-        .member-portrait { width: 58px; }
-        .member-photo-frame { width: 58px; }
-        .member-name { font-size: 0.92rem; }
-        .member-role-ar { font-size: 0.76rem; }
-        .member-role-la { display: none; }
+        .members-assembly {
+            gap: 2.2rem 2rem;
+            padding: 0 0.5rem;
+        }
+        .members-assembly::before { display: none; }
+        .member-medallion { width: 120px; }
+        .mem-portrait { width: 106px; height: 106px; }
+        .mem-name { font-size: 0.82rem; }
 
         .closing-title { font-size: clamp(1.4rem, 5vw, 2rem); }
     }
 
     @media (max-width: 400px) {
-        .chairman-portrait { width: 100px; }
-        .chairman-photo-frame { width: 100px; }
-        .member-photo-frame { width: 52px; }
+        .ch-portrait { width: 124px; height: 124px; }
+        .member-medallion { width: 104px; }
+        .mem-portrait { width: 90px; height: 90px; }
+        .members-assembly { gap: 1.8rem 1.4rem; }
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       MOBILE LETTER-SPACING  (≤ 768px)
-       Reduces excessive character gaps on small screens.
-       Desktop appearance is unchanged.
+       MOBILE LETTER-SPACING
     ═══════════════════════════════════════════════════════════════ */
     @media (max-width: 768px) {
-        .intro-eyebrow-text  { letter-spacing: 0.13em; }
-        .chairman-badge-text { letter-spacing: 0.11em; }
-        .chairman-title-la   { letter-spacing: 0.08em; }
-        .ph-placeholder span { letter-spacing: 0.09em; }
-        .sm-placeholder span { letter-spacing: 0.09em; }
-        .member-index        { letter-spacing: 0.06em; }
-        .closing-eyebrow     { letter-spacing: 0.11em; }
+        .intro-eyebrow-text { letter-spacing: 0.13em; }
+        .ch-badge-text      { letter-spacing: 0.10em; }
+        .closing-eyebrow    { letter-spacing: 0.11em; }
     }
     </style>
 </head>
@@ -724,119 +721,100 @@
 
 
     <!-- ══════════════════════════════════════
-         رئيس مجلس الإدارة — Firebase dynamic
+         ديوان الإدارة — COUNCIL PANEL
+         Firebase dynamic (chairmanContainer + membersContainer)
     ══════════════════════════════════════ -->
-    <section aria-labelledby="chairman-name" id="chairmanSection">
+    <section class="council-panel" aria-label="مجلس الإدارة">
 
-        <div class="section-rule" data-reveal="fade">
-            <span class="sr-text">Chairman · رئيس مجلس الإدارة</span>
-            <div class="sr-diamond"></div>
-            <div class="sr-line"></div>
-        </div>
-
-        <!-- populated by Firebase; static fallback shown until loaded -->
+        <!-- ─── رئيس مجلس الإدارة ─── -->
         <div id="chairmanContainer">
-            <div class="chairman-row" data-reveal="up">
-                <div class="chairman-portrait">
-                    <div class="chairman-photo-frame">
-                        <div class="ph-corner ph-corner-tl"></div>
-                        <div class="ph-corner ph-corner-br"></div>
+            <div class="chairman-medallion" data-reveal="up">
+                <div class="ch-badge">
+                    <span class="ch-badge-dot"></span>
+                    <span class="ch-badge-text">Chairman · رئيس مجلس الإدارة</span>
+                    <span class="ch-badge-dot"></span>
+                </div>
+                <div class="ch-rings">
+                    <div class="ch-portrait">
                         <img src="assets/صور اعضاء الادارة/محمد المحارب.jpeg"
                              alt="محمد حمد المحارب — رئيس مجلس الإدارة"
                              loading="lazy">
-                        <div class="ph-placeholder">
-                            <i class="fas fa-user"></i>
-                            <span>Photo</span>
-                        </div>
+                        <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
                 </div>
-                <div class="chairman-info">
-                    <div class="chairman-badge">
-                        <span class="chairman-badge-text">Chairman · رئيس المجلس</span>
+                <div class="ch-info">
+                    <h2 class="ch-name" id="chairman-name">محمد حمد المحارب</h2>
+                    <div class="ch-role-line">
+                        <div class="ch-role-dash"></div>
+                        <span class="ch-role-ar">رئيس مجلس الإدارة</span>
+                        <div class="ch-role-dash"></div>
                     </div>
-                    <h2 class="chairman-name" id="chairman-name">محمد حمد المحارب</h2>
-                    <div class="chairman-title-ar">رئيس مجلس الإدارة</div>
-                    <div class="chairman-title-la">Board of Directors — Chairman</div>
                 </div>
             </div>
         </div>
 
-    </section>
-
-
-    <!-- ══════════════════════════════════════
-         أعضاء المجلس — Firebase dynamic
-    ══════════════════════════════════════ -->
-    <section class="members-list" aria-label="أعضاء مجلس الإدارة">
-
-        <div class="section-rule" data-reveal="fade">
-            <span class="sr-text">Members · أعضاء المجلس</span>
-            <div class="sr-diamond"></div>
-            <div class="sr-line"></div>
+        <!-- ─── فاصل زخرفي ─── -->
+        <div class="council-divider" data-reveal="fade">
+            <div class="cdiv-line"></div>
+            <div class="cdiv-center">
+                <div class="cdiv-diamond sm"></div>
+                <div class="cdiv-diamond"></div>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <circle cx="8" cy="8" r="6.5" stroke="rgba(192,154,98,0.44)" stroke-width="1"/>
+                    <circle cx="8" cy="8" r="2.5" fill="rgba(192,154,98,0.35)"/>
+                </svg>
+                <div class="cdiv-diamond"></div>
+                <div class="cdiv-diamond sm"></div>
+            </div>
+            <div class="cdiv-line r"></div>
         </div>
 
-        <!-- populated by Firebase; static fallback shown until loaded -->
-        <div id="membersContainer">
-            <article class="member-row" data-reveal="up">
-                <span class="member-index">٠١</span>
-                <div class="member-portrait">
-                    <div class="member-photo-frame">
+        <!-- ─── صف الشرف — أعضاء المجلس ─── -->
+        <div class="members-assembly" id="membersContainer">
+            <div class="member-medallion" data-reveal="up">
+                <div class="mem-portrait-wrap">
+                    <div class="mem-portrait">
                         <img src="assets/صور اعضاء الادارة/محمد يوسف الشمري.png" alt="محمد يوسف الشمري" loading="lazy">
-                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
+                        <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
+                    <span class="mem-num">٠١</span>
                 </div>
-                <div class="member-text">
-                    <div class="member-name">محمد يوسف الشمري</div>
-                    <div class="member-role-ar">نائب رئيس مجلس الإدارة</div>
-                    <div class="member-role-la">Vice Chairman</div>
-                </div>
-                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
-            </article>
-            <article class="member-row" data-reveal="up">
-                <span class="member-index">٠٢</span>
-                <div class="member-portrait">
-                    <div class="member-photo-frame">
+                <div class="mem-name">محمد يوسف الشمري</div>
+                <div class="mem-role">نائب رئيس مجلس الإدارة</div>
+            </div>
+            <div class="member-medallion" data-reveal="up">
+                <div class="mem-portrait-wrap">
+                    <div class="mem-portrait">
                         <img src="assets/صور اعضاء الادارة/سلطان عبدالرحمن الجباب.png" alt="سلطان عبدالرحمن الجباب" loading="lazy">
-                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
+                        <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
+                    <span class="mem-num">٠٢</span>
                 </div>
-                <div class="member-text">
-                    <div class="member-name">سلطان عبدالرحمن الجباب</div>
-                    <div class="member-role-ar">عضو مجلس إدارة</div>
-                    <div class="member-role-la">Board Member</div>
-                </div>
-                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
-            </article>
-            <article class="member-row" data-reveal="up">
-                <span class="member-index">٠٣</span>
-                <div class="member-portrait">
-                    <div class="member-photo-frame">
+                <div class="mem-name">سلطان عبدالرحمن الجباب</div>
+                <div class="mem-role">عضو مجلس إدارة</div>
+            </div>
+            <div class="member-medallion" data-reveal="up">
+                <div class="mem-portrait-wrap">
+                    <div class="mem-portrait">
                         <img src="assets/صور اعضاء الادارة/حمده العنزي.png" alt="حمده بواع العنزي" loading="lazy">
-                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
+                        <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
+                    <span class="mem-num">٠٣</span>
                 </div>
-                <div class="member-text">
-                    <div class="member-name">حمده بواع العنزي</div>
-                    <div class="member-role-ar">عضو مجلس إدارة</div>
-                    <div class="member-role-la">Board Member</div>
-                </div>
-                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
-            </article>
-            <article class="member-row" data-reveal="up">
-                <span class="member-index">٠٤</span>
-                <div class="member-portrait">
-                    <div class="member-photo-frame">
+                <div class="mem-name">حمده بواع العنزي</div>
+                <div class="mem-role">عضو مجلس إدارة</div>
+            </div>
+            <div class="member-medallion" data-reveal="up">
+                <div class="mem-portrait-wrap">
+                    <div class="mem-portrait">
                         <img src="assets/صور اعضاء الادارة/عبدالله مسير البلعاسي.png" alt="عبدالله مسير البلعاسي" loading="lazy">
-                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
+                        <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
+                    <span class="mem-num">٠٤</span>
                 </div>
-                <div class="member-text">
-                    <div class="member-name">عبدالله مسير البلعاسي</div>
-                    <div class="member-role-ar">عضو مجلس إدارة</div>
-                    <div class="member-role-la">Board Member</div>
-                </div>
-                <div class="member-accent"><div class="member-accent-dash"></div><div class="member-accent-dot"></div></div>
-            </article>
+                <div class="mem-name">عبدالله مسير البلعاسي</div>
+                <div class="mem-role">عضو مجلس إدارة</div>
+            </div>
         </div>
 
     </section>
@@ -914,7 +892,7 @@ function initRevealTargets(container) {
         entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); } });
     }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
     container.querySelectorAll('[data-reveal]').forEach((el, i) => {
-        if (el.classList.contains('member-row')) el.style.transitionDelay = (i * 70) + 'ms';
+        if (el.classList.contains('member-medallion')) el.style.transitionDelay = (i * 80) + 'ms';
         io.observe(el);
     });
 }
@@ -930,56 +908,52 @@ async function loadBoard() {
         const chairman = members[0];
         const rest     = members.slice(1);
 
-        // — Chairman section —
+        // — Chairman medallion —
         const chairEl = document.getElementById('chairmanContainer');
         if (chairEl && chairman) {
             chairEl.innerHTML = `
-            <div class="chairman-row" data-reveal="up">
-                <div class="chairman-portrait">
-                    <div class="chairman-photo-frame">
-                        <div class="ph-corner ph-corner-tl"></div>
-                        <div class="ph-corner ph-corner-br"></div>
+            <div class="chairman-medallion" data-reveal="up">
+                <div class="ch-badge">
+                    <span class="ch-badge-dot"></span>
+                    <span class="ch-badge-text">Chairman · رئيس مجلس الإدارة</span>
+                    <span class="ch-badge-dot"></span>
+                </div>
+                <div class="ch-rings">
+                    <div class="ch-portrait">
                         ${chairman.imageUrl
                             ? `<img src="${esc(chairman.imageUrl)}" alt="${esc(chairman.name)}" loading="lazy">`
-                            : `<div class="ph-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>`}
+                            : `<div class="circle-ph"><i class="fas fa-user"></i></div>`}
                     </div>
                 </div>
-                <div class="chairman-info">
-                    <div class="chairman-badge">
-                        <span class="chairman-badge-text">Chairman · رئيس المجلس</span>
+                <div class="ch-info">
+                    <h2 class="ch-name" id="chairman-name">${esc(chairman.name)}</h2>
+                    <div class="ch-role-line">
+                        <div class="ch-role-dash"></div>
+                        <span class="ch-role-ar">${esc(chairman.position||'رئيس مجلس الإدارة')}</span>
+                        <div class="ch-role-dash"></div>
                     </div>
-                    <h2 class="chairman-name" id="chairman-name">${esc(chairman.name)}</h2>
-                    <div class="chairman-title-ar">${esc(chairman.position||'رئيس مجلس الإدارة')}</div>
-                    <div class="chairman-title-la">Board of Directors — Chairman</div>
                 </div>
             </div>`;
             initRevealTargets(chairEl);
         }
 
-        // — Members list —
+        // — Members assembly (صف الشرف) —
         const memEl = document.getElementById('membersContainer');
         if (memEl && rest.length) {
             memEl.innerHTML = rest.map((m, i) => `
-            <article class="member-row" data-reveal="up">
-                <span class="member-index">${arIdx(i + 1)}</span>
-                <div class="member-portrait">
-                    <div class="member-photo-frame">
+            <div class="member-medallion" data-reveal="up">
+                <div class="mem-portrait-wrap">
+                    <div class="mem-portrait">
                         ${m.imageUrl
                             ? `<img src="${esc(m.imageUrl)}" alt="${esc(m.name)}" loading="lazy">`
                             : ''}
-                        <div class="sm-placeholder"><i class="fas fa-user"></i><span>Photo</span></div>
+                        <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
+                    <span class="mem-num">${arIdx(i + 1)}</span>
                 </div>
-                <div class="member-text">
-                    <div class="member-name">${esc(m.name)}</div>
-                    <div class="member-role-ar">${esc(m.position||'عضو مجلس إدارة')}</div>
-                    <div class="member-role-la">Board Member</div>
-                </div>
-                <div class="member-accent">
-                    <div class="member-accent-dash"></div>
-                    <div class="member-accent-dot"></div>
-                </div>
-            </article>`).join('');
+                <div class="mem-name">${esc(m.name)}</div>
+                <div class="mem-role">${esc(m.position||'عضو مجلس إدارة')}</div>
+            </div>`).join('');
             initRevealTargets(memEl);
         }
     } catch(e) {
@@ -1010,10 +984,10 @@ loadBoard();
             });
         }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
 
-        /* Stagger member rows */
-        var rows = document.querySelectorAll('.member-row[data-reveal]');
+        /* Stagger member medallions */
+        var rows = document.querySelectorAll('.member-medallion[data-reveal]');
         rows.forEach(function(row, i) {
-            row.style.transitionDelay = (i * 70) + 'ms';
+            row.style.transitionDelay = (i * 80) + 'ms';
         });
 
         targets.forEach(function(el) { io.observe(el); });
