@@ -182,6 +182,20 @@ img{display:block;max-width:100%;}
 .chip-rejected:not(.active){ border-color:rgba(122,37,24,.2); }
 .spacer{flex:1;}
 
+/* ── VIEW TOGGLE (list / cards) ── */
+.view-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;background:var(--paper);border:1px solid var(--line);border-radius:8px;}
+.view-toggle button{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:none;background:transparent;border-radius:6px;font-family:"Almarai",sans-serif;font-size:12.5px;font-weight:700;color:var(--ink-mid);cursor:pointer;transition:all .25s var(--ease);}
+.view-toggle button svg{width:14px;height:14px;}
+.view-toggle button.active{background:var(--ink);color:var(--parchment);box-shadow:0 3px 10px -3px rgba(30,22,10,.3);}
+.view-toggle button.active svg{color:var(--gold);}
+.view-toggle button:not(.active):hover{background:var(--parchment-2);color:var(--ink);}
+
+/* table action button inside list view */
+table.data .row-status{vertical-align:middle;}
+table.data .tbl-view-btn{border:1px solid var(--line);background:transparent;color:var(--ink-mid);padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;font-family:"Almarai",sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .2s;}
+table.data .tbl-view-btn svg{width:12px;height:12px;}
+table.data .tbl-view-btn:hover{background:var(--ink);color:var(--parchment);border-color:var(--ink);}
+
 /* ── TABLE ── */
 .table-wrap{background:var(--paper);border:1px solid var(--line-soft);border-radius:8px;overflow:hidden;}
 table.data{width:100%;border-collapse:collapse;}
@@ -298,6 +312,23 @@ table.data tbody tr:hover{background:rgba(192,154,98,.06);}
 
 /* ── SETTINGS ── */
 .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+
+/* ── MAINTENANCE TOGGLE ── */
+.mnt-switch-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;background:var(--parchment-2);border:1px solid var(--line-soft);border-radius:8px;margin-bottom:18px;}
+.mnt-switch-info .t{font-size:14px;font-weight:800;color:var(--ink);margin-bottom:3px;}
+.mnt-switch-info .s{font-size:12px;color:var(--ink-muted);font-weight:300;line-height:1.6;}
+.switch{position:relative;display:inline-block;width:50px;height:28px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .slider{position:absolute;inset:0;cursor:pointer;background:var(--parchment-3);border:1px solid var(--line);border-radius:999px;transition:background .3s var(--ease),border-color .3s;}
+.switch .slider::before{content:"";position:absolute;height:20px;width:20px;right:3px;top:3px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(30,22,10,.25);transition:transform .3s var(--ease);}
+.switch input:checked + .slider{background:var(--gold);border-color:var(--gold-deep);}
+.switch input:checked + .slider::before{transform:translateX(-22px);}
+.mnt-status-pill{display:inline-flex;align-items:center;gap:7px;font-family:"Montserrat",sans-serif;font-style:italic;font-size:11.5px;letter-spacing:.1em;padding:4px 12px;border-radius:999px;border:1px solid var(--line);margin-bottom:16px;}
+.mnt-status-pill::before{content:"";width:6px;height:6px;border-radius:50%;}
+.mnt-status-pill.on{color:var(--danger);border-color:rgba(122,37,24,.3);background:rgba(122,37,24,.04);}
+.mnt-status-pill.on::before{background:var(--danger);animation:reqPulse 2s ease-in-out infinite;}
+.mnt-status-pill.off{color:var(--success);border-color:rgba(58,94,46,.3);background:rgba(58,94,46,.05);}
+.mnt-status-pill.off::before{background:var(--success);}
 .setting-card{padding:26px 28px;}
 .setting-card h3{font-weight:800;font-size:18px;color:var(--ink);margin-bottom:3px;}
 .setting-card .la{font-family:"Montserrat",sans-serif;font-style:italic;font-size:10.5px;color:var(--ink-muted);letter-spacing:.16em;text-transform:uppercase;margin-bottom:18px;display:block;}
@@ -1122,7 +1153,7 @@ async function loadSettings(){
 const ROUTES=[
   {id:'home',       label:'الرئيسية',       icon:iHome},
   {id:'news',       label:'إدارة الأخبار',  icon:iNews},
-  {id:'volunteers', label:'المتطوعين',      icon:iUsers, badge:'vNew'},
+  {id:'volunteers', label:'أصدقاء الجمعية', icon:iUsers, badge:'vNew'},
   {id:'crafts',     label:'بيدي حرفة',      icon:iCraft, badge:'cNew'},
   {id:'settings',   label:'الإعدادات',      icon:iCog},
 ];
@@ -1187,7 +1218,7 @@ async function vHome(el){
   await renderNav();
 
   const recent=[
-    ...vols.map(v=>({kind:'vol',title:`طلب تطوع — ${v.name||''}`,date:toTs(v.createdAt),isNew:!v.reviewed})),
+    ...vols.map(v=>({kind:'vol',title:`صديق الجمعية — ${v.name||''}`,date:toTs(v.createdAt),isNew:!v.reviewed})),
     ...crafts.map(c=>({kind:'craft',title:`بيدي حرفة — ${c.name||''}`,date:toTs(c.createdAt),isNew:!c.reviewed})),
     ...news.map(n=>({kind:'news',title:`خبر — ${n.title||''}`,date:toTs(n.createdAt),isNew:false})),
   ].sort((a,b)=>(b.date||0)-(a.date||0)).slice(0,6);
@@ -1196,11 +1227,11 @@ async function vHome(el){
   <div class="page-head">
     <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Overview · ${fmtEn(new Date())}</span><span class="e-label">لوحة التحكم</span></div>
     <h1 class="page-title">مرحباً، <span class="accent">إرثٌ</span> يتجدّد كل يوم.</h1>
-    <p class="page-sub">نظرة عامة على نشاط الجمعية — المقالات المنشورة، طلبات التطوع، ومبادرة "بيدي حرفة".</p>
+    <p class="page-sub">نظرة عامة على نشاط الجمعية — المقالات المنشورة، أصدقاء الجمعية، ومبادرة "بيدي حرفة".</p>
   </div>
   <div class="stats-grid">
     ${sCard('Editorial','عدد الأخبار',news.length,'المحتوى المنشور')}
-    ${sCard('Volunteers','طلبات التطوع',vols.length,`${vNew} طلب جديد`)}
+    ${sCard('Friends','أصدقاء الجمعية',vols.length,`${vNew} طلب جديد`)}
     ${sCard('Artisans','بيدي حرفة',crafts.length,`${cNew} طلب جديد`)}
   </div>
   <div class="grid-2">
@@ -1222,7 +1253,7 @@ async function vHome(el){
       <div class="card-head"><div><h3>اختصارات</h3><div class="card-la">Quick actions</div></div></div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn btn-primary" data-action="add-news" style="justify-content:space-between;width:100%"><span>كتابة مقال جديد</span>${chevSvg()}</button>
-        <button class="btn btn-ghost" data-go="volunteers" style="justify-content:space-between;width:100%"><span>مراجعة طلبات التطوع</span>${chevSvg()}</button>
+        <button class="btn btn-ghost" data-go="volunteers" style="justify-content:space-between;width:100%"><span>مراجعة أصدقاء الجمعية</span>${chevSvg()}</button>
         <button class="btn btn-ghost" data-go="crafts" style="justify-content:space-between;width:100%"><span>مراجعة طلبات بيدي حرفة</span>${chevSvg()}</button>
       </div>
     </div>
@@ -1498,16 +1529,18 @@ function openVolPanel(id){
   if(!v) return;
   panelState = { col:'volunteers', id, viewEl: document.getElementById('view-volunteers') };
 
-  document.getElementById('panelTopLabel').textContent = 'Volunteer Request';
-  document.getElementById('panelTopTitle').textContent = v.name || 'طلب تطوع';
+  document.getElementById('panelTopLabel').textContent = 'Friend of the Association';
+  document.getElementById('panelTopTitle').textContent = v.name || 'صديق الجمعية';
   document.getElementById('panelTopStatus').innerHTML = buildPanelStatus(v);
+
+  const interests = Array.isArray(v.interests) ? v.interests.join('، ') : (v.interests||'');
 
   document.getElementById('panelBody').innerHTML = `
     <div class="panel-hero">
       <div class="panel-hero-avatar">${(v.name||'').charAt(0)}</div>
       <div>
         <div class="panel-hero-name">${esc(v.name||'')}</div>
-        <div class="panel-hero-craft">طلب تطوع</div>
+        <div class="panel-hero-craft">صديق الجمعية${v.city?' · '+esc(v.city):''}</div>
         ${buildPanelStatus(v)}
       </div>
     </div>
@@ -1517,15 +1550,24 @@ function openVolPanel(id){
     </div>
     <div class="panel-details">
       ${buildDetailRow('الاسم الكامل', v.name)}
-      ${buildDetailRow('رقم التواصل', v.phone)}
+      ${buildDetailRow('رقم الجوال', v.phone)}
+      ${buildDetailRow('البريد الإلكتروني', v.email||'—')}
       ${buildDetailRow('المدينة', v.city)}
+      ${buildDetailRow('الجنس', v.gender)}
     </div>
-    ${v.message ? `
-    <div class="panel-section-head"><span class="panel-section-label">Notes</span><div class="panel-section-line"></div></div>
+    ${interests ? `
+    <div class="panel-section-head"><span class="panel-section-label">Interests · الاهتمامات</span><div class="panel-section-line"></div></div>
     <div class="panel-details"><div class="panel-detail-row" style="display:block;padding:14px 18px;">
-      <div class="panel-detail-key" style="margin-bottom:6px">ملاحظات</div>
-      <div class="panel-detail-val soft" style="line-height:1.75">${esc(v.message)}</div>
+      <div class="panel-detail-key" style="margin-bottom:6px">الاهتمامات</div>
+      <div class="panel-detail-val soft" style="line-height:1.9">${esc(interests)}</div>
     </div></div>` : ''}
+    ${v.acknowledged ? `
+    <div class="panel-section-head"><span class="panel-section-label">Declaration · الإقرار</span><div class="panel-section-line"></div></div>
+    <div class="panel-details">
+      ${buildDetailRow('وافق على الإقرار والتعهد', 'نعم')}
+      ${buildDetailRow('اسم المُقِر', v.ackName||v.name)}
+      ${buildDetailRow('تاريخ الإقرار', v.ackDate||'—')}
+    </div>` : ''}
     <div class="panel-timestamp">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
       تاريخ الإرسال: ${v.createdAt ? fmtEn(toTs(v.createdAt)) : '—'}
@@ -1691,6 +1733,50 @@ function bindReqCards(el, type){
   });
 }
 
+/* ── List (table) view builder — shared for friends + crafts ── */
+function reqTableHTML(rows, type){
+  const secondCol = type==='vol' ? 'الاهتمامات' : 'الحرفة';
+  const body = rows.map(item=>{
+    const st   = itemStatus(item);
+    const date = item.createdAt ? fmtEn(toTs(item.createdAt)) : '—';
+    const second = type==='vol'
+      ? (Array.isArray(item.interests)?item.interests.join('، '):(item.interests||'—'))
+      : (item.craft||item.specialization||'—');
+    return `
+    <tr data-open-id="${item.id}" data-open-type="${type}" style="cursor:pointer">
+      <td data-label="الاسم"><div class="name-cell">${esc(item.name||'—')}</div></td>
+      <td data-label="رقم الجوال" style="direction:ltr;text-align:right">${esc(item.phone||'—')}</td>
+      <td data-label="المدينة">${esc(item.city||'—')}</td>
+      <td data-label="${secondCol}">${esc(second)}</td>
+      <td data-label="الحالة"><span class="row-status ${st==='new'?'new':'reviewed'}">${statusLabel(st)}</span></td>
+      <td data-label="التاريخ" style="white-space:nowrap">${date}</td>
+      <td data-label="">
+        <button class="tbl-view-btn" data-open-id="${item.id}" data-open-type="${type}">
+          عرض
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M12 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div class="table-wrap"><table class="data"><thead><tr>
+      <th>الاسم</th><th>رقم الجوال</th><th>المدينة</th><th>${secondCol}</th><th>الحالة</th><th>التاريخ</th><th></th>
+    </tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+/* View toggle (list / cards) HTML */
+function viewToggleHTML(mode, attr){
+  return `<div class="view-toggle" role="group" aria-label="طريقة العرض">
+    <button class="${mode==='list'?'active':''}" ${attr}="list" title="عرض كقائمة">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke-linecap="round"/></svg>
+      قائمة
+    </button>
+    <button class="${mode==='cards'?'active':''}" ${attr}="cards" title="عرض كبطاقات">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      بطاقات
+    </button>
+  </div>`;
+}
+
 /* ── Status helpers ── */
 function itemStatus(item){
   /* Normalise: new items may have status:'جديد' or no status yet */
@@ -1704,7 +1790,7 @@ function statusClass(s){ return s==='approved'?'approved':s==='rejected'?'reject
 /* ════════════════════════════════
    VOLUNTEERS
 ════════════════════════════════ */
-let vQ='',vMode='all';
+let vQ='',vMode='all',vView='list';
 async function vVols(el){
   const all=await loadCol('volunteers');
   const q=vQ.trim();
@@ -1712,7 +1798,10 @@ async function vVols(el){
   if(vMode==='new')      rows=rows.filter(v=>itemStatus(v)==='new');
   else if(vMode==='approved') rows=rows.filter(v=>itemStatus(v)==='approved');
   else if(vMode==='rejected') rows=rows.filter(v=>itemStatus(v)==='rejected');
-  if(q) rows=rows.filter(v=>(v.name||'').includes(q)||(v.phone||'').includes(q)||(v.city||'').includes(q));
+  if(q){
+    const interestsTxt=v=>Array.isArray(v.interests)?v.interests.join(' '):(v.interests||'');
+    rows=rows.filter(v=>(v.name||'').includes(q)||(v.phone||'').includes(q)||(v.city||'').includes(q)||interestsTxt(v).includes(q));
+  }
   rows.sort((a,b)=>(toTs(b.createdAt)||0)-(toTs(a.createdAt)||0));
   await renderNav();
 
@@ -1722,14 +1811,14 @@ async function vVols(el){
 
   el.innerHTML=`
   <div class="page-head">
-    <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Volunteers · Applications</span><span class="e-label">طلبات التطوع</span></div>
-    <h1 class="page-title">إدارة <span class="accent">المتطوعين</span></h1>
-    <p class="page-sub">طلبات التطوع الواردة من زوّار الموقع — انقر على أي طلب لمراجعة التفاصيل واتخاذ الإجراء.</p>
+    <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Friends · Registrations</span><span class="e-label">أصدقاء الجمعية</span></div>
+    <h1 class="page-title">إدارة <span class="accent">أصدقاء الجمعية</span></h1>
+    <p class="page-sub">طلبات الانضمام الواردة من زوّار الموقع — انقر على أي طلب لمراجعة التفاصيل واتخاذ الإجراء.</p>
   </div>
   <div class="toolbar">
     <div class="search-box">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
-      <input type="text" id="vSearch" placeholder="بحث بالاسم أو الهاتف…" value="${escA(q)}"/>
+      <input type="text" id="vSearch" placeholder="بحث بالاسم أو الجوال أو المدينة…" value="${escA(q)}"/>
     </div>
     <div class="filters">
       <button class="chip ${vMode==='all'?'active':''}" data-vm="all">الكل <span class="chip-count">${all.length}</span></button>
@@ -1737,21 +1826,26 @@ async function vVols(el){
       <button class="chip chip-approved ${vMode==='approved'?'active':''}" data-vm="approved">معتمد ${nApprove>0?`<span class="chip-count">${nApprove}</span>`:''}</button>
       <button class="chip chip-rejected ${vMode==='rejected'?'active':''}" data-vm="rejected">غير معتمد ${nReject>0?`<span class="chip-count">${nReject}</span>`:''}</button>
     </div>
+    <div class="spacer"></div>
+    ${viewToggleHTML(vView,'data-vv')}
   </div>
   ${rows.length===0
-    ?`<div class="card">${emptyState(q?'لا توجد نتائج':vMode==='all'?'لم تَرِد طلبات تطوع بعد':'لا توجد طلبات في هذا التصنيف','VOLUNTEERS · EMPTY')}</div>`
-    :`<div class="req-grid">${rows.map(v=>reqCardHTML(v,'vol')).join('')}</div>`}`;
+    ?`<div class="card">${emptyState(q?'لا توجد نتائج':vMode==='all'?'لم يُسجّل أصدقاء بعد':'لا توجد طلبات في هذا التصنيف','FRIENDS · EMPTY')}</div>`
+    : vView==='list'
+      ? reqTableHTML(rows,'vol')
+      :`<div class="req-grid">${rows.map(v=>reqCardHTML(v,'vol')).join('')}</div>`}`;
 
   const s=el.querySelector('#vSearch');
   if(s) s.addEventListener('input',e=>{ vQ=e.target.value; vVols(el); el.querySelector('#vSearch')?.focus(); });
   el.querySelectorAll('[data-vm]').forEach(b=>b.addEventListener('click',()=>{ vMode=b.dataset.vm; vVols(el); }));
+  el.querySelectorAll('[data-vv]').forEach(b=>b.addEventListener('click',()=>{ vView=b.dataset.vv; vVols(el); }));
   bindReqCards(el, 'vol');
 }
 
 /* ════════════════════════════════
    CRAFTS
 ════════════════════════════════ */
-let cQ='',cMode='all';
+let cQ='',cMode='all',cView='list';
 async function vCrafts(el){
   const all=await loadCol('crafts');
   const q=cQ.trim();
@@ -1784,14 +1878,19 @@ async function vCrafts(el){
       <button class="chip chip-approved ${cMode==='approved'?'active':''}" data-cm="approved">معتمد ${nApprove>0?`<span class="chip-count">${nApprove}</span>`:''}</button>
       <button class="chip chip-rejected ${cMode==='rejected'?'active':''}" data-cm="rejected">غير معتمد ${nReject>0?`<span class="chip-count">${nReject}</span>`:''}</button>
     </div>
+    <div class="spacer"></div>
+    ${viewToggleHTML(cView,'data-cv')}
   </div>
   ${rows.length===0
     ?`<div class="card">${emptyState(q?'لا توجد نتائج':cMode==='all'?'لم تَرِد طلبات بعد':'لا توجد طلبات في هذا التصنيف','ARTISANS · EMPTY')}</div>`
-    :`<div class="req-grid">${rows.map(c=>reqCardHTML(c,'craft')).join('')}</div>`}`;
+    : cView==='list'
+      ? reqTableHTML(rows,'craft')
+      :`<div class="req-grid">${rows.map(c=>reqCardHTML(c,'craft')).join('')}</div>`}`;
 
   const s=el.querySelector('#cSearch');
   if(s) s.addEventListener('input',e=>{ cQ=e.target.value; vCrafts(el); el.querySelector('#cSearch')?.focus(); });
   el.querySelectorAll('[data-cm]').forEach(b=>b.addEventListener('click',()=>{ cMode=b.dataset.cm; vCrafts(el); }));
+  el.querySelectorAll('[data-cv]').forEach(b=>b.addEventListener('click',()=>{ cView=b.dataset.cv; vCrafts(el); }));
   bindReqCards(el, 'craft');
 }
 
@@ -1800,6 +1899,11 @@ async function vCrafts(el){
 ════════════════════════════════ */
 async function vSettings(el){
   const user=auth.currentUser;
+  const settings=await loadSettings();
+  const mnt=settings.maintenance||{};
+  const mntOn=mnt.enabled===true;
+  const mntTitle=mnt.title||'الموقع تحت الصيانة';
+  const mntMsg=mnt.message||'نعمل حالياً على تطوير الموقع وتحسين تجربتكم.\nنعتذر عن الانقطاع المؤقت، وسنعود إليكم قريباً بإذن الله.';
   el.innerHTML=`
   <div class="page-head">
     <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Settings · Account</span><span class="e-label">الإعدادات</span></div>
@@ -1807,6 +1911,37 @@ async function vSettings(el){
     <p class="page-sub">إدارة حسابك الشخصي وصلاحيات الوصول إلى لوحة التحكم.</p>
   </div>
   <div class="settings-grid">
+    <div class="card setting-card" style="grid-column:1/-1">
+      <h3>حالة الموقع — الصيانة</h3><span class="la">Site status · Maintenance mode</span>
+      <span class="mnt-status-pill ${mntOn?'on':'off'}" id="mntStatusPill">${mntOn?'الموقع مُغلق حالياً — تحت الصيانة':'الموقع يعمل بشكل طبيعي'}</span>
+      <div class="mnt-switch-row">
+        <div class="mnt-switch-info">
+          <div class="t">تفعيل وضع الصيانة</div>
+          <div class="s">عند التفعيل يُغلق الموقع الأساسي أمام الزوار، ويظهر لهم فقط شعار الجمعية مع الرسالة المكتوبة بالأسفل.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="mntToggle" ${mntOn?'checked':''}/>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>عنوان الصفحة <span class="la">Title</span></label>
+          <input type="text" id="mntTitle" value="${escA(mntTitle)}" placeholder="الموقع تحت الصيانة"/>
+        </div>
+        <div class="field">
+          <label>الرسالة المعروضة للزوار <span class="la">Message</span></label>
+          <textarea id="mntMsg" placeholder="اكتب الرسالة التي ستظهر للزوار…">${esc(mntMsg)}</textarea>
+          <span class="field-help">اضغط Enter لإضافة سطر جديد — سيظهر كما هو للزائر.</span>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn btn-primary" id="mntSaveBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>حفظ إعدادات الصيانة</span>
+        </button>
+      </div>
+    </div>
     <div class="card setting-card">
       <h3>الحساب الشخصي</h3><span class="la">Account info</span>
       <div class="acct-section">
@@ -1851,6 +1986,42 @@ async function vSettings(el){
       </button>
     </div>
   </div>`;
+
+  /* ── Maintenance mode: live status pill + save ── */
+  const mntToggle=document.getElementById('mntToggle');
+  const mntPill=document.getElementById('mntStatusPill');
+  mntToggle.addEventListener('change',()=>{
+    if(mntToggle.checked){
+      mntPill.className='mnt-status-pill on';
+      mntPill.textContent='سيُغلق الموقع عند الحفظ — تحت الصيانة';
+    }else{
+      mntPill.className='mnt-status-pill off';
+      mntPill.textContent='سيعمل الموقع بشكل طبيعي عند الحفظ';
+    }
+  });
+
+  document.getElementById('mntSaveBtn').addEventListener('click',async()=>{
+    const enabled=mntToggle.checked;
+    const title=document.getElementById('mntTitle').value.trim();
+    const message=document.getElementById('mntMsg').value.trim();
+    const btn=document.getElementById('mntSaveBtn');
+    btn.disabled=true;
+    try{
+      const payload={maintenance:{enabled,title,message,updatedAt:serverTimestamp()}};
+      await setDoc(doc(db,'settings','site'),payload,{merge:true});
+      /* keep cache fresh */
+      C.settings=C.settings||{};
+      C.settings.maintenance={enabled,title,message};
+      mntPill.className='mnt-status-pill '+(enabled?'on':'off');
+      mntPill.textContent=enabled?'الموقع مُغلق حالياً — تحت الصيانة':'الموقع يعمل بشكل طبيعي';
+      toast(enabled?'تم تفعيل وضع الصيانة — الموقع مُغلق الآن':'تم إيقاف وضع الصيانة — الموقع يعمل الآن');
+    }catch(e){
+      console.warn(e);
+      toast('تعذّر حفظ الإعدادات — حاول لاحقاً','err');
+    }finally{
+      btn.disabled=false;
+    }
+  });
 
   document.getElementById('chgPwBtn').addEventListener('click',async()=>{
     const { updatePassword } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");

@@ -50,8 +50,8 @@
             e.preventDefault();
 
             var href  = btn.getAttribute('href');
-            var card  = btn.closest('.rp-card');
-            var title = card ? card.querySelector('.rp-card-title') : null;
+            var card  = btn.closest('.gv-doc');
+            var title = card ? card.querySelector('.gv-doc-title') : null;
 
             /* Set iframe source and modal title */
             frame.src    = href;
@@ -102,46 +102,12 @@
     }
 
     /* ─────────────────────────────────────────────────────────
-       4. CARD SUBTLE PARALLAX on mouse move (desktop only)
-       Creates a gentle depth tilt on each card as the cursor
-       moves over it — reinforces the premium material feel.
-    ───────────────────────────────────────────────────────── */
-    function initCardTilt() {
-        if (window.matchMedia('(hover: none)').matches) return; /* skip on touch */
-
-        var cards = document.querySelectorAll('.rp-card');
-        var STRENGTH = 5; /* max tilt degrees */
-
-        cards.forEach(function (card) {
-            card.addEventListener('mousemove', function (e) {
-                var rect    = card.getBoundingClientRect();
-                var cx      = rect.left + rect.width  / 2;
-                var cy      = rect.top  + rect.height / 2;
-                var dx      = (e.clientX - cx) / (rect.width  / 2);
-                var dy      = (e.clientY - cy) / (rect.height / 2);
-                var rotateY = dx * STRENGTH;
-                var rotateX = -dy * STRENGTH * 0.6;
-
-                card.style.transform =
-                    'translateY(-5px) rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)';
-                card.style.transition = 'transform 0.12s ease, box-shadow 0.5s';
-            });
-
-            card.addEventListener('mouseleave', function () {
-                card.style.transform  = '';
-                card.style.transition = 'transform 0.5s cubic-bezier(0.22,1,0.36,1), box-shadow 0.5s';
-            });
-        });
-    }
-
-    /* ─────────────────────────────────────────────────────────
        INIT
     ───────────────────────────────────────────────────────── */
     function init() {
         initScrollReveal();
         initModal();
         initNavHighlight();
-        initCardTilt();
     }
 
     if (document.readyState === 'loading') {

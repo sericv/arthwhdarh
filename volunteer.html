@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Volunteer stylesheet -->
     <link rel="stylesheet" href="volunteer.css">
+    <link rel="stylesheet" href="maintenance.css">
 </head>
 <body>
 
@@ -38,7 +39,7 @@
             <a href="volunteer.html">التطوع</a>
             <a href="news.html">الأخبار</a>
             <a href="partnerships.html">الشراكات</a>
-            <a href="reports.html">التقارير</a>
+            <a href="reports.html">الحوكمة</a>
             <a href="board.html">مجلس الإدارة</a>
             <a href="contact.html">اتصل بنا</a>
         </div>
@@ -201,25 +202,25 @@
             <!-- Content panel — left on desktop (flipped) -->
             <div class="vl-programme-content" data-reveal="right">
 
-                <div class="act-tag">عمل تطوعي</div>
+                <div class="act-tag">انضمام مجتمعي</div>
 
                 <h2 class="vl-programme-title" id="volunteer-title">
-                    التطوع
-                    <span class="vl-programme-title-sub">المشاركة في الفعاليات والمبادرات</span>
+                    أصدقاء الجمعية
+                    <span class="vl-programme-title-sub">شركاء في خدمة التراث والمجتمع</span>
                 </h2>
 
                 <div class="vl-programme-desc">
                     <p>
-                        ينفتح باب التطوع لكل من يحمل في قلبه حبّ التراث والرغبة الصادقة
-                        في خدمة المجتمع 
+                        ينفتح باب الانضمام إلى "أصدقاء الجمعية" لكل من يحمل في قلبه حبّ التراث
+                        والرغبة الصادقة في خدمة المجتمع ودعم مسيرة الجمعية الثقافية.
                     </p>
                     <p>
-                        
+
                 <div class="vl-programme-actions">
-                    <a href="#" class="vl-btn vl-btn--primary">
+                    <button type="button" class="vl-btn vl-btn--primary" id="openFriendBtn" aria-haspopup="dialog">
                         <i class="fas fa-heart" aria-hidden="true"></i>
-                        الانضمام للتطوع
-                    </a>
+                        الانضمام لأصدقاء الجمعية
+                    </button>
                 </div>
 
        
@@ -255,7 +256,7 @@
 
                                         <!-- Floating programme label -->
                     <div class="vl-visual-label" style="z-index:5;">
-                        <span class="vl-visual-label-name">تطوع</span>
+                        <span class="vl-visual-label-name">أصدقاء الجمعية</span>
                     </div>
 
 
@@ -361,7 +362,7 @@
             </a>
             <a href="#volunteer" class="vl-btn vl-btn--primary">
                 <i class="fas fa-heart" aria-hidden="true"></i>
-                التطوع
+                أصدقاء الجمعية
             </a>
         </div>
 
@@ -664,6 +665,220 @@
 
   </div><!-- /.bdy-shell -->
 </div><!-- /#bidayaOverlay -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     أصدقاء الجمعية — Registration Modal
+══════════════════════════════════════════════════════════════ -->
+<div id="friendOverlay" class="bdy-overlay" role="dialog" aria-modal="true" aria-labelledby="frTitle" hidden>
+  <div class="bdy-backdrop" id="frBackdrop"></div>
+
+  <div class="bdy-shell" id="frShell">
+    <div class="bdy-grain" aria-hidden="true"></div>
+    <div class="bdy-accent-bar" aria-hidden="true"></div>
+
+    <button class="bdy-close" id="frClose" aria-label="إغلاق">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+    </button>
+
+    <!-- ── STEP 1: FORM ── -->
+    <div id="frStepForm" class="bdy-step">
+      <div class="bdy-header">
+        <div class="bdy-eyebrow-row">
+          <div class="bdy-eyebrow-line"></div>
+          <span class="bdy-eyebrow">Friends of the Association · التسجيل</span>
+          <div class="bdy-eyebrow-line bdy-eyebrow-line--rev"></div>
+        </div>
+        <h2 class="bdy-title" id="frTitle">الانضمام إلى<br><span class="bdy-title-accent">أصدقاء الجمعية</span></h2>
+        <p class="bdy-subtitle">أكمل بياناتك لتصبح صديقاً لجمعية إرث وحضارة وشريكاً في خدمة التراث والمجتمع.</p>
+      </div>
+
+      <form id="frForm" class="bdy-form" novalidate>
+
+        <!-- Row 1: Name + Phone -->
+        <div class="bdy-row bdy-row--2">
+          <div class="bdy-field">
+            <label class="bdy-label" for="fr_name">الاسم الكامل</label>
+            <input type="text" id="fr_name" name="name" class="bdy-input" placeholder="أدخل اسمك الكامل…" autocomplete="name" required/>
+            <span class="bdy-err" id="frerr_name"></span>
+          </div>
+          <div class="bdy-field">
+            <label class="bdy-label" for="fr_phone">رقم الجوال</label>
+            <input type="tel" id="fr_phone" name="phone" class="bdy-input" placeholder="05XXXXXXXX" autocomplete="tel" required/>
+            <span class="bdy-err" id="frerr_phone"></span>
+          </div>
+        </div>
+
+        <!-- Row 2: Email (optional) + City -->
+        <div class="bdy-row bdy-row--2">
+          <div class="bdy-field">
+            <label class="bdy-label" for="fr_email">البريد الإلكتروني <span style="font-weight:400;color:var(--bdy-ink-mut)">(اختياري)</span></label>
+            <input type="email" id="fr_email" name="email" class="bdy-input" placeholder="example@email.com" autocomplete="email"/>
+            <span class="bdy-err" id="frerr_email"></span>
+          </div>
+          <div class="bdy-field">
+            <label class="bdy-label" for="fr_city">المدينة</label>
+            <div class="bdy-select-wrap">
+              <select id="fr_city" name="city" class="bdy-select" required>
+                <option value="" disabled selected>اختر المدينة…</option>
+                <option value="القريات">القريات</option>
+                <option value="سكاكا">سكاكا</option>
+                <option value="طبرجل">طبرجل</option>
+                <option value="دومة الجندل">دومة الجندل</option>
+                <option value="صوير">صوير</option>
+                <option value="أخرى">أخرى</option>
+              </select>
+              <svg class="bdy-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span class="bdy-err" id="frerr_city"></span>
+          </div>
+        </div>
+
+        <!-- Row 3: Gender -->
+        <div class="bdy-row">
+          <div class="bdy-field">
+            <label class="bdy-label">الجنس</label>
+            <div class="bdy-gender-row">
+              <label class="bdy-radio-card">
+                <input type="radio" name="frgender" value="ذكر" required class="bdy-radio-input"/>
+                <span class="bdy-radio-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1" stroke-linecap="round"/></svg>
+                  ذكر
+                </span>
+              </label>
+              <label class="bdy-radio-card">
+                <input type="radio" name="frgender" value="أنثى" class="bdy-radio-input"/>
+                <span class="bdy-radio-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="9" r="4"/><path d="M12 13v8M9 18h6" stroke-linecap="round"/></svg>
+                  أنثى
+                </span>
+              </label>
+            </div>
+            <span class="bdy-err" id="frerr_gender"></span>
+          </div>
+        </div>
+
+        <!-- Row 4: Interests (multi) -->
+        <div class="bdy-row">
+          <div class="bdy-field">
+            <label class="bdy-label">الاهتمامات <span style="font-weight:400;color:var(--bdy-ink-mut)">(يمكن اختيار أكثر من واحد)</span></label>
+            <div class="bdy-craft-grid">
+              <label class="bdy-craft-card">
+                <input type="checkbox" name="interest" value="التراث" class="bdy-radio-input"/>
+                <span class="bdy-craft-box"><i class="fas fa-landmark" aria-hidden="true"></i>التراث</span>
+              </label>
+              <label class="bdy-craft-card">
+                <input type="checkbox" name="interest" value="الحرف اليدوية" class="bdy-radio-input"/>
+                <span class="bdy-craft-box"><i class="fas fa-hand-sparkles" aria-hidden="true"></i>الحرف اليدوية</span>
+              </label>
+              <label class="bdy-craft-card">
+                <input type="checkbox" name="interest" value="التاريخ المحلي" class="bdy-radio-input"/>
+                <span class="bdy-craft-box"><i class="fas fa-book" aria-hidden="true"></i>التاريخ المحلي</span>
+              </label>
+              <label class="bdy-craft-card">
+                <input type="checkbox" name="interest" value="الفعاليات التراثية" class="bdy-radio-input"/>
+                <span class="bdy-craft-box"><i class="fas fa-calendar-day" aria-hidden="true"></i>الفعاليات التراثية</span>
+              </label>
+              <label class="bdy-craft-card">
+                <input type="checkbox" name="interest" value="أخرى" class="bdy-radio-input" id="frInterestOther"/>
+                <span class="bdy-craft-box"><i class="fas fa-plus-circle" aria-hidden="true"></i>أخرى</span>
+              </label>
+            </div>
+            <div class="bdy-other-wrap" id="frOtherWrap">
+              <input type="text" id="fr_interest_other" class="bdy-input" placeholder="اذكر اهتمامك هنا…"/>
+            </div>
+            <span class="bdy-err" id="frerr_interest"></span>
+          </div>
+        </div>
+
+        <div class="bdy-submit-row">
+          <button type="submit" class="bdy-submit-btn" id="frSubmitBtn">
+            <span>متابعة إلى الإقرار</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </form>
+    </div><!-- /#frStepForm -->
+
+    <!-- ── STEP 2: DECLARATION (الإقرار والتعهد) ── -->
+    <div id="frStepAck" class="bdy-step" style="display:none">
+      <div class="bdy-header">
+        <div class="bdy-eyebrow-row">
+          <div class="bdy-eyebrow-line"></div>
+          <span class="bdy-eyebrow">Declaration · إقرار وتعهد</span>
+          <div class="bdy-eyebrow-line bdy-eyebrow-line--rev"></div>
+        </div>
+        <h2 class="bdy-title">قرار <span class="bdy-title-accent">وتعهد</span></h2>
+        <p class="bdy-subtitle">يرجى قراءة الإقرار التالي بعناية والموافقة عليه قبل إرسال طلبك.</p>
+      </div>
+
+      <div class="fr-ack-card">
+        <h3 class="fr-ack-heading">قرار وتعهد</h3>
+        <p>أقر أنا الموقع أدناه بأن جميع البيانات والمعلومات المقدمة صحيحة ودقيقة، وأتعهد بالالتزام بالأنظمة واللوائح والسياسات المعمول بها لدى جمعية إرث وحضارة.</p>
+        <p>كما أقر بأنه لا توجد بحقي أي سوابق أو قضايا أو مخالفات أو ممارسات من شأنها الإضرار بسمعة الجمعية أو أهدافها أو التأثير على أعمالها وأنشطتها، وأتعهد بإبلاغ الجمعية فورًا في حال طرأ ما يستوجب الإفصاح عنه مستقبلًا.</p>
+        <p>وأتعهد بالتعامل بما يحقق مصلحة الجمعية والمحافظة على سمعتها وممتلكاتها ومعلوماتها، وأتحمل كامل المسؤولية عن صحة ما ورد في هذا الإقرار.</p>
+
+        <div class="fr-ack-sign">
+          <div class="fr-ack-sign-row">
+            <span class="fr-ack-sign-key">الاسم:</span>
+            <span class="fr-ack-sign-val" id="frAckName">—</span>
+          </div>
+          <div class="fr-ack-sign-row">
+            <span class="fr-ack-sign-key">التاريخ:</span>
+            <span class="fr-ack-sign-val" id="frAckDate">—</span>
+          </div>
+        </div>
+      </div>
+
+      <label class="fr-ack-agree" id="frAgreeLabel">
+        <input type="checkbox" id="frAgree"/>
+        <span class="fr-ack-checkbox" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="fr-ack-agree-text">أقر بأنني قرأت الإقرار والتعهد أعلاه وأوافق على كل ما ورد فيه.</span>
+      </label>
+      <span class="bdy-err" id="frerr_agree" style="display:block;text-align:center"></span>
+
+      <div class="bdy-review-actions">
+        <button type="button" class="bdy-back-btn" id="frBackBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          تعديل البيانات
+        </button>
+        <button type="button" class="bdy-confirm-btn" id="frConfirmBtn">
+          <span id="frConfirmLabel">الموافقة وإرسال الطلب</span>
+          <svg id="frConfirmIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg id="frConfirmSpinner" class="bdy-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div><!-- /#frStepAck -->
+
+    <!-- ── STEP 3: SUCCESS ── -->
+    <div id="frStepSuccess" class="bdy-step bdy-step--success" style="display:none">
+      <div class="bdy-success-ornament" aria-hidden="true">
+        <div class="bdy-success-ring">
+          <svg viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="22" stroke="rgba(192,154,98,0.25)" stroke-width="1.5"/>
+            <circle cx="24" cy="24" r="16" stroke="rgba(192,154,98,0.18)" stroke-width="1"/>
+            <path d="M14 24l7 7 13-14" stroke="#c09a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="bdy-success-ornament-line" aria-hidden="true">
+        <div class="bdy-orn-l"></div>
+        <div class="bdy-orn-diamond"></div>
+        <div class="bdy-orn-l bdy-orn-l--rev"></div>
+      </div>
+      <h2 class="bdy-success-title">أهلاً بك في أصدقاء الجمعية</h2>
+      <p class="bdy-success-msg">شكراً لانضمامك إلى <strong>أصدقاء جمعية إرث وحضارة</strong>.<br>سيتواصل معك فريق الجمعية قريباً.</p>
+      <button type="button" class="bdy-done-btn" id="frDoneBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" stroke-linecap="round"/><path d="M14 15l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        إغلاق
+      </button>
+    </div><!-- /#frStepSuccess -->
+
+  </div><!-- /.bdy-shell -->
+</div><!-- /#friendOverlay -->
+
 
 <!-- ══ STYLES ══ -->
 <style>
@@ -1035,8 +1250,60 @@
   color:var(--bdy-ink-mut);margin-bottom:5px;
 }
 
+/* ─── DECLARATION (الإقرار) ─── */
+.fr-ack-card{
+  background:var(--bdy-paper);
+  border:1px solid var(--bdy-line);
+  border-radius:12px;
+  padding:28px 30px;
+  margin-bottom:20px;
+  position:relative;
+}
+.fr-ack-card::before{content:"";position:absolute;top:0;right:0;width:2px;height:40px;background:var(--bdy-gold);border-radius:0 12px 0 0;}
+.fr-ack-heading{
+  font-family:"Almarai",sans-serif;font-weight:800;font-size:17px;
+  color:var(--bdy-ink);text-align:center;margin-bottom:18px;
+  padding-bottom:14px;border-bottom:1px solid var(--bdy-line-s);
+}
+.fr-ack-card p{
+  font-size:13.8px;line-height:2.05;color:var(--bdy-ink-m);
+  font-weight:300;margin-bottom:14px;text-align:justify;
+}
+.fr-ack-card p:last-of-type{margin-bottom:0;}
+.fr-ack-sign{
+  margin-top:22px;padding-top:18px;border-top:1px dashed var(--bdy-line);
+  display:flex;flex-direction:column;gap:10px;
+}
+.fr-ack-sign-row{display:flex;align-items:center;gap:10px;}
+.fr-ack-sign-key{font-size:13.5px;font-weight:800;color:var(--bdy-ink);min-width:60px;}
+.fr-ack-sign-val{font-size:14px;font-weight:700;color:var(--bdy-gold-d);}
+
+/* Agreement checkbox */
+.fr-ack-agree{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:16px 18px;margin-bottom:8px;
+  background:var(--bdy-deep);
+  border:1px solid var(--bdy-line);border-radius:10px;
+  cursor:pointer;transition:border-color 0.25s,background 0.25s;
+  user-select:none;
+}
+.fr-ack-agree:hover{border-color:var(--bdy-gold-s);}
+.fr-ack-agree input{position:absolute;opacity:0;pointer-events:none;}
+.fr-ack-checkbox{
+  flex-shrink:0;width:24px;height:24px;border-radius:6px;
+  border:1.5px solid var(--bdy-line);background:var(--bdy-parchment);
+  display:grid;place-items:center;color:transparent;
+  transition:all 0.25s var(--bdy-ease);margin-top:1px;
+}
+.fr-ack-checkbox svg{width:14px;height:14px;}
+.fr-ack-agree input:checked + .fr-ack-checkbox{
+  background:var(--bdy-gold-d);border-color:var(--bdy-gold-d);color:#fff;
+}
+.fr-ack-agree-text{font-size:13.8px;line-height:1.7;color:var(--bdy-ink-m);font-weight:700;}
+
 /* ─── RESPONSIVE ─── */
 @media(max-width:640px){
+  .fr-ack-card{padding:22px 18px;}
   .bdy-step{padding:36px 22px 30px;}
   .bdy-row.bdy-row--2{grid-template-columns:1fr;}
   .bdy-dob-parts{grid-template-columns:0.8fr 1.4fr 1fr;gap:6px;}
@@ -1412,8 +1679,161 @@ $('bdyConfirmBtn').addEventListener('click', async () => {
   }
 });
 
+
+/* ════════════════════════════════════════════════
+   أصدقاء الجمعية — Friends Registration Modal
+════════════════════════════════════════════════ */
+const frOverlay  = $('friendOverlay');
+const frOpenBtn  = $('openFriendBtn');
+const frCloseBtn = $('frClose');
+const frBackdrop = $('frBackdrop');
+const frDoneBtn  = $('frDoneBtn');
+
+function frOpen(){
+  frOverlay.hidden = false;
+  requestAnimationFrame(()=>{ frOverlay.classList.add('open'); });
+  document.body.style.overflow = 'hidden';
+  frShowStep('frStepForm');
+  setTimeout(()=>{ $('fr_name')?.focus(); }, 450);
+}
+function frClose(){
+  frOverlay.classList.remove('open');
+  setTimeout(()=>{ frOverlay.hidden = true; document.body.style.overflow = ''; }, 420);
+}
+if(frOpenBtn) frOpenBtn.addEventListener('click', frOpen);
+frCloseBtn.addEventListener('click', frClose);
+frBackdrop.addEventListener('click', frClose);
+frDoneBtn.addEventListener('click', frClose);
+document.addEventListener('keydown', e => { if(e.key==='Escape' && frOverlay.classList.contains('open')) frClose(); });
+
+/* "Other" interest toggle */
+$('frInterestOther').addEventListener('change', e => {
+  const wrap = $('frOtherWrap');
+  if(e.target.checked){
+    wrap.classList.add('open');
+    setTimeout(()=>{ $('fr_interest_other')?.focus(); }, 360);
+  }else{
+    wrap.classList.remove('open');
+    $('fr_interest_other').value = '';
+  }
+});
+
+/* Step management */
+function frShowStep(id){
+  ['frStepForm','frStepAck','frStepSuccess'].forEach(s => {
+    const el = $(s);
+    if(el) el.style.display = (s === id) ? 'block' : 'none';
+  });
+  $('frShell').scrollTop = 0;
+}
+
+function frSetErr(id,msg){ const el=$(id); if(el) el.textContent=msg; }
+function frClearErrs(){
+  ['frerr_name','frerr_phone','frerr_email','frerr_city','frerr_gender','frerr_interest','frerr_agree']
+    .forEach(id=>frSetErr(id,''));
+  ['fr_name','fr_phone','fr_email','fr_city'].forEach(id=>$(id)?.classList.remove('invalid'));
+}
+
+function frGetData(){
+  const name   = $('fr_name').value.trim();
+  const phone  = $('fr_phone').value.trim();
+  const email  = $('fr_email').value.trim();
+  const city   = $('fr_city').value;
+  const gender = (document.querySelector('input[name="frgender"]:checked'))?.value || '';
+  let interests = Array.from(document.querySelectorAll('input[name="interest"]:checked')).map(c=>c.value);
+  /* replace "أخرى" with the typed value */
+  if(interests.includes('أخرى')){
+    const other = $('fr_interest_other').value.trim();
+    interests = interests.filter(i=>i!=='أخرى');
+    if(other) interests.push(other);
+  }
+  return { name, phone, email, city, gender, interests };
+}
+
+function frValidate(d){
+  let ok=true;
+  if(!d.name){ frSetErr('frerr_name','الرجاء إدخال الاسم الكامل'); $('fr_name').classList.add('invalid'); ok=false; }
+  if(!d.phone || !/^05\d{8}$/.test(d.phone)){ frSetErr('frerr_phone','رقم الجوال غير صحيح (05XXXXXXXX)'); $('fr_phone').classList.add('invalid'); ok=false; }
+  if(d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)){ frSetErr('frerr_email','البريد الإلكتروني غير صحيح'); $('fr_email').classList.add('invalid'); ok=false; }
+  if(!d.city){ frSetErr('frerr_city','الرجاء اختيار المدينة'); $('fr_city').classList.add('invalid'); ok=false; }
+  if(!d.gender){ frSetErr('frerr_gender','الرجاء اختيار الجنس'); ok=false; }
+  if(!d.interests.length){ frSetErr('frerr_interest','الرجاء اختيار اهتمام واحد على الأقل'); ok=false; }
+  return ok;
+}
+
+/* today's date — Gregorian YYYY-MM-DD */
+function frTodayGreg(){
+  const d=new Date();
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+
+/* Step 1 → Step 2 (Declaration) */
+let frPending = null;
+$('frForm').addEventListener('submit', e => {
+  e.preventDefault();
+  frClearErrs();
+  const d = frGetData();
+  if(!frValidate(d)) return;
+  frPending = d;
+  /* auto-fill declaration name + date */
+  $('frAckName').textContent = d.name;
+  $('frAckDate').textContent = frTodayGreg();
+  $('frAgree').checked = false;
+  frSetErr('frerr_agree','');
+  frShowStep('frStepAck');
+});
+
+$('frBackBtn').addEventListener('click', ()=> frShowStep('frStepForm'));
+
+/* Step 2 → Firebase → Step 3 */
+$('frConfirmBtn').addEventListener('click', async () => {
+  if(!frPending) return;
+  if(!$('frAgree').checked){
+    frSetErr('frerr_agree','يجب الموافقة على الإقرار والتعهد للمتابعة');
+    return;
+  }
+  frSetErr('frerr_agree','');
+
+  const btn  = $('frConfirmBtn');
+  const lbl  = $('frConfirmLabel');
+  const icon = $('frConfirmIcon');
+  const spin = $('frConfirmSpinner');
+  btn.disabled = true;
+  lbl.textContent = 'جارٍ الإرسال…';
+  icon.style.display = 'none';
+  spin.style.display = 'inline-block';
+
+  const ackDate = frTodayGreg();
+
+  try{
+    await addDoc(collection(db, 'volunteers'), {
+      ...frPending,
+      type: 'صديق الجمعية',
+      acknowledged: true,
+      ackName: frPending.name,
+      ackDate,
+      status: 'جديد',
+      reviewed: false,
+      createdAt: serverTimestamp()
+    });
+
+    frShowStep('frStepSuccess');
+    $('frForm').reset();
+    $('frOtherWrap').classList.remove('open');
+    frPending = null;
+  }catch(err){
+    console.error('Firestore error:', err);
+    lbl.textContent = 'حدث خطأ — حاول مجدداً';
+    icon.style.display = 'inline-block';
+    spin.style.display = 'none';
+    btn.disabled = false;
+  }
+});
+
 </script>
 
 <script src="volunteer.js"></script>
+<script type="module" src="maintenance.js"></script>
 </body>
 </html>

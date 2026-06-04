@@ -362,6 +362,95 @@
     }
     .circle-ph i { font-size: 3rem; color: rgba(192,154,98,0.3); }
 
+    /* ═══ VICE-CHAIRMAN MEDALLION ═══ (tier between chairman & members) */
+    .vice-medallion {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 4rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .vice-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, var(--parchment-deep), var(--parchment));
+        border: 1px solid rgba(192,154,98,0.26);
+        border-radius: 100px;
+        padding: 0.26rem 1rem;
+        margin-bottom: 1.3rem;
+        box-shadow: 0 2px 9px -3px rgba(40,25,8,0.08);
+    }
+    .vice-badge-dot { width: 4px; height: 4px; border-radius:50%; background: var(--gold); flex-shrink:0; }
+    .vice-badge-text {
+        font-family: var(--f-la);
+        font-size: 0.47rem;
+        font-weight: 500;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--amber);
+    }
+
+    .vice-rings { position: relative; margin-bottom: 1.5rem; }
+    .vice-rings::after {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        border: 1.5px solid rgba(192,154,98,0.18);
+    }
+
+    .vice-portrait {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 2.5px solid rgba(192,154,98,0.34);
+        box-shadow: 0 16px 50px -16px rgba(40,25,8,0.3),
+                    0 0 0 4px rgba(253,250,240,0.9),
+                    0 0 0 7px rgba(192,154,98,0.13);
+        position: relative;
+        transition: box-shadow 0.45s var(--ease), transform 0.45s var(--ease);
+        cursor: default;
+    }
+    .vice-medallion:hover .vice-portrait {
+        transform: translateY(-5px);
+        box-shadow: 0 24px 64px -16px rgba(40,25,8,0.36),
+                    0 0 0 4px rgba(253,250,240,0.94),
+                    0 0 0 7px rgba(192,154,98,0.3);
+    }
+    .vice-portrait img {
+        width: 100%; height: 100%;
+        object-fit: cover; object-position: center top;
+        display: block;
+        transition: transform 0.6s var(--ease);
+    }
+    .vice-medallion:hover .vice-portrait img { transform: scale(1.04); }
+
+    .vice-info { text-align: center; }
+    .vice-name {
+        font-size: clamp(1.2rem, 1.9vw, 1.55rem);
+        font-weight: 800;
+        color: var(--ink-dark);
+        letter-spacing: -0.02em;
+        line-height: 1.3;
+        margin-bottom: 0.6rem;
+    }
+    .vice-role-line {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.7rem;
+    }
+    .vice-role-dash { width: 18px; height: 1px; background: var(--gold-faint); }
+    .vice-role-ar {
+        font-size: 0.82rem;
+        color: var(--ink-muted);
+        font-weight: 400;
+    }
+
     /* ═══ COUNCIL ORNAMENTAL DIVIDER ═══ */
     .council-divider {
         display: flex;
@@ -501,6 +590,179 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
+       BOARD TERM — مدة مجلس الإدارة
+    ═══════════════════════════════════════════════════════════════ */
+    .term-section {
+        padding: 1rem 0 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .term-card {
+        position: relative;
+        max-width: 720px;
+        margin: 0 auto;
+        background: var(--canvas-strong);
+        border: 1px solid rgba(192,154,98,0.24);
+        border-radius: var(--r-card);
+        padding: 2.6rem 2.4rem;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    /* soft gold spotlight inside the card */
+    .term-card::before {
+        content: "";
+        position: absolute;
+        top: -40%; left: 50%; transform: translateX(-50%);
+        width: 120%; height: 160%;
+        background: radial-gradient(ellipse at 50% 0%, rgba(192,154,98,0.08), transparent 60%);
+        pointer-events: none;
+    }
+
+    .term-head {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.7rem;
+        margin-bottom: 2.2rem;
+        position: relative;
+        z-index: 1;
+    }
+    .term-head i {
+        font-size: 1rem;
+        color: var(--gold);
+    }
+    .term-head-text {
+        font-size: clamp(1.1rem, 2vw, 1.4rem);
+        font-weight: 800;
+        color: var(--ink-dark);
+        letter-spacing: -0.02em;
+    }
+
+    /* The two dates with the connecting timeline */
+    .term-timeline {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.4rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .term-node {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.55rem;
+        flex: 1;
+        max-width: 220px;
+    }
+
+    .term-node-badge {
+        font-family: var(--f-la);
+        font-size: 0.5rem;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--amber);
+    }
+
+    .term-node-date {
+        font-family: var(--f-la);
+        font-size: clamp(1.15rem, 2.4vw, 1.7rem);
+        font-weight: 700;
+        color: var(--ink-dark);
+        letter-spacing: -0.01em;
+        direction: ltr;
+        line-height: 1;
+        display: inline-flex;
+        align-items: baseline;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: "tnum" 1;
+    }
+    .term-node-date .td-num { display: inline-block; }
+    .term-node-date .td-sep { padding: 0 1px; color: var(--gold); }
+
+    .term-node-greg {
+        font-size: 0.74rem;
+        color: var(--ink-muted);
+        font-weight: 300;
+    }
+
+    .term-node-dot {
+        width: 13px; height: 13px;
+        border-radius: 50%;
+        background: var(--parchment);
+        border: 2px solid var(--gold);
+        margin-top: 0.3rem;
+        position: relative;
+        box-shadow: 0 0 0 0 rgba(192,154,98,0.5);
+    }
+    .term-node-dot.pulse { animation: term-pulse 2.6s ease-out infinite; }
+    @keyframes term-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(192,154,98,0.45); }
+        70%  { box-shadow: 0 0 0 10px rgba(192,154,98,0); }
+        100% { box-shadow: 0 0 0 0 rgba(192,154,98,0); }
+    }
+
+    /* Connecting animated line */
+    .term-track {
+        flex: 1.4;
+        height: 2px;
+        position: relative;
+        background: rgba(192,154,98,0.2);
+        border-radius: 2px;
+        margin-bottom: 1.9rem;
+        overflow: hidden;
+    }
+    .term-track::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        transform: translateX(-100%);
+        animation: term-flow 3.2s var(--ease) infinite;
+    }
+    @keyframes term-flow {
+        0%   { transform: translateX(-100%); }
+        60%  { transform: translateX(100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    /* Duration chip */
+    .term-duration {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 2.1rem;
+        position: relative;
+        z-index: 1;
+    }
+    .term-duration-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, var(--ink-mid), var(--ink-dark));
+        color: rgba(240,228,205,0.94);
+        border-radius: var(--r-pill);
+        padding: 0.5rem 1.4rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        box-shadow: 0 6px 20px -6px rgba(40,25,8,0.26);
+    }
+    .term-duration-chip i { font-size: 0.72rem; color: var(--gold-pale); }
+
+    @media (max-width: 540px) {
+        .term-card { padding: 2.2rem 1.4rem; }
+        .term-timeline { gap: 0.7rem; }
+        .term-node-date { font-size: clamp(1rem, 5vw, 1.3rem); }
+        .term-track { flex: 0.8; margin-bottom: 1.7rem; }
+        .term-node-greg { font-size: 0.68rem; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
        CLOSING
     ═══════════════════════════════════════════════════════════════ */
     .board-closing {
@@ -627,6 +889,8 @@
         .ch-rings::before { inset: -15px; }
         .ch-rings::after  { inset: -8px; }
 
+        .vice-portrait { width: 130px; height: 130px; }
+
         .members-assembly { gap: 0 2rem; }
         .member-medallion { width: 134px; }
         .mem-portrait { width: 118px; height: 118px; }
@@ -646,6 +910,8 @@
         .ch-rings::after  { inset: -6px; }
         .ch-name { font-size: clamp(1.3rem, 5vw, 1.75rem); }
 
+        .vice-portrait { width: 116px; height: 116px; }
+
         .members-assembly {
             gap: 2.2rem 2rem;
             padding: 0 0.5rem;
@@ -660,6 +926,7 @@
 
     @media (max-width: 400px) {
         .ch-portrait { width: 124px; height: 124px; }
+        .vice-portrait { width: 100px; height: 100px; }
         .member-medallion { width: 104px; }
         .mem-portrait { width: 90px; height: 90px; }
         .members-assembly { gap: 1.8rem 1.4rem; }
@@ -674,6 +941,7 @@
         .closing-eyebrow    { letter-spacing: 0.11em; }
     }
     </style>
+    <link rel="stylesheet" href="maintenance.css">
 </head>
 <body>
 <div class="site-wrapper">
@@ -693,7 +961,7 @@
             <a href="volunteer.html">التطوع</a>
             <a href="news.html">الأخبار</a>
             <a href="partnerships.html">الشراكات</a>
-            <a href="reports.html">التقارير</a>
+            <a href="reports.html">الحوكمة</a>
             <a href="board.html">مجلس الإدارة</a>
             <a href="contact.html">اتصل بنا</a>
         </div>
@@ -769,26 +1037,51 @@
             <div class="cdiv-line r"></div>
         </div>
 
-        <!-- ─── صف الشرف — أعضاء المجلس ─── -->
-        <div class="members-assembly" id="membersContainer">
-            <div class="member-medallion" data-reveal="up">
-                <div class="mem-portrait-wrap">
-                    <div class="mem-portrait">
-                        <img src="assets/صور اعضاء الادارة/محمد يوسف الشمري.png" alt="محمد يوسف الشمري" loading="lazy">
+        <!-- ─── نائب رئيس مجلس الإدارة ─── -->
+        <div id="viceContainer">
+            <div class="vice-medallion" data-reveal="up">
+                <div class="vice-badge">
+                    <span class="vice-badge-dot"></span>
+                    <span class="vice-badge-text">Vice Chairman · نائب الرئيس</span>
+                    <span class="vice-badge-dot"></span>
+                </div>
+                <div class="vice-rings">
+                    <div class="vice-portrait">
+                        <img src="assets/صور اعضاء الادارة/محمد يوسف الشمري.png" alt="محمد يوسف الشمري — نائب رئيس مجلس الإدارة" loading="lazy">
                         <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
-                    <span class="mem-num">٠١</span>
                 </div>
-                <div class="mem-name">محمد يوسف الشمري</div>
-                <div class="mem-role">نائب رئيس مجلس الإدارة</div>
+                <div class="vice-info">
+                    <h2 class="vice-name">محمد يوسف الشمري</h2>
+                    <div class="vice-role-line">
+                        <div class="vice-role-dash"></div>
+                        <span class="vice-role-ar">نائب رئيس مجلس الإدارة</span>
+                        <div class="vice-role-dash"></div>
+                    </div>
+                </div>
             </div>
+        </div>
+
+        <!-- ─── فاصل زخرفي ─── -->
+        <div class="council-divider" data-reveal="fade">
+            <div class="cdiv-line"></div>
+            <div class="cdiv-center">
+                <div class="cdiv-diamond sm"></div>
+                <div class="cdiv-diamond"></div>
+                <div class="cdiv-diamond sm"></div>
+            </div>
+            <div class="cdiv-line r"></div>
+        </div>
+
+        <!-- ─── صف الشرف — أعضاء المجلس ─── -->
+        <div class="members-assembly" id="membersContainer">
             <div class="member-medallion" data-reveal="up">
                 <div class="mem-portrait-wrap">
                     <div class="mem-portrait">
                         <img src="assets/صور اعضاء الادارة/سلطان عبدالرحمن الجباب.png" alt="سلطان عبدالرحمن الجباب" loading="lazy">
                         <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
-                    <span class="mem-num">٠٢</span>
+                    <span class="mem-num">٠١</span>
                 </div>
                 <div class="mem-name">سلطان عبدالرحمن الجباب</div>
                 <div class="mem-role">عضو مجلس إدارة</div>
@@ -799,7 +1092,7 @@
                         <img src="assets/صور اعضاء الادارة/حمده العنزي.png" alt="حمده بواع العنزي" loading="lazy">
                         <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
-                    <span class="mem-num">٠٣</span>
+                    <span class="mem-num">٠٢</span>
                 </div>
                 <div class="mem-name">حمده بواع العنزي</div>
                 <div class="mem-role">عضو مجلس إدارة</div>
@@ -810,13 +1103,61 @@
                         <img src="assets/صور اعضاء الادارة/عبدالله مسير البلعاسي.png" alt="عبدالله مسير البلعاسي" loading="lazy">
                         <div class="circle-ph"><i class="fas fa-user"></i></div>
                     </div>
-                    <span class="mem-num">٠٤</span>
+                    <span class="mem-num">٠٣</span>
                 </div>
                 <div class="mem-name">عبدالله مسير البلعاسي</div>
                 <div class="mem-role">عضو مجلس إدارة</div>
             </div>
         </div>
 
+    </section>
+
+
+    <!-- ══════════════════════════════════════
+         BOARD TERM — مدة مجلس الإدارة
+    ══════════════════════════════════════ -->
+    <section class="term-section" aria-label="مدة مجلس الإدارة">
+        <div class="section-rule" data-reveal="fade">
+            <span class="sr-text">Board Term · مدة المجلس</span>
+            <div class="sr-diamond"></div>
+            <div class="sr-line"></div>
+        </div>
+
+        <div class="term-card" data-reveal="up">
+            <div class="term-head">
+                <i class="fas fa-calendar-check" aria-hidden="true"></i>
+                <span class="term-head-text">مدة الدورة الحالية لمجلس الإدارة</span>
+            </div>
+
+            <div class="term-timeline">
+                <div class="term-node">
+                    <span class="term-node-badge">بداية الدورة</span>
+                    <span class="term-node-date" aria-label="2026-02-08">
+                        <span class="td-num" data-target="2026">2026</span><span class="td-sep">-</span><span class="td-num" data-target="2" data-pad="2">02</span><span class="td-sep">-</span><span class="td-num" data-target="8" data-pad="2">08</span>
+                    </span>
+                    <span class="term-node-greg">٨ فبراير ٢٠٢٦</span>
+                    <span class="term-node-dot pulse"></span>
+                </div>
+
+                <div class="term-track" aria-hidden="true"></div>
+
+                <div class="term-node">
+                    <span class="term-node-badge">نهاية الدورة</span>
+                    <span class="term-node-date" aria-label="2028-01-29">
+                        <span class="td-num" data-target="2028">2028</span><span class="td-sep">-</span><span class="td-num" data-target="1" data-pad="2">01</span><span class="td-sep">-</span><span class="td-num" data-target="29" data-pad="2">29</span>
+                    </span>
+                    <span class="term-node-greg">٢٩ يناير ٢٠٢٨</span>
+                    <span class="term-node-dot"></span>
+                </div>
+            </div>
+
+            <div class="term-duration">
+                <span class="term-duration-chip">
+                    <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+                    مدة الدورة : ثلاث سنوات
+                </span>
+            </div>
+        </div>
     </section>
 
 
@@ -904,9 +1245,10 @@ async function loadBoard() {
 
         const members = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        // Chairman = order 0 or first entry
+        // Chairman = first entry · Vice = second entry · rest = members
         const chairman = members[0];
-        const rest     = members.slice(1);
+        const vice     = members[1];
+        const rest     = members.slice(2);
 
         // — Chairman medallion —
         const chairEl = document.getElementById('chairmanContainer');
@@ -935,6 +1277,35 @@ async function loadBoard() {
                 </div>
             </div>`;
             initRevealTargets(chairEl);
+        }
+
+        // — Vice-chairman medallion —
+        const viceEl = document.getElementById('viceContainer');
+        if (viceEl && vice) {
+            viceEl.innerHTML = `
+            <div class="vice-medallion" data-reveal="up">
+                <div class="vice-badge">
+                    <span class="vice-badge-dot"></span>
+                    <span class="vice-badge-text">Vice Chairman · نائب الرئيس</span>
+                    <span class="vice-badge-dot"></span>
+                </div>
+                <div class="vice-rings">
+                    <div class="vice-portrait">
+                        ${vice.imageUrl
+                            ? `<img src="${esc(vice.imageUrl)}" alt="${esc(vice.name)}" loading="lazy">`
+                            : `<div class="circle-ph"><i class="fas fa-user"></i></div>`}
+                    </div>
+                </div>
+                <div class="vice-info">
+                    <h2 class="vice-name">${esc(vice.name)}</h2>
+                    <div class="vice-role-line">
+                        <div class="vice-role-dash"></div>
+                        <span class="vice-role-ar">${esc(vice.position||'نائب رئيس مجلس الإدارة')}</span>
+                        <div class="vice-role-dash"></div>
+                    </div>
+                </div>
+            </div>`;
+            initRevealTargets(viceEl);
         }
 
         // — Members assembly (صف الشرف) —
@@ -1000,7 +1371,63 @@ loadBoard();
         });
     }
 
-    function init() { initReveal(); initNav(); }
+    /* ─── Counting animation for board-term dates ───
+       Each numeric part (year / month / day) counts up
+       from a small value to its target when the card
+       scrolls into view. */
+    function animateNumber(el) {
+        var target   = parseInt(el.getAttribute('data-target'), 10);
+        var pad      = parseInt(el.getAttribute('data-pad'), 10) || 0;
+        var duration = 1400;                       /* ms */
+        var start    = Math.max(0, target - 40);   /* start a bit below target */
+        if (target >= 1000) start = target - 120;  /* years roll a longer way */
+        var startTime = null;
+
+        function fmt(v) {
+            var s = String(v);
+            while (s.length < pad) s = '0' + s;
+            return s;
+        }
+        /* easeOutCubic */
+        function ease(t) { return 1 - Math.pow(1 - t, 3); }
+
+        function step(now) {
+            if (startTime === null) startTime = now;
+            var p = Math.min((now - startTime) / duration, 1);
+            var val = Math.round(start + (target - start) * ease(p));
+            el.textContent = fmt(val);
+            if (p < 1) {
+                requestAnimationFrame(step);
+            } else {
+                el.textContent = fmt(target);
+            }
+        }
+        requestAnimationFrame(step);
+    }
+
+    function initTermCount() {
+        var card = document.querySelector('.term-card');
+        if (!card) return;
+        var nums = card.querySelectorAll('.td-num');
+
+        function run() {
+            nums.forEach(function(el) { animateNumber(el); });
+        }
+
+        if (!window.IntersectionObserver) { run(); return; }
+
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    run();
+                    io.disconnect();
+                }
+            });
+        }, { threshold: 0.35 });
+        io.observe(card);
+    }
+
+    function init() { initReveal(); initNav(); initTermCount(); }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
@@ -1009,5 +1436,6 @@ loadBoard();
     }
 }());
 </script>
+<script type="module" src="maintenance.js"></script>
 </body>
 </html>
