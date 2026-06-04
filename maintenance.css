@@ -23,11 +23,19 @@ body.mnt-locked {
     height: 100% !important;
 }
 
+/* While the maintenance flag is being checked, hide the real site
+   content so the visitor never sees a flash of the page. The overlay
+   element keeps its own visibility:visible (see .mnt-overlay below). */
+html.mnt-checking body > *:not(.mnt-overlay) {
+    visibility: hidden !important;
+}
+
 /* ── Overlay shell ── */
 .mnt-overlay {
     position: fixed;
     inset: 0;
     z-index: 99999;
+    visibility: visible !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -271,8 +279,105 @@ body.mnt-locked {
     color: var(--mnt-amber);
 }
 
+/* ── Contact block under the message ── */
+.mnt-contact {
+    margin-top: 2.4rem;
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.4rem;
+    opacity: 0;
+    animation: mnt-rise 0.8s var(--mnt-ease) 0.84s forwards;
+}
+
+.mnt-contact-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.58rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--mnt-amber);
+}
+.mnt-contact-label .ln {
+    width: 30px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(192,154,98,0.5));
+}
+.mnt-contact-label .ln.r { background: linear-gradient(90deg, rgba(192,154,98,0.5), transparent); }
+
+/* Direct contact rows (phone + email) */
+.mnt-contact-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    width: 100%;
+}
+.mnt-contact-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    padding: 0.7rem 1.2rem;
+    background: rgba(253, 250, 240, 0.7);
+    border: 1px solid rgba(192,154,98,0.28);
+    border-radius: 12px;
+    color: var(--mnt-ink);
+    font-size: 0.92rem;
+    font-weight: 700;
+    transition: border-color 0.25s var(--mnt-ease), transform 0.25s var(--mnt-ease), box-shadow 0.25s;
+}
+.mnt-contact-item:hover {
+    border-color: rgba(192,154,98,0.55);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -10px rgba(40,25,8,0.25);
+}
+.mnt-contact-item i {
+    width: 30px; height: 30px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(160deg, var(--mnt-ink-dark), #2e1e0f);
+    color: var(--mnt-gold-pale);
+    font-size: 0.82rem;
+}
+.mnt-contact-item .val { direction: ltr; letter-spacing: 0.01em; }
+
+/* Social icons row */
+.mnt-social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+}
+.mnt-social a {
+    width: 42px; height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(253, 250, 240, 0.8);
+    border: 1px solid rgba(192,154,98,0.3);
+    color: var(--mnt-ink);
+    font-size: 1.05rem;
+    transition: transform 0.25s var(--mnt-ease), border-color 0.25s, background 0.25s, color 0.25s;
+}
+.mnt-social a:hover {
+    transform: translateY(-3px);
+    border-color: rgba(192,154,98,0.6);
+    background: var(--mnt-ink-dark);
+    color: var(--mnt-gold-pale);
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
+    .mnt-contact { margin-top: 2rem; }
+    .mnt-contact-item { font-size: 0.85rem; padding: 0.62rem 1rem; }
+    .mnt-social a { width: 38px; height: 38px; font-size: 0.95rem; }
     .mnt-logo-rings { width: 160px; height: 160px; margin-bottom: 2rem; }
     .mnt-logo-disc  { width: 98px; height: 98px; }
     .mnt-logo-disc img { width: 64px; height: 64px; }
