@@ -69,9 +69,9 @@ function buildOverlay(data){
         </span>
 
         <div class="mnt-contact-rows">
-          <a class="mnt-contact-item" href="tel:+966503038520">
+          <a class="mnt-contact-item" href="tel:+966556420066">
             <i class="fas fa-phone" aria-hidden="true"></i>
-            <span class="val">+966 50 303 8520</span>
+            <span class="val">+966 55 642 0066</span>
           </a>
           <a class="mnt-contact-item" href="mailto:arthwhdarh@gmail.com">
             <i class="fas fa-envelope" aria-hidden="true"></i>

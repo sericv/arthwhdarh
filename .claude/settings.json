@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git checkout*)",
+      "Bash(git branch*)",
+      "Bash(git stash*)",
+      "Bash(git fetch*)",
+      "Bash(git pull*)",
+      "Bash(git push*)",
+      "Bash(git merge*)",
+      "Bash(git rebase*)",
+      "Bash(git remote*)",
+      "Bash(git show*)",
+      "Bash(npm install*)",
+      "Bash(npm run*)",
+      "Bash(npm test*)",
+      "Bash(npm ci*)",
+      "Bash(npm start*)",
+      "Bash(npm exec*)",
+      "Bash(npx playwright*)",
+      "Bash(npx http-server*)",
+      "Bash(node *)",
+      "Bash(python -m http.server*)",
+      "Bash(python3 -m http.server*)",
+      "Bash(curl -s -o /dev/null*)",
+      "Bash(curl -s http://localhost*)",
+      "Bash(curl -s http://127.0.0.1*)"
+    ]
+  }
+}

@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
     <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="design-system.css">
     <!-- Volunteer stylesheet -->
     <link rel="stylesheet" href="volunteer.css">
     <link rel="stylesheet" href="maintenance.css">
@@ -22,7 +23,7 @@
     <!-- ════════════════════════════════════════
          NAVIGATION
     ════════════════════════════════════════ -->
-    <nav class="nav-container" aria-label="التنقل الرئيسي">
+    <nav class="nav-container" id="mainNav" aria-label="التنقل الرئيسي">
         <div class="logo-area-nav">
             <img
                 src="assets/الشعار/الشعار.png"
@@ -36,15 +37,43 @@
         <div class="nav-links">
             <a href="index.html">الرئيسية</a>
             <a href="activities.html">الفعاليات</a>
-            <a href="heritage-crafts.html">التراث والحرف</a>
-            <a href="volunteer.html">التطوع</a>
+            <a href="volunteer.html" class="active">التطوع</a>
             <a href="news.html">الأخبار</a>
             <a href="partnerships.html">الشراكات</a>
             <a href="reports.html">الحوكمة</a>
             <a href="board.html">مجلس الإدارة</a>
             <a href="contact.html">اتصل بنا</a>
         </div>
+        <button class="mobile-toggle" id="mobileToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="mobileMenu">
+            <span class="mobile-toggle-bar"></span>
+            <span class="mobile-toggle-bar"></span>
+            <span class="mobile-toggle-bar"></span>
+        </button>
     </nav>
+
+    <!-- ══ MOBILE MENU ══ -->
+    <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+        <div class="mobile-menu-panel">
+            <div class="mobile-menu-head">
+                <span class="association-name-nav">القائمة</span>
+                <button class="mobile-close" id="mobileClose" aria-label="إغلاق القائمة">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <nav class="mobile-menu-links" aria-label="التنقل في الجوال">
+                <a href="index.html">الرئيسية</a>
+                <a href="activities.html">الفعاليات</a>
+                <a href="volunteer.html" class="active">التطوع</a>
+                <a href="news.html">الأخبار</a>
+                <a href="partnerships.html">الشراكات</a>
+                <a href="reports.html">الحوكمة</a>
+                <a href="board.html">مجلس الإدارة</a>
+                <a href="contact.html">اتصل بنا</a>
+            </nav>
+        </div>
+    </div>
 
 
     <!-- ════════════════════════════════════════════════════════
@@ -98,14 +127,14 @@
          ١ — بيدي حرفة
          Editorial section: craft heritage programme registration
     ════════════════════════════════════════════════════════════════════ -->
-    <section class="vl-programme" data-id="bidaydi" aria-labelledby="bidaydi-title">
+    <section class="vl-programme" id="bidaydi" data-id="bidaydi" aria-labelledby="bidaydi-title">
 
         <div class="vl-programme-inner">
 
             <!-- Visual panel — left on desktop — Real image -->
             <div class="vl-programme-visual" data-reveal="right">
 
-                <div class="vl-visual-frame" style="padding:0;overflow:hidden;background:#1e1208;">
+                <div class="vl-visual-frame" style="padding:0;overflow:hidden;background:var(--c-surface-2);">
 
                     <!-- Real uploaded image -->
                     <img
@@ -140,7 +169,7 @@
                     <div style="
                         position:absolute;
                         inset:12px;
-                        border:1px solid rgba(192,154,98,0.25);
+                        border:1px solid rgba(184,136,62,0.25);
                         border-radius:20px;
                         pointer-events:none;
                         z-index:3;
@@ -196,7 +225,7 @@
          ٢ — التطوع
          Editorial section: general volunteer programme registration
     ════════════════════════════════════════════════════════════════════ -->
-    <section class="vl-programme vl-programme--volunteer" data-id="volunteer" aria-labelledby="volunteer-title">
+    <section class="vl-programme vl-programme--volunteer" id="volunteer" data-id="volunteer" aria-labelledby="volunteer-title">
 
         <div class="vl-programme-inner vl-programme-inner--flipped">
 
@@ -238,7 +267,7 @@
             <!-- Visual panel — right on desktop (flipped) — Real image -->
             <div class="vl-programme-visual" data-reveal="left">
 
-                <div class="vl-visual-frame vl-visual-frame--volunteer" style="padding:0;overflow:hidden;background:#1e1208;">
+                <div class="vl-visual-frame vl-visual-frame--volunteer" style="padding:0;overflow:hidden;background:var(--c-surface-2);">
 
                     <!-- Real uploaded image -->
                     <img
@@ -275,7 +304,7 @@
                     <div style="
                         position:absolute;
                         inset:12px;
-                        border:1px solid rgba(192,154,98,0.25);
+                        border:1px solid rgba(184,136,62,0.25);
                         border-radius:20px;
                         pointer-events:none;
                         z-index:3;
@@ -343,9 +372,9 @@
         <div class="vl-closing-ornament" aria-hidden="true">
             <div class="vl-closing-line"></div>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <rect x="10.5" y="0" width="3" height="24" rx="1.5" fill="rgba(192,154,98,0.22)"/>
-                <rect x="0" y="10.5" width="24" height="3" rx="1.5" fill="rgba(192,154,98,0.22)"/>
-                <circle cx="12" cy="12" r="5" stroke="#c09a62" stroke-width="1.4"/>
+                <rect x="10.5" y="0" width="3" height="24" rx="1.5" fill="rgba(184,136,62,0.22)"/>
+                <rect x="0" y="10.5" width="24" height="3" rx="1.5" fill="rgba(184,136,62,0.22)"/>
+                <circle cx="12" cy="12" r="5" stroke="#b8883e" stroke-width="1.4"/>
             </svg>
             <div class="vl-closing-line vl-closing-line--rev"></div>
         </div>
@@ -645,9 +674,9 @@
       <div class="bdy-success-ornament" aria-hidden="true">
         <div class="bdy-success-ring">
           <svg viewBox="0 0 48 48" fill="none">
-            <circle cx="24" cy="24" r="22" stroke="rgba(192,154,98,0.25)" stroke-width="1.5"/>
-            <circle cx="24" cy="24" r="16" stroke="rgba(192,154,98,0.18)" stroke-width="1"/>
-            <path d="M14 24l7 7 13-14" stroke="#c09a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="24" r="22" stroke="rgba(184,136,62,0.25)" stroke-width="1.5"/>
+            <circle cx="24" cy="24" r="16" stroke="rgba(184,136,62,0.18)" stroke-width="1"/>
+            <path d="M14 24l7 7 13-14" stroke="#b8883e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
       </div>
@@ -858,9 +887,9 @@
       <div class="bdy-success-ornament" aria-hidden="true">
         <div class="bdy-success-ring">
           <svg viewBox="0 0 48 48" fill="none">
-            <circle cx="24" cy="24" r="22" stroke="rgba(192,154,98,0.25)" stroke-width="1.5"/>
-            <circle cx="24" cy="24" r="16" stroke="rgba(192,154,98,0.18)" stroke-width="1"/>
-            <path d="M14 24l7 7 13-14" stroke="#c09a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="24" r="22" stroke="rgba(184,136,62,0.25)" stroke-width="1.5"/>
+            <circle cx="24" cy="24" r="16" stroke="rgba(184,136,62,0.18)" stroke-width="1"/>
+            <path d="M14 24l7 7 13-14" stroke="#b8883e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
       </div>
@@ -883,13 +912,13 @@
 
 <!-- ══ STYLES ══ -->
 <style>
-/* ─── TOKENS ─── */
+/* ─── TOKENS — white institutional theme (mirrors design-system.css) ─── */
 :root{
-  --bdy-parchment:#faf6ed; --bdy-paper:#f5ede0; --bdy-deep:#ede3cf;
-  --bdy-ink:#1e1610; --bdy-ink-s:#3a2a1c; --bdy-ink-m:#4f3822; --bdy-ink-mut:#6b4f35;
-  --bdy-gold:#c09a62; --bdy-gold-s:#b28a5a; --bdy-gold-d:#9c6e38; --bdy-gold-p:#e0c896;
-  --bdy-line:rgba(60,40,20,0.14); --bdy-line-s:rgba(60,40,20,0.08);
-  --bdy-danger:#7a2518;
+  --bdy-parchment:#ffffff; --bdy-paper:#fbfaf8; --bdy-deep:#f8f7f5;
+  --bdy-ink:#1c1a17; --bdy-ink-s:#2c2922; --bdy-ink-m:#5a5650; --bdy-ink-mut:#8a8478;
+  --bdy-gold:#b8883e; --bdy-gold-s:#d4a855; --bdy-gold-d:#b8883e; --bdy-gold-p:rgba(184,136,62,0.12);
+  --bdy-line:rgba(28,26,23,0.10); --bdy-line-s:rgba(28,26,23,0.06);
+  --bdy-danger:#b3392c;
   --bdy-ease:cubic-bezier(0.22,1,0.36,1);
   --bdy-ease-in:cubic-bezier(0.77,0,0.175,1);
 }
@@ -906,9 +935,9 @@
 
 .bdy-backdrop{
   position:absolute;inset:0;
-  background:rgba(15,9,3,0.72);
-  backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px);
+  background:rgba(20,18,14,0.45);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
 }
 
 /* ─── SHELL ─── */
@@ -917,9 +946,9 @@
   width:100%;max-width:780px;
   max-height:90vh;overflow-y:auto;
   background:var(--bdy-parchment);
-  border-radius:20px;
-  border:1px solid rgba(192,154,98,0.22);
-  box-shadow:0 40px 100px -30px rgba(10,5,1,0.55),0 0 0 1px rgba(192,154,98,0.1);
+  border-radius:22px;
+  border:1px solid var(--bdy-line);
+  box-shadow:0 24px 56px -16px rgba(20,16,8,0.22),0 0 0 1px rgba(184,136,62,0.06);
   transform:translateY(20px) scale(0.97);
   transition:transform 0.45s var(--bdy-ease);
   scroll-behavior:smooth;
@@ -930,27 +959,23 @@
 /* scrollbar */
 .bdy-shell::-webkit-scrollbar{width:4px;}
 .bdy-shell::-webkit-scrollbar-track{background:transparent;}
-.bdy-shell::-webkit-scrollbar-thumb{background:rgba(192,154,98,0.25);border-radius:2px;}
+.bdy-shell::-webkit-scrollbar-thumb{background:rgba(184,136,62,0.25);border-radius:2px;}
 
-/* grain */
-.bdy-grain{
-  position:absolute;inset:0;pointer-events:none;border-radius:20px;z-index:0;
-  opacity:0.18;mix-blend-mode:multiply;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.12  0 0 0 0 0.08  0 0 0 0.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-}
+/* grain — removed for clean white surface */
+.bdy-grain{ display:none; }
 
 /* accent bar */
-.bdy-accent-bar{position:absolute;top:0;right:0;width:3px;height:56px;background:var(--bdy-gold);border-radius:0 20px 0 0;z-index:2;}
+.bdy-accent-bar{position:absolute;top:0;right:0;width:3px;height:56px;background:var(--bdy-gold);border-radius:0 22px 0 0;z-index:2;}
 
 /* close button */
 .bdy-close{
   position:absolute;top:18px;left:18px;z-index:10;
   width:34px;height:34px;border-radius:50%;
-  border:1px solid var(--bdy-line);background:rgba(250,246,237,0.8);
+  border:1px solid var(--bdy-line);background:var(--bdy-paper);
   display:grid;place-items:center;cursor:pointer;color:var(--bdy-ink-m);
   transition:all 0.2s;backdrop-filter:blur(4px);
 }
-.bdy-close:hover{border-color:var(--bdy-ink);color:var(--bdy-ink);}
+.bdy-close:hover{border-color:var(--bdy-gold-s);color:var(--bdy-ink);background:var(--bdy-gold-p);}
 .bdy-close svg{width:13px;height:13px;}
 
 /* ─── STEP ─── */
@@ -959,8 +984,8 @@
 /* ─── HEADER ─── */
 .bdy-header{margin-bottom:34px;text-align:center;}
 .bdy-eyebrow-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:18px;}
-.bdy-eyebrow-line{height:1px;width:40px;background:linear-gradient(90deg,transparent,rgba(192,154,98,0.4));}
-.bdy-eyebrow-line--rev{background:linear-gradient(90deg,rgba(192,154,98,0.4),transparent);}
+.bdy-eyebrow-line{height:1px;width:40px;background:linear-gradient(90deg,transparent,rgba(184,136,62,0.35));}
+.bdy-eyebrow-line--rev{background:linear-gradient(90deg,rgba(184,136,62,0.35),transparent);}
 .bdy-eyebrow{font-family:"Montserrat",sans-serif;font-style:italic;font-size:10.5px;color:var(--bdy-ink-mut);letter-spacing:0.18em;text-transform:uppercase;}
 .bdy-title{font-family:"Almarai",sans-serif;font-weight:800;font-size:clamp(1.6rem,3vw,2.4rem);color:var(--bdy-ink);line-height:1.25;margin-bottom:12px;}
 .bdy-title-accent{color:var(--bdy-gold-d);}
@@ -981,7 +1006,7 @@
   outline:none;transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
   width:100%;
 }
-.bdy-input:focus{border-color:var(--bdy-gold-s);background:var(--bdy-parchment);box-shadow:0 0 0 3px rgba(192,154,98,0.1);}
+.bdy-input:focus{border-color:var(--bdy-gold-s);background:var(--bdy-parchment);box-shadow:0 0 0 3px rgba(184,136,62,0.12);}
 .bdy-input.invalid{border-color:var(--bdy-danger);}
 .bdy-err{font-size:11.5px;color:var(--bdy-danger);min-height:16px;font-family:"Montserrat",sans-serif;font-style:italic;}
 
@@ -994,7 +1019,7 @@
   font-size:14px;font-family:"Almarai",sans-serif;color:var(--bdy-ink);
   outline:none;cursor:pointer;transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
 }
-.bdy-select:focus{border-color:var(--bdy-gold-s);background:var(--bdy-parchment);box-shadow:0 0 0 3px rgba(192,154,98,0.1);}
+.bdy-select:focus{border-color:var(--bdy-gold-s);background:var(--bdy-parchment);box-shadow:0 0 0 3px rgba(184,136,62,0.12);}
 .bdy-select.invalid{border-color:var(--bdy-danger);}
 .bdy-select-arrow{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--bdy-ink-mut);pointer-events:none;}
 
@@ -1085,18 +1110,18 @@
 .bdy-submit-row{margin-top:8px;}
 .bdy-submit-btn{
   width:100%;padding:15px 28px;
-  background:linear-gradient(135deg,var(--bdy-ink) 0%,#2e1e0f 100%);
+  background:var(--bdy-ink);
   color:var(--bdy-parchment);
-  border:1px solid rgba(192,154,98,0.2);
-  border-radius:10px;
+  border:1px solid transparent;
+  border-radius:100px;
   font-family:"Almarai",sans-serif;font-size:15px;font-weight:800;
   cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:12px;
   transition:transform 0.35s var(--bdy-ease),box-shadow 0.35s var(--bdy-ease),background 0.25s;
-  box-shadow:0 8px 28px -8px rgba(20,10,2,0.38),inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow:0 10px 30px -10px rgba(20,16,8,0.28);
   letter-spacing:0.01em;
 }
-.bdy-submit-btn:hover{transform:translateY(-2px);box-shadow:0 16px 40px -10px rgba(20,10,2,0.42),inset 0 1px 0 rgba(255,255,255,0.06);}
+.bdy-submit-btn:hover{background:var(--bdy-gold);transform:translateY(-2px);box-shadow:0 10px 30px -10px rgba(184,136,62,0.4);}
 .bdy-submit-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
 .bdy-submit-btn svg{width:16px;height:16px;}
 @keyframes bdySpin{to{transform:rotate(360deg);}}
@@ -1130,16 +1155,16 @@
 .bdy-back-btn svg{width:14px;height:14px;}
 .bdy-confirm-btn{
   flex:1;padding:14px 24px;
-  background:var(--bdy-gold-d);
-  color:var(--bdy-parchment);
-  border:none;border-radius:10px;
+  background:var(--bdy-gold);
+  color:#fff;
+  border:none;border-radius:100px;
   font-family:"Almarai",sans-serif;font-size:14.5px;font-weight:800;
   cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:10px;
   transition:background 0.25s,transform 0.3s var(--bdy-ease),box-shadow 0.3s;
-  box-shadow:0 8px 24px -6px rgba(156,110,56,0.4);
+  box-shadow:0 10px 30px -10px rgba(184,136,62,0.4);
 }
-.bdy-confirm-btn:hover{background:#8a5e2a;transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(156,110,56,0.45);}
+.bdy-confirm-btn:hover{background:var(--bdy-gold-s);transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(184,136,62,0.45);}
 .bdy-confirm-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
 .bdy-confirm-btn svg{width:14px;height:14px;}
 
@@ -1149,8 +1174,8 @@
 .bdy-success-ring{width:80px;height:80px;margin:0 auto;}
 .bdy-success-ring svg{width:100%;height:100%;}
 .bdy-success-ornament-line{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:28px;}
-.bdy-orn-l{height:1px;width:52px;background:linear-gradient(90deg,transparent,rgba(192,154,98,0.4));}
-.bdy-orn-l--rev{background:linear-gradient(90deg,rgba(192,154,98,0.4),transparent);}
+.bdy-orn-l{height:1px;width:52px;background:linear-gradient(90deg,transparent,rgba(184,136,62,0.35));}
+.bdy-orn-l--rev{background:linear-gradient(90deg,rgba(184,136,62,0.35),transparent);}
 .bdy-orn-diamond{width:7px;height:7px;background:var(--bdy-gold);transform:rotate(45deg);}
 .bdy-success-title{font-family:"Almarai",sans-serif;font-weight:800;font-size:clamp(1.6rem,3vw,2.2rem);color:var(--bdy-ink);margin-bottom:16px;}
 .bdy-success-msg{font-size:14.5px;color:var(--bdy-ink-m);line-height:1.9;font-weight:300;max-width:480px;margin:0 auto 24px;}
@@ -1158,15 +1183,15 @@
 .bdy-success-ref{font-family:"Montserrat",sans-serif;font-style:italic;font-size:11px;color:var(--bdy-ink-mut);letter-spacing:0.14em;margin-bottom:32px;min-height:18px;}
 .bdy-done-btn{
   display:inline-flex;align-items:center;gap:10px;
-  padding:13px 32px;border-radius:10px;
+  padding:13px 32px;border-radius:100px;
   background:var(--bdy-ink);color:var(--bdy-parchment);
-  border:1px solid rgba(192,154,98,0.2);
+  border:1px solid transparent;
   font-family:"Almarai",sans-serif;font-size:14px;font-weight:800;
   cursor:pointer;
-  transition:transform 0.3s var(--bdy-ease),box-shadow 0.3s;
-  box-shadow:0 8px 24px -6px rgba(20,10,2,0.32);
+  transition:background 0.25s,transform 0.3s var(--bdy-ease),box-shadow 0.3s;
+  box-shadow:0 10px 30px -10px rgba(20,16,8,0.28);
 }
-.bdy-done-btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(20,10,2,0.36);}
+.bdy-done-btn:hover{background:var(--bdy-gold);transform:translateY(-2px);box-shadow:0 10px 30px -10px rgba(184,136,62,0.4);}
 .bdy-done-btn svg{width:15px;height:15px;}
 
 /* ─── CALENDAR TOGGLE ─── */
@@ -1192,7 +1217,7 @@
 .bdy-cal-btn.active{
   background:var(--bdy-ink);color:var(--bdy-parchment);
   border-radius:6px;
-  box-shadow:0 3px 10px -3px rgba(30,22,10,.3);
+  box-shadow:0 3px 10px -3px rgba(20,16,8,.25);
 }
 .bdy-cal-btn:not(.active):hover{
   background:var(--bdy-deep);color:var(--bdy-ink);
@@ -1233,7 +1258,7 @@
 .bdy-date-sel:focus{
   border-color:var(--bdy-gold-s);
   background:var(--bdy-parchment);
-  box-shadow:0 0 0 3px rgba(192,154,98,0.12);
+  box-shadow:0 0 0 3px rgba(184,136,62,0.14);
 }
 .bdy-date-sel.invalid{border-color:var(--bdy-danger);}
 .bdy-date-sel:invalid,:where(.bdy-date-sel) option[value=""]{
@@ -1836,5 +1861,40 @@ $('frConfirmBtn').addEventListener('click', async () => {
 
 <script src="volunteer.js"></script>
 <script type="module" src="maintenance.js"></script>
+
+<script>
+(function(){
+    /* ── Nav scroll state ── */
+    var nav = document.getElementById('mainNav');
+    if(nav){
+        var onScroll = function(){ nav.classList.toggle('scrolled', window.scrollY > 20); };
+        window.addEventListener('scroll', onScroll, {passive:true});
+        onScroll();
+    }
+
+    /* ── Mobile menu ── */
+    var toggle = document.getElementById('mobileToggle');
+    var menu   = document.getElementById('mobileMenu');
+    var mclose = document.getElementById('mobileClose');
+    if(toggle && menu && mclose){
+        var openMenu = function(){
+            menu.classList.add('open');
+            menu.setAttribute('aria-hidden','false');
+            toggle.setAttribute('aria-expanded','true');
+            document.body.style.overflow='hidden';
+        };
+        var shutMenu = function(){
+            menu.classList.remove('open');
+            menu.setAttribute('aria-hidden','true');
+            toggle.setAttribute('aria-expanded','false');
+            document.body.style.overflow='';
+        };
+        toggle.addEventListener('click', openMenu);
+        mclose.addEventListener('click', shutMenu);
+        menu.addEventListener('click', function(e){ if(e.target===menu) shutMenu(); });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape') shutMenu(); });
+    }
+})();
+</script>
 </body>
 </html>

@@ -1,0 +1,103 @@
+/* ═══════════════════════════════════════════════════════════════════
+   DESIGN-SYSTEM.CSS — جمعية إرث وحضارة بالقريات
+   Shared white-theme design tokens — Document Center & future pages
+   Inspired by Apple / Linear / Notion / Stripe / Arc / Vercel / Framer
+═══════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ── Surfaces ── */
+    --c-bg:             #ffffff;
+    --c-bg-soft:        #f8f7f5;
+    --c-surface:        #ffffff;
+    --c-surface-2:      #fbfaf8;
+    --c-glass:          rgba(255, 255, 255, 0.72);
+    --c-glass-strong:   rgba(255, 255, 255, 0.88);
+
+    /* ── Text ── */
+    --c-text-primary:   #1c1a17;
+    --c-text-secondary: #5a5650;
+    --c-text-muted:     #8a8478;
+
+    /* ── Accent (heritage gold, desaturated for white theme) ── */
+    --c-gold:           #b8883e;
+    --c-gold-soft:      #d4a855;
+    --c-gold-pale:      rgba(184, 136, 62, 0.12);
+    --c-gold-line:      rgba(184, 136, 62, 0.30);
+
+    /* ── Borders & dividers ── */
+    --c-border:         rgba(28, 26, 23, 0.08);
+    --c-border-soft:    rgba(28, 26, 23, 0.05);
+
+    /* ── Shadows ── */
+    --shadow-xs:        0 1px 3px rgba(20, 16, 8, 0.04);
+    --shadow-sm:        0 4px 14px -4px rgba(20, 16, 8, 0.07);
+    --shadow-md:        0 12px 32px -8px rgba(20, 16, 8, 0.10);
+    --shadow-lg:        0 24px 56px -16px rgba(20, 16, 8, 0.14);
+    --shadow-gold:      0 10px 30px -10px rgba(184, 136, 62, 0.28);
+
+    /* ── Radii ── */
+    --r-sm:             10px;
+    --r-md:             16px;
+    --r-lg:             22px;
+    --r-pill:           100px;
+
+    /* ── Motion ── */
+    --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring:      cubic-bezier(0.22, 1, 0.36, 1);
+    --dur-fast:         180ms;
+    --dur-base:         280ms;
+    --dur-slow:         420ms;
+
+    /* ── Layout ── */
+    --nav-h:            68px;
+    --container-max:    1280px;
+
+    /* ── Spacing scale ── */
+    --sp-1:  4px;
+    --sp-2:  8px;
+    --sp-3:  12px;
+    --sp-4:  16px;
+    --sp-5:  24px;
+    --sp-6:  32px;
+    --sp-7:  48px;
+    --sp-8:  64px;
+    --sp-9:  96px;
+
+    /* ── Type ── */
+    --font-arabic: 'Almarai', 'Segoe UI', sans-serif;
+    --font-latin:  'Montserrat', sans-serif;
+}
+
+/* ── Dark mode (prefers-color-scheme) ── */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --c-bg:             #16140f;
+        --c-bg-soft:        #1c1a15;
+        --c-surface:        #1f1d18;
+        --c-surface-2:      #242019;
+        --c-glass:          rgba(31, 29, 24, 0.72);
+        --c-glass-strong:   rgba(36, 32, 25, 0.88);
+
+        --c-text-primary:   #f3f0ea;
+        --c-text-secondary: #c8c2b6;
+        --c-text-muted:     #948c7d;
+
+        --c-border:         rgba(255, 255, 255, 0.08);
+        --c-border-soft:    rgba(255, 255, 255, 0.05);
+
+        --shadow-xs:        0 1px 3px rgba(0, 0, 0, 0.20);
+        --shadow-sm:        0 4px 14px -4px rgba(0, 0, 0, 0.30);
+        --shadow-md:        0 12px 32px -8px rgba(0, 0, 0, 0.36);
+        --shadow-lg:        0 24px 56px -16px rgba(0, 0, 0, 0.46);
+    }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

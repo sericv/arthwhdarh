@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
     <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="design-system.css">
     <!-- Activities stylesheet -->
     <link rel="stylesheet" href="activities.css">
     <link rel="stylesheet" href="maintenance.css">
@@ -22,15 +23,14 @@
     <!-- ════════════════════════════════════════
          NAVIGATION
     ════════════════════════════════════════ -->
-    <nav class="nav-container" aria-label="التنقل الرئيسي">
+    <nav class="nav-container" id="mainNav" aria-label="التنقل الرئيسي">
         <div class="logo-area-nav">
             <img src="assets/الشعار/الشعار.png" alt="شعار جمعية إرث وحضارة بالقريات" style="height:52px;width:auto;object-fit:contain;display:block;flex-shrink:0;" loading="eager">
             <span class="association-name-nav">جمعية إرث وحضارة بالقريات</span>
         </div>
         <div class="nav-links">
             <a href="index.html">الرئيسية</a>
-            <a href="activities.html">الفعاليات</a>
-            <a href="heritage-crafts.html">التراث والحرف</a>
+            <a href="activities.html" class="active">الفعاليات</a>
             <a href="volunteer.html">التطوع</a>
             <a href="news.html">الأخبار</a>
             <a href="partnerships.html">الشراكات</a>
@@ -38,8 +38,68 @@
             <a href="board.html">مجلس الإدارة</a>
             <a href="contact.html">اتصل بنا</a>
         </div>
+        <button class="mobile-toggle" id="mobileToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="mobileMenu">
+            <span class="mobile-toggle-bar"></span>
+            <span class="mobile-toggle-bar"></span>
+            <span class="mobile-toggle-bar"></span>
+        </button>
     </nav>
 
+    <!-- ══ MOBILE MENU ══ -->
+    <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+        <div class="mobile-menu-panel">
+            <div class="mobile-menu-head">
+                <span class="association-name-nav">القائمة</span>
+                <button class="mobile-close" id="mobileClose" aria-label="إغلاق القائمة">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <nav class="mobile-menu-links" aria-label="التنقل في الجوال">
+                <a href="index.html">الرئيسية</a>
+                <a href="activities.html" class="active">الفعاليات</a>
+                <a href="volunteer.html">التطوع</a>
+                <a href="news.html">الأخبار</a>
+                <a href="partnerships.html">الشراكات</a>
+                <a href="reports.html">الحوكمة</a>
+                <a href="board.html">مجلس الإدارة</a>
+                <a href="contact.html">اتصل بنا</a>
+            </nav>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════════════
+         HERO — Activities Header
+    ══════════════════════════════════════════════ -->
+    <header class="acts-hero">
+        <div class="acts-hero-bg" aria-hidden="true">
+            <div class="acts-hero-grid"></div>
+            <div class="acts-hero-glow"></div>
+        </div>
+        <div class="acts-hero-inner">
+            <div class="acts-hero-eyebrow" data-reveal="fade">
+                <span class="acts-hero-eyebrow-badge">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M6 3.5V6.5L7.5 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    </svg>
+                    أرشيف الفعاليات
+                </span>
+                <span class="acts-hero-eyebrow-sep" aria-hidden="true">·</span>
+                <span class="acts-hero-eyebrow-count">4 فعاليات وأنشطة</span>
+            </div>
+            <h1 class="acts-hero-title" data-reveal="up">
+                الفعاليات والأنشطة
+                <span class="acts-hero-title-accent">محطّات نعتزّ بها ونوثّقها</span>
+            </h1>
+            <p class="acts-hero-desc" data-reveal="up" data-delay="80">
+                لقطات من فعاليات ومبادرات جمعية إرث وحضارة بالقريات؛ مناسبات وطنية، ووجهات تراثية،
+                ومبادرات مجتمعية تعكس روح الانتماء والاعتزاز بهوية المكان وتاريخه.
+            </p>
+        </div>
+    </header>
 
     <!-- ════════════════════════════════════════════════════════
          FILTER TABS
@@ -320,9 +380,9 @@
         <div class="acts-closing-ornament" aria-hidden="true">
             <div class="acts-closing-line"></div>
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect x="12" y="0" width="4" height="28" rx="2" fill="rgba(192,154,98,0.2)"/>
-                <rect x="0" y="12" width="28" height="4" rx="2" fill="rgba(192,154,98,0.2)"/>
-                <circle cx="14" cy="14" r="6" stroke="#c09a62" stroke-width="1.5"/>
+                <rect x="12" y="0" width="4" height="28" rx="2" fill="var(--c-gold-pale)"/>
+                <rect x="0" y="12" width="28" height="4" rx="2" fill="var(--c-gold-pale)"/>
+                <circle cx="14" cy="14" r="6" stroke="var(--c-gold)" stroke-width="1.5"/>
             </svg>
             <div class="acts-closing-line acts-closing-line-rev"></div>
         </div>
@@ -334,7 +394,9 @@
         </h2>
 
         <a href="index.html" class="acts-back-btn">
-            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M9.5 3.5L4 8l5.5 4.5M4.5 8H13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             العودة إلى الرئيسية
         </a>
 
@@ -358,5 +420,40 @@
 
 <script src="activities.js"></script>
 <script type="module" src="maintenance.js"></script>
+
+<script>
+(function(){
+    /* ── Nav scroll state ── */
+    var nav = document.getElementById('mainNav');
+    if(nav){
+        var onScroll = function(){ nav.classList.toggle('scrolled', window.scrollY > 20); };
+        window.addEventListener('scroll', onScroll, {passive:true});
+        onScroll();
+    }
+
+    /* ── Mobile menu ── */
+    var toggle = document.getElementById('mobileToggle');
+    var menu   = document.getElementById('mobileMenu');
+    var mclose = document.getElementById('mobileClose');
+    if(toggle && menu && mclose){
+        var openMenu = function(){
+            menu.classList.add('open');
+            menu.setAttribute('aria-hidden','false');
+            toggle.setAttribute('aria-expanded','true');
+            document.body.style.overflow='hidden';
+        };
+        var shutMenu = function(){
+            menu.classList.remove('open');
+            menu.setAttribute('aria-hidden','true');
+            toggle.setAttribute('aria-expanded','false');
+            document.body.style.overflow='';
+        };
+        toggle.addEventListener('click', openMenu);
+        mclose.addEventListener('click', shutMenu);
+        menu.addEventListener('click', function(e){ if(e.target===menu) shutMenu(); });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape') shutMenu(); });
+    }
+})();
+</script>
 </body>
 </html>
