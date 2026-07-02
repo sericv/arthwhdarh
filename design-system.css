@@ -10,6 +10,7 @@
     --c-bg-soft:        #f8f7f5;
     --c-surface:        #ffffff;
     --c-surface-2:      #fbfaf8;
+    --c-nav-bg:         #f7f4ee; /* Premium solid parchment background for navbar */
     --c-glass:          rgba(255, 255, 255, 0.72);
     --c-glass-strong:   rgba(255, 255, 255, 0.88);
 
@@ -75,6 +76,7 @@
         --c-bg-soft:        #1c1a15;
         --c-surface:        #1f1d18;
         --c-surface-2:      #242019;
+        --c-nav-bg:         #1c1a15; /* Solid dark background matching dark mode theme */
         --c-glass:          rgba(31, 29, 24, 0.72);
         --c-glass-strong:   rgba(36, 32, 25, 0.88);
 

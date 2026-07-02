@@ -59,6 +59,32 @@ service cloud.firestore {
       allow delete: if isExec();
     }
 
+    // ── طلبات الموقع العام (زوار بلا مصادقة يرسلون نماذج) ──
+    match /volunteers/{id} {
+      allow create: if true;
+      allow read, update, delete: if signedIn();
+    }
+    match /crafts/{id} {
+      allow create: if true;
+      allow read, update, delete: if signedIn();
+    }
+    match /news/{id} {
+      allow read: if true;
+      allow create, update, delete: if signedIn();
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+
+    // ── إشعارات الأدمن (طلبات التسجيل من الموقع العام) ──
+    // الكتابة مفتوحة بلا مصادقة (زوار الموقع)؛ القراءة للمصادقين فقط
+    match /admin_notifications/{id} {
+      allow create: if true;
+      allow read, update: if signedIn();
+      allow delete: if signedIn();
+    }
+
     // ── سجل النشاط (إلحاق فقط) ──
     match /portal_activity/{id} {
       allow read:   if signedIn();

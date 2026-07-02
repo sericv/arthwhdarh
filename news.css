@@ -43,11 +43,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
     flex-wrap: wrap;
     gap: var(--sp-4);
     height: var(--nav-h);
-    margin-bottom: var(--sp-7);
-    background: var(--c-glass);
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    border-bottom: 1px solid transparent;
+    background: var(--c-nav-bg, #f7f4ee);
+    border-bottom: 1px solid var(--c-border-soft, rgba(28, 26, 23, 0.05));
     transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 
@@ -683,3 +680,61 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
     .news-card-body { padding: var(--sp-4) var(--sp-4) var(--sp-5); }
     .news-card-title { font-size: 1rem; }
 }
+
+/* ════════ EMPTY STATE ════════ */
+.news-empty-state {
+    text-align: center;
+    padding: var(--sp-8) var(--sp-5);
+    background: var(--c-surface-2);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    max-width: 620px;
+    margin: 3rem auto;
+    box-shadow: var(--shadow-sm);
+}
+.news-empty-icon {
+    font-size: 2.8rem;
+    color: var(--c-gold);
+    margin-bottom: var(--sp-4);
+    display: inline-block;
+    animation: emptyPulse 2s ease-in-out infinite;
+}
+@keyframes emptyPulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+}
+.news-empty-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--c-text-primary);
+    margin-bottom: var(--sp-3);
+}
+.news-empty-text {
+    font-size: 0.95rem;
+    color: var(--c-text-secondary);
+    line-height: 1.8;
+    max-width: 480px;
+    margin: 0 auto var(--sp-5);
+}
+.news-empty-ornament {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    opacity: 0.6;
+}
+.news-empty-ornament .line {
+    width: 40px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--c-gold));
+}
+.news-empty-ornament .line.r {
+    transform: scaleX(-1);
+}
+.news-empty-ornament .diamond {
+    width: 6px;
+    height: 6px;
+    background: var(--c-gold);
+    transform: rotate(45deg);
+}
+

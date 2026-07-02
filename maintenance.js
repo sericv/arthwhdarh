@@ -73,9 +73,9 @@ function buildOverlay(data){
             <i class="fas fa-phone" aria-hidden="true"></i>
             <span class="val">+966 55 642 0066</span>
           </a>
-          <a class="mnt-contact-item" href="mailto:arthwhdarh@gmail.com">
+          <a class="mnt-contact-item" href="mailto:info@arthwhdarh.com">
             <i class="fas fa-envelope" aria-hidden="true"></i>
-            <span class="val">arthwhdarh@gmail.com</span>
+            <span class="val">info@arthwhdarh.com</span>
           </a>
         </div>
 
