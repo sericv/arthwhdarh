@@ -228,6 +228,31 @@
             border: 1px solid var(--c-border, rgba(28, 26, 23, 0.08));
         }
 
+        .hero-bg-image {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-image: url('assets/Hero image.png');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+            transition: all var(--dur-slow, 420ms) var(--ease-out);
+        }
+
+        @media (min-width: 901px) {
+            .hero-bg-image {
+                width: 52%;
+                background-position: left center;
+                opacity: 0.32; /* Clearer as requested */
+                -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,1) 25%, rgba(0,0,0,0) 95%);
+                mask-image: linear-gradient(to right, rgba(0,0,0,1) 25%, rgba(0,0,0,0) 95%);
+            }
+        }
+
         .hero-wrapper::before {
             content: "";
             position: absolute;
@@ -2984,6 +3009,7 @@
          HERO SECTION — CINEMATIC EDITORIAL
     ════════════════════════════════════════════ -->
     <div class="hero-wrapper">
+        <div class="hero-bg-image" aria-hidden="true"></div>
 
         <!-- ── LEFT: EDITORIAL TEXT PANEL ── -->
         <div class="hero-editorial-text">
