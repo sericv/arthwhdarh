@@ -1381,6 +1381,18 @@ async function notifyAdmin(type, name) {
   } catch(e) { console.warn('[notify]', e?.message); }
 }
 
+/* ── إشعار Telegram عبر Cloudflare Worker ── */
+const TELEGRAM_WORKER_URL = 'https://erth-telegram-notifier.2falilh2.workers.dev';
+async function notifyTelegram(type, data) {
+  try {
+    await fetch(TELEGRAM_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, ...data, timestamp: new Date().toISOString() }),
+    });
+  } catch(e) { console.warn('[telegram]', e?.message); }
+}
+
 /* ── helpers ── */
 const esc = s => (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const $ = id => document.getElementById(id);
@@ -1705,6 +1717,7 @@ $('bdyConfirmBtn').addEventListener('click', async () => {
     });
 
     await notifyAdmin('crafts', pendingData.name || '');
+    notifyTelegram('crafts', pendingData);
 
     // Show success — no request number displayed
     showStep('bdyStepSuccess');
@@ -1863,6 +1876,7 @@ $('frConfirmBtn').addEventListener('click', async () => {
     });
 
     await notifyAdmin('volunteers', frPending.name || '');
+    notifyTelegram('volunteers', frPending);
 
     frShowStep('frStepSuccess');
     $('frForm').reset();

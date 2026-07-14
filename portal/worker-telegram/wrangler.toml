@@ -1,0 +1,14 @@
+name = "erth-telegram-notifier"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+# ── المتغيّرات العامة (غير سرّية) ──
+[vars]
+TELEGRAM_CHAT_ID = "5407123323"
+# نطاق الموقع المسموح له بمناداة الـ Worker (CORS)
+ALLOWED_ORIGIN = "https://arthwhdarh.com"
+
+# ── الأسرار (لا تُكتب هنا) ──
+# تُضبط بأمر منفصل:
+#   wrangler secret put TELEGRAM_BOT_TOKEN
+# والقيمة = Bot Token من @BotFather
