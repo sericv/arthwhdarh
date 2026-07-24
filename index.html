@@ -3,11 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>جمعية إرث وحضارة بالقريات</title>
+    <title>جمعية إرث وحضارة بالقريات | الجمعية المتخصصة للتراث والآثار والحرف اليدوية</title>
+    <meta name="description" content="الموقع الرسمي لجمعية إرث وحضارة بالقريات - جمعية أهلية غير رابحة تعنى بصون وتوثيق التراث الثقافي والآثار والحرف اليدوية وتأهيل الكوادر الوطنية بمحافظة القريات.">
+    <meta name="keywords" content="إرث وحضارة, جمعية إرث وحضارة, القريات, التراث, الآثار, الحرف اليدوية, الجمعيات الأهلية, الجوف, السعودية">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://arthwhdarh.com/">
+
+    <!-- Favicon & Brand Icons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/الشعار/الشعار.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/الشعار/الشعار.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/الشعار/الشعار.png">
+    <link rel="shortcut icon" href="assets/الشعار/الشعار.png">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="جمعية إرث وحضارة بالقريات">
+    <meta property="og:url" content="https://arthwhdarh.com/">
+    <meta property="og:title" content="جمعية إرث وحضارة بالقريات | الصفحة الرئيسية">
+    <meta property="og:description" content="جمعية أهلية غير رابحة تُعنى بحفظ وصون التراث الثقافي والآثار والحرف اليدوية وتأهيل الكوادر الوطنية بمحافظة القريات.">
+    <meta property="og:image" content="https://arthwhdarh.com/assets/الشعار/الشعار.png">
+    <meta property="og:locale" content="ar_SA">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="جمعية إرث وحضارة بالقريات">
+    <meta name="twitter:description" content="جمعية أهلية غير رابحة تُعنى بحفظ وصون التراث الثقافي والآثار والحرف اليدوية بمحافظة القريات.">
+    <meta name="twitter:image" content="https://arthwhdarh.com/assets/الشعار/الشعار.png">
+
+    <!-- Schema.org Organization Structured Data for Google Logo & Knowledge Graph -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "NGO",
+      "name": "جمعية إرث وحضارة بالقريات",
+      "alternateName": "جمعية إرث وحضارة",
+      "url": "https://arthwhdarh.com/",
+      "logo": "https://arthwhdarh.com/assets/الشعار/الشعار.png",
+      "image": "https://arthwhdarh.com/assets/الشعار/الشعار.png",
+      "description": "الموقع الرسمي لجمعية إرث وحضارة بالقريات - جمعية أهلية غير رابحة تُعنى بحفظ وصون التراث الثقافي والآثار والحرف اليدوية بالمملكة العربية السعودية.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "القريات",
+        "addressRegion": "منطقة الجوف",
+        "addressCountry": "SA"
+      }
+    }
+    </script>
     <!-- Google Fonts: Elegant Arabic & Latin -->
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
     <!-- Font Awesome 6 (free icons) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="design-system.css">
     <style>
         /* ========== GLOBAL STYLES & PREMIUM RESET ========== */
         * {
@@ -2982,9 +3028,8 @@
     <!-- ════════════════════════════════════════════
          NAVIGATION
     ════════════════════════════════════════════ -->
-    <nav class="nav-container" aria-label="التنقل الرئيسي">
+    <nav class="nav-container" id="mainNav" aria-label="التنقل الرئيسي">
         <div class="logo-area-nav">
-            <!-- Real Association Logo -->
             <img
                 src="assets/الشعار/الشعار.png"
                 alt="شعار جمعية إرث وحضارة بالقريات"
@@ -2994,8 +3039,9 @@
             <span class="association-name-nav">جمعية إرث وحضارة بالقريات</span>
         </div>
         <div class="nav-links">
-            <a href="index.html">الرئيسية</a>
+            <a href="index.html" class="active">الرئيسية</a>
             <a href="activities.html">الفعاليات</a>
+            <a href="workshops.html">ورش العمل</a>
             <a href="volunteer.html">التطوع</a>
             <a href="news.html">الأخبار</a>
             <a href="partnerships.html">الشراكات</a>
@@ -3003,7 +3049,37 @@
             <a href="board.html">مجلس الإدارة</a>
             <a href="contact.html">اتصل بنا</a>
         </div>
+        <button class="mobile-toggle" id="mobileToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="mobileMenu">
+            <span class="mobile-toggle-bar"></span>
+            <span class="mobile-toggle-bar"></span>
+            <span class="mobile-toggle-bar"></span>
+        </button>
     </nav>
+
+    <!-- ══ MOBILE MENU ══ -->
+    <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+        <div class="mobile-menu-panel">
+            <div class="mobile-menu-head">
+                <span class="association-name-nav">القائمة</span>
+                <button class="mobile-close" id="mobileClose" aria-label="إغلاق القائمة">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <nav class="mobile-menu-links" aria-label="التنقل في الجوال">
+                <a href="index.html" class="active">الرئيسية</a>
+                <a href="activities.html">الفعاليات</a>
+                <a href="workshops.html">ورش العمل</a>
+                <a href="volunteer.html">التطوع</a>
+                <a href="news.html">الأخبار</a>
+                <a href="partnerships.html">الشراكات</a>
+                <a href="reports.html">الحوكمة</a>
+                <a href="board.html">مجلس الإدارة</a>
+                <a href="contact.html">اتصل بنا</a>
+            </nav>
+        </div>
+    </div>
 
     <!-- ════════════════════════════════════════════
          HERO SECTION — CINEMATIC EDITORIAL
@@ -4443,9 +4519,33 @@ loadHomeNews();
             });
         }, { threshold: 0.25 });
         io.observe(section);
-    } else {
-        activate();
-    }
+    /* ── Mobile menu toggle ── */
+    (function() {
+        var toggle = document.getElementById('mobileToggle');
+        var menu   = document.getElementById('mobileMenu');
+        var mclose = document.getElementById('mobileClose');
+        if (toggle && menu) {
+            function openMenu() {
+                menu.classList.add('open');
+                menu.classList.add('active');
+                menu.setAttribute('aria-hidden', 'false');
+                toggle.setAttribute('aria-expanded', 'true');
+                document.body.style.overflow = 'hidden';
+            }
+            function closeMenu() {
+                menu.classList.remove('open');
+                menu.classList.remove('active');
+                menu.setAttribute('aria-hidden', 'true');
+                toggle.setAttribute('aria-expanded', 'false');
+                document.body.style.overflow = '';
+            }
+            toggle.addEventListener('click', openMenu);
+            if (mclose) mclose.addEventListener('click', closeMenu);
+            menu.addEventListener('click', function(e) {
+                if (e.target === menu) closeMenu();
+            });
+        }
+    })();
 })();
 </script>
 

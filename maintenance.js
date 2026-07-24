@@ -130,7 +130,33 @@ function lockSite(data){
 async function checkMaintenance(){
   try{
     const snap = await getDoc(doc(db, 'settings', 'site'));
-    const m = snap.exists() ? snap.data().maintenance : null;
+    const siteData = snap.exists() ? snap.data() : {};
+
+    /* ── Check workshopsEnabled setting ── */
+    const workshopsEnabled = siteData.workshopsEnabled !== false;
+    if (!workshopsEnabled) {
+      const hideWorkshopsLinks = () => {
+        document.querySelectorAll('a[href="workshops.html"]').forEach(a => {
+          const li = a.closest('li');
+          if (li) li.style.display = 'none';
+          else a.style.display = 'none';
+        });
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', hideWorkshopsLinks);
+      } else {
+        hideWorkshopsLinks();
+      }
+
+      const currentPath = window.location.pathname.toLowerCase();
+      if (currentPath.endsWith('workshops.html') || currentPath.endsWith('/workshops')) {
+        window.location.href = 'index.html';
+        return;
+      }
+    }
+
+    /* ── Check maintenance mode ── */
+    const m = siteData.maintenance;
     if(m && m.enabled === true){
       lockSite(m);          /* ON  → keep hidden + show overlay */
     }else{

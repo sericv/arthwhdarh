@@ -4,10 +4,13 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>لوحة التحكم — جمعية إرث وحضارة</title>
+<meta name="robots" content="noindex, nofollow"/>
+<link rel="icon" type="image/png" href="../assets/الشعار/الشعار.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <style>
 :root{
   --parchment:#ffffff; --parchment-2:#f8f9fc; --parchment-3:#f1f3f8;
@@ -849,32 +852,33 @@ table.data tbody tr:hover{background:rgba(192,154,98,.06);}
 <div id="loginScreen">
   <div class="login-box">
     <img src="../assets/الشعار/الشعار.png" alt="شعار الجمعية" class="login-logo"/>
-    <div class="login-brand">جمعية إرث وحضارة</div>
-    <div class="login-sub">Admin Portal · Al‑Qurayyat</div>
+    <div class="login-brand">جمعية إرث وحضارة بالقريات</div>
+    <div class="login-sub">Admin Portal · لوحة الإدارة</div>
     <div class="login-ornament">
       <div class="lo-line"></div>
       <div class="lo-diamond"></div>
       <div class="lo-line r"></div>
     </div>
-    <div class="login-card">
-      <div class="login-title">تسجيل الدخول</div>
-      <div class="login-field">
-        <label>البريد الإلكتروني</label>
-        <input type="email" id="loginEmail" placeholder="admin@erth-qurayyat.org" autocomplete="email"/>
-      </div>
-      <div class="login-field">
-        <label>كلمة المرور</label>
-        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"/>
-      </div>
-      <div class="login-err" id="loginErr"></div>
-      <button class="login-btn" id="loginBtn">
-        <span id="loginBtnText">دخول</span>
-        <svg id="loginSpinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:16px;height:16px;display:none;" class="spinning">
+    <div class="login-card" style="padding:36px 28px;text-align:center;">
+      <h2 style="text-align:center;margin-bottom:10px;font-size:20px;font-weight:800;color:var(--ink);">تسجيل الدخول للإدارة</h2>
+      <p style="font-size:13px;color:var(--ink-muted);margin-bottom:24px;line-height:1.5;">يرجى تسجيل الدخول باستخدام حساب Google المعتمد للوصول إلى لوحة التحكم.</p>
+      
+      <div class="login-err" id="loginErr" style="display:none;margin-bottom:20px;padding:12px;background:#fce8e6;border:1px solid #f5c6cb;border-radius:8px;color:#c5221f;font-size:13.5px;font-weight:700;text-align:center;"></div>
+      
+      <button class="login-btn" id="googleLoginBtn" style="width:100%;padding:14px 20px;background:#ffffff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;font-size:15px;font-weight:700;font-family:'Almarai',sans-serif;cursor:pointer;transition:all 0.2s ease;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span id="googleBtnText">تسجيل الدخول باستخدام Google</span>
+        <svg id="googleSpinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;display:none;" class="spinning">
           <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke-linecap="round"/>
         </svg>
       </button>
     </div>
-    <div class="login-footer">Secure Admin Access · إرث وحضارة بالقريات</div>
+    <div class="login-footer" style="margin-top:24px;">Google Auth Access · جمعية إرث وحضارة بالقريات</div>
   </div>
 </div>
 
@@ -946,9 +950,12 @@ table.data tbody tr:hover{background:rgba(192,154,98,.06);}
 
   <div class="page-wrap">
     <div class="view active" id="view-home"></div>
+    <div class="view" id="view-notifications"></div>
     <div class="view" id="view-news"></div>
+    <div class="view" id="view-workshops"></div>
     <div class="view" id="view-volunteers"></div>
     <div class="view" id="view-crafts"></div>
+    <div class="view" id="view-global_db"></div>
     <div class="view" id="view-settings"></div>
   </div>
 </main>
@@ -1001,7 +1008,7 @@ import {
   query, where, orderBy, limit, onSnapshot, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 /* ── Firebase init ── */
@@ -1015,6 +1022,8 @@ const app  = initializeApp({
 });
 const db   = getFirestore(app);
 const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 /* ── utils ── */
 const esc  = s=>(s??'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1120,55 +1129,97 @@ async function smartImageToBase64(file) {
   return dataUrl;
 }
 
-/* ── Auth state ── */
-let currentUser=null;
+/* ── Allowed Admin Account Credentials ── */
+const ALLOWED_ADMIN_EMAIL = "2falilh2@gmail.com";
+const ALLOWED_ADMIN_UID   = "dDcYQljmYFR1gq6cD0lG3wBaHys2";
 
-onAuthStateChanged(auth, user=>{
-  currentUser=user;
-  if(user){
-    showApp(user);
+/* ── Auth state ── */
+let currentUser = null;
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    const isEmailValid = (user.email || '').toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase();
+    const isUidValid   = user.uid === ALLOWED_ADMIN_UID;
+
+    if (isEmailValid && isUidValid) {
+      currentUser = user;
+      showApp(user);
+    } else {
+      console.warn('Unauthorized access attempt by:', user.email, user.uid);
+      await signOut(auth);
+      currentUser = null;
+      showLogin('ليس لديك صلاحية للوصول إلى لوحة الإدارة.');
+    }
   } else {
+    currentUser = null;
     showLogin();
   }
 });
 
-function showLogin(){
-  document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('appShell').style.display='none';
+function showLogin(msg = ''){
+  const ls = document.getElementById('loginScreen');
+  if (ls) {
+    ls.classList.remove('hidden');
+    ls.style.display = 'flex';
+  }
+  const app = document.getElementById('appShell');
+  if (app) app.style.display = 'none';
+
+  const errEl = document.getElementById('loginErr');
+  if (errEl) {
+    errEl.textContent = msg || '';
+    errEl.style.display = msg ? 'block' : 'none';
+  }
 }
 
 function showApp(user){
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('appShell').style.display='grid';
-  const em=user.email||'مدير';
-  document.getElementById('sidebarEmail').textContent=em;
-  document.getElementById('sidebarAvatar').textContent=(em.charAt(0)||'أ').toUpperCase();
+  const ls = document.getElementById('loginScreen');
+  if (ls) {
+    ls.classList.add('hidden');
+    ls.style.display = 'none';
+  }
+  const app = document.getElementById('appShell');
+  if (app) app.style.display = 'grid';
+
+  const em = user.email || 'مدير الجمعية';
+  const sbEmail = document.getElementById('sidebarEmail');
+  if (sbEmail) sbEmail.textContent = em;
+  const sbAvatar = document.getElementById('sidebarAvatar');
+  if (sbAvatar) sbAvatar.textContent = (em.charAt(0) || 'أ').toUpperCase();
+
   if(!appBooted){ appBooted=true; bootApp(); startNotifWatch(); }
-  // اعرض البانر إن لم يُمنح الإذن بعد
   if('Notification' in window && Notification.permission === 'default'){
-    document.getElementById('notifBanner').classList.add('show');
+    const banner = document.getElementById('notifBanner');
+    if (banner) banner.classList.add('show');
   }
 }
 
 /* ── بانر إذن الإشعارات ── */
-document.getElementById('notifAllowBtn').addEventListener('click', async () => {
-  const banner = document.getElementById('notifBanner');
-  try {
-    const perm = await Notification.requestPermission();
-    banner.classList.remove('show');
-    if(perm === 'granted'){
-      toast('تم تفعيل الإشعارات بنجاح');
-    } else {
-      toast('لم يتم منح إذن الإشعارات', 'err');
+const notifAllowBtn = document.getElementById('notifAllowBtn');
+if (notifAllowBtn) {
+  notifAllowBtn.addEventListener('click', async () => {
+    const banner = document.getElementById('notifBanner');
+    try {
+      const perm = await Notification.requestPermission();
+      if (banner) banner.classList.remove('show');
+      if(perm === 'granted'){
+        toast('تم تفعيل الإشعارات بنجاح');
+      } else {
+        toast('لم يتم منح إذن الإشعارات', 'err');
+      }
+    } catch(e) {
+      if (banner) banner.classList.remove('show');
     }
-  } catch(e) {
-    banner.classList.remove('show');
-  }
-});
+  });
+}
 
-document.getElementById('notifDismissBtn').addEventListener('click', () => {
-  document.getElementById('notifBanner').classList.remove('show');
-});
+const notifDismissBtn = document.getElementById('notifDismissBtn');
+if (notifDismissBtn) {
+  notifDismissBtn.addEventListener('click', () => {
+    const banner = document.getElementById('notifBanner');
+    if (banner) banner.classList.remove('show');
+  });
+}
 
 /* ── مراقبة الإشعارات الجديدة لحظياً ── */
 let _notifSeenIds = new Set();
@@ -1192,35 +1243,60 @@ function startNotifWatch(){
       const name = d.name ? ` — ${d.name}` : '';
       toastNotif(`طلب تسجيل جديد · ${progLabel}${name}`);
     });
-    // تحديث badge الجرس
     const unread = snap.size;
     const dot = document.getElementById('bellDot');
     if(dot) unread > 0 ? dot.classList.add('show') : dot.classList.remove('show');
   }, err => console.warn('[notif watch]', err?.code || err));
 }
 
-/* ── Login form ── */
-document.getElementById('loginBtn').addEventListener('click', async()=>{
-  const email=document.getElementById('loginEmail').value.trim();
-  const pass =document.getElementById('loginPass').value;
-  const err  =document.getElementById('loginErr');
-  const btn  =document.getElementById('loginBtn');
-  const spin =document.getElementById('loginSpinner');
-  const txt  =document.getElementById('loginBtnText');
-  if(!email||!pass){ err.textContent='يرجى إدخال البريد وكلمة المرور'; return; }
-  err.textContent='';
-  btn.disabled=true; spin.style.display='inline-block'; txt.textContent='جارٍ الدخول…';
-  try{
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch(e){
-    btn.disabled=false; spin.style.display='none'; txt.textContent='دخول';
-    const codes={ 'auth/invalid-credential':'البريد أو كلمة المرور غير صحيحة', 'auth/user-not-found':'المستخدم غير موجود', 'auth/wrong-password':'كلمة المرور غير صحيحة', 'auth/too-many-requests':'محاولات كثيرة — حاول لاحقاً' };
-    err.textContent=codes[e.code]||'حدث خطأ أثناء تسجيل الدخول';
-  }
-});
+/* ── Google Sign-In Handler ── */
+const googleBtnEl = document.getElementById('googleLoginBtn');
+if (googleBtnEl && !googleBtnEl.dataset.bound) {
+  googleBtnEl.dataset.bound = 'true';
+  googleBtnEl.addEventListener('click', async () => {
+    const errEl = document.getElementById('loginErr');
+    const spin  = document.getElementById('googleSpinner');
+    const txt   = document.getElementById('googleBtnText');
 
-document.getElementById('loginEmail').addEventListener('keydown',e=>{ if(e.key==='Enter')document.getElementById('loginPass').focus(); });
-document.getElementById('loginPass').addEventListener('keydown',e=>{ if(e.key==='Enter')document.getElementById('loginBtn').click(); });
+    if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+    googleBtnEl.disabled = true;
+    if (spin) spin.style.display = 'inline-block';
+    if (txt) txt.textContent = 'جارٍ الاتصال بـ Google…';
+
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      const isEmailValid = (user.email || '').toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase();
+      const isUidValid   = user.uid === ALLOWED_ADMIN_UID;
+
+      if (!isEmailValid || !isUidValid) {
+        console.warn('Unauthorized Google login:', user.email, user.uid);
+        await signOut(auth);
+        if (errEl) {
+          errEl.textContent = 'ليس لديك صلاحية للوصول إلى لوحة الإدارة.';
+          errEl.style.display = 'block';
+        }
+      }
+    } catch (error) {
+      console.error('Google Sign-In Error:', error);
+      if (errEl) {
+        if (error.code === 'auth/popup-closed-by-user') {
+          errEl.textContent = 'تم إغلاق نافذة تسجيل الدخول بـ Google.';
+        } else if (error.code === 'auth/popup-blocked') {
+          errEl.textContent = 'تم منع المنبثقة بواسطة المتصفح. يرجى تفعيل المنبثقات.';
+        } else {
+          errEl.textContent = `حدث خطأ أثناء تسجيل الدخول عبر Google (${error.message || error.code})`;
+        }
+        errEl.style.display = 'block';
+      }
+    } finally {
+      googleBtnEl.disabled = false;
+      if (spin) spin.style.display = 'none';
+      if (txt) txt.textContent = 'تسجيل الدخول باستخدام Google';
+    }
+  });
+}
 
 /* ── Logout ── */
 document.getElementById('logoutBtn').addEventListener('click', async()=>{
@@ -1229,14 +1305,25 @@ document.getElementById('logoutBtn').addEventListener('click', async()=>{
 });
 
 /* ── Cache ── */
-const C={news:[],volunteers:[],crafts:[],settings:{}};
-const loaded={news:false,volunteers:false,crafts:false,settings:false};
+const C={news:[],volunteers:[],crafts:[],workshops:[],workshop_registrations:[],admin_notifications:[],notifications:[],settings:{}};
+const loaded={news:false,volunteers:false,crafts:false,workshops:false,workshop_registrations:false,admin_notifications:false,notifications:false,settings:false};
 
 async function loadCol(col){
   if(loaded[col]) return C[col];
-  const q=query(collection(db,col),orderBy('createdAt','desc'));
-  const snap=await getDocs(q);
-  C[col]=snap.docs.map(d=>({id:d.id,...d.data()}));
+  try {
+    const q=query(collection(db,col),orderBy('createdAt','desc'));
+    const snap=await getDocs(q);
+    C[col]=snap.docs.map(d=>({id:d.id,...d.data()}));
+  } catch(e) {
+    console.warn(`[loadCol ${col}] fallback query:`, e);
+    try {
+      const snap=await getDocs(collection(db,col));
+      C[col]=snap.docs.map(d=>({id:d.id,...d.data()}));
+    } catch(err) {
+      console.error(`[loadCol ${col}] error:`, err);
+      C[col] = C[col] || [];
+    }
+  }
   loaded[col]=true;
   return C[col];
 }
@@ -1250,18 +1337,24 @@ async function loadSettings(){
 
 /* ── Routes ── */
 const ROUTES=[
-  {id:'home',       label:'الرئيسية',       icon:iHome},
-  {id:'news',       label:'إدارة الأخبار',  icon:iNews},
-  {id:'volunteers', label:'أصدقاء الجمعية', icon:iUsers, badge:'vNew'},
-  {id:'crafts',     label:'بيدي حرفة',      icon:iCraft, badge:'cNew'},
-  {id:'settings',   label:'الإعدادات',      icon:iCog},
+  {id:'home',          label:'الرئيسية',       icon:iHome},
+  {id:'notifications', label:'الإشعارات',      icon:iBell,     badge:'nNew'},
+  {id:'news',          label:'إدارة الأخبار',  icon:iNews},
+  {id:'workshops',     label:'ورش العمل',     icon:iTools,    badge:'wNew'},
+  {id:'volunteers',    label:'أصدقاء الجمعية', icon:iUsers,    badge:'vNew'},
+  {id:'crafts',        label:'بيدي حرفة',      icon:iCraft,    badge:'cNew'},
+  {id:'global_db',     label:'قاعدة البيانات', icon:iDatabase},
+  {id:'settings',      label:'الإعدادات',      icon:iCog},
 ];
 let route='home', appBooted=false;
 
 async function renderNav(){
   const vNew=(C.volunteers||[]).filter(v=>!v.reviewed).length;
   const cNew=(C.crafts||[]).filter(c=>!c.reviewed).length;
-  const bags={vNew,cNew};
+  const wNew=(C.workshop_registrations||[]).filter(w=>!w.reviewed).length;
+  const nNotifs = (C.admin_notifications || C.notifications || []);
+  const nNew = nNotifs.filter(n => !n.read && n.status !== 'read').length + vNew + cNew + wNew;
+  const bags={vNew,cNew,wNew,nNew};
   document.getElementById('navList').innerHTML=ROUTES.map(r=>{
     const active=r.id===route?'active':'';
     const cnt=r.badge?bags[r.badge]:0;
@@ -1275,7 +1368,14 @@ async function renderNav(){
     b.addEventListener('click',()=>{ goTo(b.dataset.route); closeSidebar(); })
   );
   const dot=document.getElementById('bellDot');
-  (vNew+cNew>0)?dot.classList.add('show'):dot.classList.remove('show');
+  (nNew>0)?dot.classList.add('show'):dot.classList.remove('show');
+
+  // Click on topbar bell opens notifications
+  const bellBtn = document.getElementById('bellBtn');
+  if(bellBtn && !bellBtn.dataset.bound) {
+    bellBtn.dataset.bound = 'true';
+    bellBtn.addEventListener('click', () => goTo('notifications'));
+  }
 }
 
 async function goTo(r){
@@ -1298,11 +1398,14 @@ function loadingHTML(){
 async function renderView(r){
   const el=document.getElementById('view-'+r);
   el.innerHTML=loadingHTML();
-  if(r==='home')       await vHome(el);
-  else if(r==='news')  await vNews(el);
-  else if(r==='volunteers') await vVols(el);
-  else if(r==='crafts')     await vCrafts(el);
-  else if(r==='settings')   await vSettings(el);
+  if(r==='home')              await vHome(el);
+  else if(r==='notifications') await vNotifications(el);
+  else if(r==='news')         await vNews(el);
+  else if(r==='workshops')    await vWorkshops(el);
+  else if(r==='volunteers')   await vVols(el);
+  else if(r==='crafts')       await vCrafts(el);
+  else if(r==='global_db')    await vGlobalDB(el);
+  else if(r==='settings')     await vSettings(el);
 }
 
 function bootApp(){ renderNav(); goTo('home'); }
@@ -1424,7 +1527,7 @@ function ncHTML(n){
 
 async function openNewsModal(id){
   const editing=id?(C.news||[]).find(n=>n.id===id):null;
-  const art=editing?{...editing,images:[...(editing.images||[])]}:
+  const art=editing?{ ...editing, images:[...(editing.images||[])] }:
     {title:'',excerpt:'',body:'',category:'',date:today(),btnText:'',btnUrl:'',images:[]};
 
   showModal(`
@@ -1550,12 +1653,12 @@ async function openNewsModal(id){
       if(editing){
         await updateDoc(doc(db,'news',art.id),p);
         const i=C.news.findIndex(n=>n.id===art.id);
-        if(i>=0)C.news[i]={...C.news[i],...p,id:art.id};
+        if(i>=0)C.news[i]={ ...C.news[i], ...p, id:art.id };
         toast('تم حفظ التعديلات');
       }else{
         p.createdAt=serverTimestamp();
         const ref=await addDoc(collection(db,'news'),p);
-        C.news.unshift({...p,id:ref.id});
+        C.news.unshift({ ...p, id:ref.id });
         toast('تم نشر المقال');
       }
       closeModal(); vNews(document.getElementById('view-news'));
@@ -1816,18 +1919,19 @@ function reqCardHTML(item, type){
 }
 
 function bindReqCards(el, type){
-  el.querySelectorAll('[data-open-id]').forEach((btn, idx) => {
-    /* stagger delay */
-    const card = btn.closest('.req-card') || btn;
-    if(card.classList.contains('req-card')) card.style.animationDelay = `${idx * 55}ms`;
+  el.querySelectorAll('.req-card[data-open-id], tr[data-open-id]').forEach((card, idx) => {
+    if (card.classList.contains('req-card')) {
+      card.style.animationDelay = `${idx * 55}ms`;
+    }
 
-    const handler = () => {
-      const id = btn.dataset.openId;
+    const handler = (e) => {
+      e.stopPropagation();
+      const id = card.dataset.openId;
       if(type==='vol') openVolPanel(id); else openCraftPanel(id);
     };
-    btn.addEventListener('click', handler);
-    if(btn.classList.contains('req-card')){
-      btn.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') handler(); });
+    card.addEventListener('click', handler);
+    if(card.classList.contains('req-card')){
+      card.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') handler(e); });
     }
   });
 }
@@ -1878,7 +1982,7 @@ function viewToggleHTML(mode, attr){
 
 /* ── Status helpers ── */
 function itemStatus(item){
-  /* Normalise: new items may have status:'جديد' or no status yet */
+  if(!item) return 'new';
   if(item.status === 'معتمد')     return 'approved';
   if(item.status === 'غير معتمد') return 'rejected';
   return 'new'; /* default / 'جديد' */
@@ -1991,6 +2095,1737 @@ async function vCrafts(el){
   el.querySelectorAll('[data-cm]').forEach(b=>b.addEventListener('click',()=>{ cMode=b.dataset.cm; vCrafts(el); }));
   el.querySelectorAll('[data-cv]').forEach(b=>b.addEventListener('click',()=>{ cView=b.dataset.cv; vCrafts(el); }));
   bindReqCards(el, 'craft');
+}
+
+/* ════════════════════════════════
+   WORKSHOPS MANAGEMENT (Master-Detail System)
+════════════════════════════════ */
+let wQ = '', wStatusFilter = 'all';
+let selectedWorkshopId = null;
+let wsTab = 'info';
+let wsRegQ = '';
+
+async function vWorkshops(el) {
+  const [workshops, registrants, siteSettings] = await Promise.all([
+    loadCol('workshops'),
+    loadCol('workshop_registrations'),
+    loadSettings()
+  ]);
+
+  await renderNav();
+
+  const workshopsEnabled = siteSettings.workshopsEnabled !== false;
+
+  // If a single workshop is selected, render single workshop view
+  if (selectedWorkshopId) {
+    const ws = workshops.find(w => w.id === selectedWorkshopId);
+    if (ws) {
+      await vWorkshopDetail(el, ws, registrants);
+      return;
+    } else {
+      selectedWorkshopId = null;
+    }
+  }
+
+  // Otherwise render Workshops List View
+  let rows = [...workshops];
+  if (wStatusFilter === 'open') rows = rows.filter(w => w.status === 'open');
+  else if (wStatusFilter === 'closed') rows = rows.filter(w => w.status === 'closed');
+  else if (wStatusFilter === 'full') rows = rows.filter(w => w.status === 'full');
+
+  const q = wQ.trim();
+  if (q) rows = rows.filter(w => (w.title || '').includes(q) || (w.category || '').includes(q) || (w.location || '').includes(q));
+  rows.sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+
+  const totalRegs = registrants.length;
+
+  el.innerHTML = `
+  <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Workshops · الورش التدريبية</span><span class="e-label">نظام إدارة الورش</span></div>
+      <h1 class="page-title">إدارة <span class="accent">ورش العمل</span></h1>
+      <p class="page-sub">انقر على أي ورشة للدخول لصفحة إدارتها المستقلة ومتابعة المتقدمين والإحصائيات.</p>
+    </div>
+    <button class="btn btn-primary" id="btnCreateWorkshop" style="gap:8px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+      <span>إنشاء ورشة جديدة</span>
+    </button>
+  </div>
+
+  <!-- Global Workshops Section Visibility Switch -->
+  <div class="card" style="padding:16px 20px;background:var(--paper);border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-left:4px solid ${workshopsEnabled ? 'var(--gold-deep)' : 'var(--danger)'};">
+    <div>
+      <strong style="font-size:15px;color:var(--ink);display:flex;align-items:center;gap:8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke-linecap="round"/></svg>
+        إظهار قسم ورش العمل في الموقع العام
+      </strong>
+      <p style="font-size:12px;color:var(--ink-muted);margin-top:2px;">التحكم بظهور قسم ورش العمل كاملاً في القائمة الرئيسية (Navbar) وإمكانية زيارة الصفحة للجمهور.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="row-status ${workshopsEnabled ? 'reviewed' : 'rejected'}">${workshopsEnabled ? 'مفعّل ويظهر للزوار' : 'مخفي عن الزوار'}</span>
+      <button class="btn btn-sm ${workshopsEnabled ? 'btn-outline' : 'btn-primary'}" id="btnToggleGlobalWorkshops">
+        ${workshopsEnabled ? 'إيقاف القسم (إخفاء)' : 'تفعيل القسم (إظهار)'}
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:24px;">
+    ${sCard('Workshops', 'إجمالي الورش', workshops.length, 'متاحة بالنظام')}
+    ${sCard('Registrants', 'إجمالي المسجلين', totalRegs, 'متقدم عبر الموقع')}
+  </div>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+      <input type="text" id="wSearch" placeholder="بحث باسم الورشة أو التصنيف…" value="${escA(q)}"/>
+    </div>
+    <div class="filters">
+      <button class="chip ${wStatusFilter === 'all' ? 'active' : ''}" data-wf="all">الكل <span class="chip-count">${workshops.length}</span></button>
+      <button class="chip chip-approved ${wStatusFilter === 'open' ? 'active' : ''}" data-wf="open">مفتوحة</button>
+      <button class="chip chip-rejected ${wStatusFilter === 'closed' ? 'active' : ''}" data-wf="closed">مغلقة</button>
+      <button class="chip chip-new ${wStatusFilter === 'full' ? 'active' : ''}" data-wf="full">مكتملة</button>
+    </div>
+  </div>
+
+  ${rows.length === 0
+    ? `<div class="card">${emptyState(q ? 'لا توجد نتائج للبحث' : 'لم يتم إضافة ورش عمل بعد', 'WORKSHOPS · EMPTY')}</div>`
+    : `<div class="news-grid">${rows.map(w => renderWorkshopMinimalCardHTML(w, registrants)).join('')}</div>`
+  }
+  `;
+
+  // Global Toggle Listener
+  const btnGlob = el.querySelector('#btnToggleGlobalWorkshops');
+  if (btnGlob) {
+    btnGlob.addEventListener('click', async () => {
+      const newVal = !workshopsEnabled;
+      try {
+        await setDoc(doc(db, 'settings', 'site'), { workshopsEnabled: newVal }, { merge: true });
+        loaded.settings = false;
+        await loadSettings();
+        toast(newVal ? 'تم إظهار قسم ورش العمل في الموقع' : 'تم إخفاء قسم ورش العمل عن الزوار');
+        vWorkshops(el);
+      } catch(err) { console.error(err); toast('حدث خطأ أثناء التعديل', 'err'); }
+    });
+  }
+
+  // Search & Filter Events
+  const sInput = el.querySelector('#wSearch');
+  if (sInput) sInput.addEventListener('input', e => { wQ = e.target.value; vWorkshops(el); el.querySelector('#wSearch')?.focus(); });
+  el.querySelectorAll('[data-wf]').forEach(b => b.addEventListener('click', () => { wStatusFilter = b.dataset.wf; vWorkshops(el); }));
+
+  // Create Workshop Button
+  const btnCreate = el.querySelector('#btnCreateWorkshop');
+  if (btnCreate) btnCreate.addEventListener('click', () => openWorkshopFormModal(null, el));
+
+  // Toggle Visibility listener per card
+  el.querySelectorAll('[data-action-toggle-vis]').forEach(b => {
+    b.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const wsid = b.dataset.actionToggleVis;
+      const wsObj = workshops.find(x => x.id === wsid);
+      if (!wsObj) return;
+      const newVis = !(wsObj.isVisible !== false);
+      try {
+        await updateDoc(doc(db, 'workshops', wsid), { isVisible: newVis });
+        loaded.workshops = false;
+        toast(newVis ? 'تم إظهار الورشة للعملاء' : 'تم إخفاء الورشة عن العملاء');
+        vWorkshops(el);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء تعديل الظهور', 'err'); }
+    });
+  });
+
+  // Click card to open Single Workshop View
+  el.querySelectorAll('[data-ws-card]').forEach(card => {
+    card.addEventListener('click', () => {
+      selectedWorkshopId = card.dataset.wsCard;
+      vWorkshops(el);
+    });
+  });
+}
+
+function renderWorkshopMinimalCardHTML(w, allRegistrants) {
+  const total = parseInt(w.totalSeats || 0, 10);
+  const wRegs = allRegistrants.filter(r => r.workshopId === w.id);
+  const regCount = wRegs.length;
+  const remaining = Math.max(0, total - regCount);
+  const isVis = w.isVisible !== false;
+
+  let badge = `<span class="row-status reviewed">مفتوحة</span>`;
+  if (w.status === 'closed') badge = `<span class="row-status rejected">مغلقة</span>`;
+  else if (remaining <= 0 || w.status === 'full') badge = `<span class="row-status new">مكتملة</span>`;
+
+  return `
+  <div class="news-card" data-ws-card="${w.id}" style="cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;transition:transform 0.2s, box-shadow 0.2s;">
+    <div class="nc-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px;">
+        <span class="nc-meta">${esc(w.category || 'ورشة عمل')}</span>
+        <div style="display:flex;gap:6px;">
+          ${isVis ? '<span class="chip-count" style="background:#e6f4ea;color:#137333;">ظاهرة للعملاء</span>' : '<span class="chip-count" style="background:#fce8e6;color:#c5221f;">مخفية عن العملاء</span>'}
+          ${badge}
+        </div>
+      </div>
+      <h3 style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:10px;">${esc(w.title || '')}</h3>
+
+      <div style="padding:12px;background:var(--parchment-2);border-radius:8px;font-size:13px;display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--ink-muted);">عدد المسجلين:</span>
+          <strong style="color:var(--ink);">${regCount} متقدم</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--ink-muted);">المقاعد المتبقية:</span>
+          <strong style="color:var(--gold-deep);">${remaining} مقعد</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--ink-muted);">التاريخ:</span>
+          <strong>${esc(w.date || 'غير محدد')}</strong>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 16px;background:var(--paper);border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center;">
+      <button class="btn btn-sm btn-ghost" data-action-toggle-vis="${w.id}" style="font-size:11px;font-weight:700;">
+        ${isVis ? 'إخفاء عن العملاء' : 'إظهار للعملاء'}
+      </button>
+      <span style="font-size:12px;font-weight:700;color:var(--gold-deep);display:inline-flex;align-items:center;gap:4px;">
+        التفاصيل ←
+      </span>
+    </div>
+  </div>
+  `;
+}
+
+/* ── Single Workshop Management Page View ── */
+async function vWorkshopDetail(el, w, allRegistrants) {
+  const total = parseInt(w.totalSeats || 0, 10);
+  const wRegs = allRegistrants.filter(r => r.workshopId === w.id);
+  const regCount = wRegs.length;
+  const remaining = Math.max(0, total - regCount);
+  const fillRate = total > 0 ? Math.min(100, Math.round((regCount / total) * 100)) : 0;
+  const isVis = w.isVisible !== false;
+
+  let lastRegDateStr = 'لا يوجد مسجلين بعد';
+  if (wRegs.length > 0) {
+    const sortedRegs = [...wRegs].sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+    if (sortedRegs[0].createdAt) {
+      lastRegDateStr = fmtEn(toTs(sortedRegs[0].createdAt));
+    }
+  }
+
+  let badge = `<span class="row-status reviewed">مفتوحة للتسجيل</span>`;
+  if (w.status === 'closed') badge = `<span class="row-status rejected">مغلقة</span>`;
+  else if (remaining <= 0 || w.status === 'full') badge = `<span class="row-status new">مكتملة العدد</span>`;
+
+  let filteredRegs = [...wRegs];
+  if (wsRegQ.trim()) {
+    const q = wsRegQ.trim().toLowerCase();
+    filteredRegs = filteredRegs.filter(r =>
+      (r.name || r.fullName || '').toLowerCase().includes(q) ||
+      (r.phone || r.mobile || '').includes(q) ||
+      (r.nationalId || r.idNumber || '').includes(q) ||
+      (r.email || '').toLowerCase().includes(q)
+    );
+  }
+
+  el.innerHTML = `
+  <div style="margin-bottom:20px;">
+    <button class="btn btn-sm btn-ghost" id="btnBackToWorkshops" style="gap:6px;font-size:13px;font-weight:700;color:var(--ink-mid);margin-bottom:16px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;transform:scaleX(-1);"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round"/></svg>
+      <span>العودة إلى قائمة الورش</span>
+    </button>
+
+    <!-- Top Hero Banner -->
+    <div class="card" style="padding:24px;background:var(--paper);border:1px solid var(--line-soft);border-radius:16px;margin-bottom:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:16px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+            <span class="nc-meta">${esc(w.category || 'ورشة عمل')}</span>
+            ${isVis ? '<span class="chip-count" style="background:#e6f4ea;color:#137333;">ظاهرة للعملاء</span>' : '<span class="chip-count" style="background:#fce8e6;color:#c5221f;">مخفية عن العملاء</span>'}
+            ${badge}
+          </div>
+          <h1 style="font-size:24px;font-weight:800;color:var(--ink);margin:0;">${esc(w.title || '')}</h1>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" id="btnToggleCurrentWsVis">${isVis ? 'إخفاء الورشة عن العملاء' : 'إظهار الورشة للعملاء'}</button>
+          <button class="btn btn-outline" id="btnEditCurrentWs">تعديل الورشة</button>
+          <button class="btn btn-ghost del" id="btnDeleteCurrentWs">حذف الورشة</button>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;padding:16px;background:var(--parchment-2);border-radius:12px;font-size:13px;">
+        <div><span style="color:var(--ink-muted);display:block;font-size:11px;">عدد المسجلين</span><strong style="font-size:16px;color:var(--ink);">${regCount}</strong></div>
+        <div><span style="color:var(--ink-muted);display:block;font-size:11px;">إجمالي المقاعد</span><strong style="font-size:16px;color:var(--ink);">${total}</strong></div>
+        <div><span style="color:var(--ink-muted);display:block;font-size:11px;">المقاعد المتبقية</span><strong style="font-size:16px;color:var(--gold-deep);">${remaining}</strong></div>
+        <div><span style="color:var(--ink-muted);display:block;font-size:11px;">التاريخ</span><strong style="font-size:13px;color:var(--ink);">${esc(w.date || 'غير محدد')}</strong></div>
+        <div><span style="color:var(--ink-muted);display:block;font-size:11px;">الوقت</span><strong style="font-size:13px;color:var(--ink);">${esc(w.time || 'غير محدد')}</strong></div>
+        <div><span style="color:var(--ink-muted);display:block;font-size:11px;">المكان</span><strong style="font-size:13px;color:var(--ink);">${esc(w.location || 'مقر الجمعية')}</strong></div>
+        <div><span style="color:var(--ink-muted);display:block;font-size:11px;">تاريخ الإنشاء</span><strong style="font-size:12px;color:var(--ink);">${w.createdAt ? fmtEn(toTs(w.createdAt)) : '—'}</strong></div>
+      </div>
+    </div>
+
+    <!-- Section Navigation Tabs -->
+    <div class="filters" style="margin-bottom:20px;border-bottom:1px solid var(--line-soft);padding-bottom:12px;">
+      <button class="chip ${wsTab === 'info' ? 'active' : ''}" id="tabWsInfo">معلومات الورشة</button>
+      <button class="chip ${wsTab === 'registrants' ? 'active' : ''}" id="tabWsRegs">المسجلون (${regCount})</button>
+      <button class="chip ${wsTab === 'stats' ? 'active' : ''}" id="tabWsStats">الإحصائيات</button>
+    </div>
+
+    <!-- SECTION 1: INFORMATION -->
+    <div id="wsTabContentInfo" style="display:${wsTab === 'info' ? 'block' : 'none'};">
+      <div class="card" style="padding:24px;background:var(--paper);border-radius:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h3 style="font-size:18px;font-weight:800;color:var(--ink);margin:0;">القسم الأول: معلومات الورشة</h3>
+          <button class="btn btn-sm btn-primary" id="btnEditWsInfo">تعديل البيانات</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:20px;">
+          <div><strong>اسم الورشة:</strong> <p style="margin-top:4px;color:var(--ink-mid);">${esc(w.title || '—')}</p></div>
+          <div><strong>التصنيف:</strong> <p style="margin-top:4px;color:var(--ink-mid);">${esc(w.category || 'ورشة عمل')}</p></div>
+          <div><strong>المكان:</strong> <p style="margin-top:4px;color:var(--ink-mid);">${esc(w.location || 'مقر الجمعية')}</p></div>
+          <div><strong>التاريخ:</strong> <p style="margin-top:4px;color:var(--ink-mid);">${esc(w.date || 'غير محدد')}</p></div>
+          <div><strong>الوقت:</strong> <p style="margin-top:4px;color:var(--ink-mid);">${esc(w.time || 'غير محدد')}</p></div>
+          <div><strong>إجمالي المقاعد:</strong> <p style="margin-top:4px;color:var(--ink-mid);">${total} مقعد</p></div>
+          <div><strong>الظهور للعملاء:</strong> <p style="margin-top:4px;">${isVis ? '<span style="color:#137333;font-weight:700;">ظاهرة في الموقع</span>' : '<span style="color:#c5221f;font-weight:700;">مخفية عن العملاء</span>'}</p></div>
+          <div><strong>حالة التسجيل:</strong> <p style="margin-top:4px;">${badge}</p></div>
+          <div><strong>صورة الورشة:</strong> <p style="margin-top:4px;color:var(--ink-mid);">${w.imageUrl ? `<a href="${escA(w.imageUrl)}" target="_blank" style="color:var(--gold-deep);text-decoration:underline;">عرض الصورة</a>` : 'لا توجد صورة'}</p></div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line-soft);">
+          <strong>وصف الورشة:</strong>
+          <p style="margin-top:6px;line-height:1.6;color:var(--ink-mid);white-space:pre-line;">${esc(w.description || 'لا يوجد وصف متاح.')}</p>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line-soft);">
+          <strong>الملاحظات الخاصة بالإدارة:</strong>
+          <p style="margin-top:6px;padding:12px;background:var(--parchment-2);border-radius:8px;color:var(--ink-mid);">${esc(w.adminNotes || 'لا توجد ملاحظات إدارية مسجلة.')}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: REGISTRANTS TABLE -->
+    <div id="wsTabContentRegs" style="display:${wsTab === 'registrants' ? 'block' : 'none'};">
+      <div class="card" style="padding:24px;background:var(--paper);border-radius:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+          <div>
+            <h3 style="font-size:18px;font-weight:800;color:var(--ink);margin:0;">القسم الثاني: المسجلون (${wRegs.length})</h3>
+            <p style="font-size:12px;color:var(--ink-muted);margin-top:2px;">جدول كامل يحتوي على المتقدمين للورشة وإمكانية التعديل والتصدير.</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-outline" id="btnExportWsWord" style="gap:6px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>تحميل Word (.docx)</span>
+            </button>
+            <button class="btn btn-sm btn-outline" id="btnExportWsExcel" style="gap:6px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>تحميل Excel</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="search-box" style="margin-bottom:16px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+          <input type="text" id="wsRegSearchInput" placeholder="بحث بالاسم، رقم الجوال، الهوية، أو البريد…" value="${escA(wsRegQ)}"/>
+        </div>
+
+        ${filteredRegs.length === 0
+          ? `<div style="text-align:center;padding:40px;color:var(--ink-muted);">لا يوجد مسجلين مطابقين للبحث</div>`
+          : `
+          <div style="overflow-x:auto;">
+            <table class="tbl" style="width:100%;">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>الاسم</th>
+                  <th>رقم الجوال</th>
+                  <th>رقم الهوية</th>
+                  <th>البريد الإلكتروني</th>
+                  <th>الملاحظات</th>
+                  <th>تاريخ التسجيل</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredRegs.map((r, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td><strong>${esc(r.name || r.fullName || 'بدون اسم')}</strong></td>
+                    <td dir="ltr" style="text-align:right;">${esc(r.phone || r.mobile || '—')}</td>
+                    <td>${esc(r.nationalId || r.idNumber || '—')}</td>
+                    <td>${esc(r.email || '—')}</td>
+                    <td>${esc(r.notes || '—')}</td>
+                    <td>${r.createdAt ? fmtEn(toTs(r.createdAt)) : '—'}</td>
+                    <td>
+                      <div style="display:flex;gap:4px;">
+                        <button class="btn btn-sm btn-ghost" data-action-reg-edit="${r.id}">تعديل</button>
+                        <button class="btn btn-sm btn-ghost del" data-action-reg-del="${r.id}">حذف</button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          `
+        }
+      </div>
+    </div>
+
+    <!-- SECTION 3: STATISTICS -->
+    <div id="wsTabContentStats" style="display:${wsTab === 'stats' ? 'block' : 'none'};">
+      <div class="stats-grid" style="margin-bottom:20px;">
+        ${sCard('Total', 'عدد المسجلين', regCount, 'متقدم')}
+        ${sCard('Capacity', 'عدد المقاعد', total, 'السعة القصوى')}
+        ${sCard('Remaining', 'المتبقي', remaining, 'مقعد متاح')}
+        ${sCard('FillRate', 'نسبة الامتلاء', fillRate + '%', `${regCount} من أصل ${total}`)}
+      </div>
+
+      <div class="card" style="padding:24px;background:var(--paper);border-radius:16px;">
+        <h3 style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:16px;">القسم الثالث: الإحصائيات والمؤشرات</h3>
+        
+        <div style="margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+            <span>نسبة الاستيعاب المكتملة</span>
+            <strong>${fillRate}%</strong>
+          </div>
+          <div style="height:12px;background:var(--parchment-3);border-radius:999px;overflow:hidden;">
+            <div style="height:100%;width:${fillRate}%;background:var(--gold-deep);border-radius:999px;transition:width 0.4s ease;"></div>
+          </div>
+        </div>
+
+        <div style="padding:16px;background:var(--parchment-2);border-radius:12px;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+          <span>آخر عملية تسجيل تم تنفيذها:</span>
+          <strong style="color:var(--gold-deep);font-size:14px;">${lastRegDateStr}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+
+  // Event Listeners inside detail view
+  el.querySelector('#btnBackToWorkshops')?.addEventListener('click', () => {
+    selectedWorkshopId = null;
+    vWorkshops(el);
+  });
+
+  el.querySelector('#btnToggleCurrentWsVis')?.addEventListener('click', async () => {
+    const newVis = !(w.isVisible !== false);
+    try {
+      await updateDoc(doc(db, 'workshops', w.id), { isVisible: newVis });
+      loaded.workshops = false;
+      toast(newVis ? 'تم إظهار الورشة للعملاء' : 'تم إخفاء الورشة عن العملاء');
+      const freshWorkshops = await loadCol('workshops');
+      const freshWs = freshWorkshops.find(x => x.id === w.id);
+      vWorkshopDetail(el, freshWs, allRegistrants);
+    } catch (err) { console.error(err); toast('حدث خطأ أثناء تعديل الظهور', 'err'); }
+  });
+
+  el.querySelector('#btnEditCurrentWs')?.addEventListener('click', () => openWorkshopFormModal(w, el));
+  el.querySelector('#btnEditWsInfo')?.addEventListener('click', () => openWorkshopFormModal(w, el));
+  el.querySelector('#btnDeleteCurrentWs')?.addEventListener('click', async () => {
+    if (!confirm(`هل أنت تأكد من حذف الورشة "${w.title}"؟`)) return;
+    try {
+      await deleteDoc(doc(db, 'workshops', w.id));
+      loaded.workshops = false;
+      selectedWorkshopId = null;
+      toast('تم حذف الورشة بنجاح');
+      vWorkshops(el);
+    } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
+  });
+
+  // Tab switching
+  const switchTab = (tab) => {
+    wsTab = tab;
+    vWorkshopDetail(el, w, allRegistrants);
+  };
+  el.querySelector('#tabWsInfo')?.addEventListener('click', () => switchTab('info'));
+  el.querySelector('#tabWsRegs')?.addEventListener('click', () => switchTab('registrants'));
+  el.querySelector('#tabWsStats')?.addEventListener('click', () => switchTab('stats'));
+
+  // Registrants Search
+  const regSearchInput = el.querySelector('#wsRegSearchInput');
+  if (regSearchInput) {
+    regSearchInput.addEventListener('input', e => {
+      wsRegQ = e.target.value;
+      vWorkshopDetail(el, w, allRegistrants);
+      el.querySelector('#wsRegSearchInput')?.focus();
+    });
+  }
+
+  // Exports
+  el.querySelector('#btnExportWsWord')?.addEventListener('click', () => exportWorkshopRegistrantsToWord(w, filteredRegs));
+  el.querySelector('#btnExportWsExcel')?.addEventListener('click', () => exportRegistrantsToCSV(w.title || 'ورشة_عمل', filteredRegs));
+
+  // Edit / Delete registrant buttons
+  el.querySelectorAll('[data-action-reg-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const regId = btn.dataset.actionRegEdit;
+      const regObj = wRegs.find(r => r.id === regId);
+      if (regObj) openRegistrantEditModal(regObj, 'workshop_registrations', async () => {
+        loaded.workshop_registrations = false;
+        const fresh = await loadCol('workshop_registrations');
+        vWorkshopDetail(el, w, fresh);
+      });
+    });
+  });
+
+  el.querySelectorAll('[data-action-reg-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const regId = btn.dataset.actionRegDel;
+      if (!confirm('هل تريد حذف هذا المسجل؟')) return;
+      try {
+        await deleteDoc(doc(db, 'workshop_registrations', regId));
+        loaded.workshop_registrations = false;
+        toast('تم حذف المسجل بنجاح');
+        const fresh = await loadCol('workshop_registrations');
+        vWorkshopDetail(el, w, fresh);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
+    });
+  });
+}
+
+/* ── Modal: Create/Edit Workshop ── */
+function openWorkshopFormModal(wsToEdit, mainEl) {
+  const isEdit = !!wsToEdit;
+  const html = `
+    <div class="modal-head">
+      <div>
+        <div class="la">WORKSHOPS · Form</div>
+        <h2>${isEdit ? 'تعديل ورشة عمل' : 'إنشاء ورشة عمل جديدة'}</h2>
+      </div>
+      <button class="close-btn" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <form id="wsAdminForm" class="form-grid" style="gap:14px;">
+      <div class="field">
+        <label>عنوان الورشة <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="wsF_title" value="${isEdit ? escA(wsToEdit.title || '') : ''}" required placeholder="مثال: ورشة تعليم حرفة السدو التراثية">
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>التصنيف / الفئة</label>
+          <input type="text" id="wsF_category" value="${isEdit ? escA(wsToEdit.category || 'ورشة عمل') : 'ورشة عمل'}" placeholder="مثال: تدريب حرفي / ورشة عمل">
+        </div>
+        <div class="field">
+          <label>إجمالي عدد المقاعد <span style="color:var(--danger)">*</span></label>
+          <input type="number" id="wsF_seats" min="1" value="${isEdit ? (wsToEdit.totalSeats || 20) : 20}" required placeholder="20">
+        </div>
+      </div>
+      <div class="field">
+        <label>وصف مختصر للورشة</label>
+        <textarea id="wsF_desc" rows="3" placeholder="أدخل تفاصيل الورشة والفئة المستهدفة وما سيتم تعلمه…">${isEdit ? esc(wsToEdit.description || '') : ''}</textarea>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>التاريخ</label>
+          <input type="text" id="wsF_date" value="${isEdit ? escA(wsToEdit.date || '') : ''}" placeholder="مثال: 25 يوليو 2026">
+        </div>
+        <div class="field">
+          <label>الوقت</label>
+          <input type="text" id="wsF_time" value="${isEdit ? escA(wsToEdit.time || '') : ''}" placeholder="مثال: 05:00 م - 08:00 م">
+        </div>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>المكان / المقر</label>
+          <input type="text" id="wsF_location" value="${isEdit ? escA(wsToEdit.location || 'مقر الجمعية - القريات') : 'مقر الجمعية - القريات'}" placeholder="مقر الجمعية بالقريات">
+        </div>
+        <div class="field">
+          <label>حالة التسجيل</label>
+          <select id="wsF_status">
+            <option value="open" ${isEdit && wsToEdit.status === 'open' ? 'selected' : (!isEdit ? 'selected' : '')}>مفتوح للتسجيل</option>
+            <option value="closed" ${isEdit && wsToEdit.status === 'closed' ? 'selected' : ''}>مغلق</option>
+            <option value="full" ${isEdit && wsToEdit.status === 'full' ? 'selected' : ''}>مكتمل العدد</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>إظهار الورشة في الموقع العام للعملاء</label>
+        <select id="wsF_isVisible">
+          <option value="true" ${!isEdit || wsToEdit.isVisible !== false ? 'selected' : ''}>ظاهرة للعملاء (تظهر في الموقع)</option>
+          <option value="false" ${isEdit && wsToEdit.isVisible === false ? 'selected' : ''}>مخفية عن العملاء (تظهر فقط للإدارة)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>رابط صورة الورشة (إن وجد)</label>
+        <input type="text" id="wsF_imageUrl" value="${isEdit ? escA(wsToEdit.imageUrl || '') : ''}" placeholder="https://example.com/image.jpg">
+      </div>
+      <div class="field">
+        <label>الملاحظات الخاصة بالإدارة</label>
+        <textarea id="wsF_adminNotes" rows="2" placeholder="أدخل أي ملاحظات إدارية خاصة بالورشة…">${isEdit ? esc(wsToEdit.adminNotes || '') : ''}</textarea>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveWs">
+          <span>${isEdit ? 'حفظ التعديلات' : 'إنشاء الورشة'}</span>
+        </button>
+      </div>
+    </form>
+  `;
+
+  showModal(html);
+
+  document.getElementById('wsAdminForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const submitBtn = document.getElementById('btnSaveWs');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جارٍ الحفظ…';
+
+    const data = {
+      title: document.getElementById('wsF_title').value.trim(),
+      category: document.getElementById('wsF_category').value.trim() || 'ورشة عمل',
+      totalSeats: parseInt(document.getElementById('wsF_seats').value || '20', 10),
+      description: document.getElementById('wsF_desc').value.trim(),
+      date: document.getElementById('wsF_date').value.trim(),
+      time: document.getElementById('wsF_time').value.trim(),
+      location: document.getElementById('wsF_location').value.trim(),
+      status: document.getElementById('wsF_status').value,
+      isVisible: document.getElementById('wsF_isVisible').value === 'true',
+      imageUrl: document.getElementById('wsF_imageUrl').value.trim(),
+      adminNotes: document.getElementById('wsF_adminNotes').value.trim()
+    };
+
+    try {
+      if (isEdit) {
+        await updateDoc(doc(db, 'workshops', wsToEdit.id), { ...data, updatedAt: serverTimestamp() });
+        toast('تم تحديث بيانات الورشة بنجاح');
+      } else {
+        await addDoc(collection(db, 'workshops'), { ...data, registeredCount: 0, createdAt: serverTimestamp() });
+        toast('تم إنشاء الورشة بنجاح');
+      }
+      loaded.workshops = false;
+      closeModal();
+      vWorkshops(mainEl);
+    } catch (err) {
+      console.error(err);
+      toast('حدث خطأ أثناء حفظ البيانات', 'err');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = isEdit ? 'حفظ التعديلات' : 'إنشاء الورشة';
+      }
+    }
+  });
+}
+
+/* ════════════════════════════════
+   NOTIFICATIONS SYSTEM
+════════════════════════════════ */
+let notifFilter = 'all';
+
+async function vNotifications(el) {
+  const [notifs, wRegs, vRegs, cRegs] = await Promise.all([
+    loadCol('admin_notifications'),
+    loadCol('workshop_registrations'),
+    loadCol('volunteer_registrations'),
+    loadCol('bidi_herfa_registrations')
+  ]);
+
+  await renderNav();
+
+  // Aggregate explicit notifications + unreviewed registrations
+  const aggregatedNotifs = [...notifs];
+  const seenIds = new Set(notifs.map(n => n.id));
+
+  wRegs.forEach(r => {
+    if (!seenIds.has('ws_' + r.id)) {
+      aggregatedNotifs.push({
+        id: 'ws_' + r.id,
+        rawId: r.id,
+        col: 'workshop_registrations',
+        name: r.name || r.fullName || 'متقدم لورشة عمل',
+        label: 'ورش العمل',
+        formType: 'ورش العمل',
+        activityTitle: r.workshopTitle || r.workshopName || 'ورشة عمل',
+        read: !!r.reviewed || r.status === 'معتمد',
+        status: (!!r.reviewed || r.status === 'معتمد') ? 'read' : 'unread',
+        createdAt: r.createdAt
+      });
+    }
+  });
+
+  vRegs.forEach(r => {
+    if (!seenIds.has('vol_' + r.id)) {
+      aggregatedNotifs.push({
+        id: 'vol_' + r.id,
+        rawId: r.id,
+        col: 'volunteer_registrations',
+        name: r.fullName || r.name || 'متطوع جديد',
+        label: 'أصدقاء الجمعية',
+        formType: 'أصدقاء الجمعية',
+        activityTitle: r.program || r.field || 'تطوع',
+        read: !!r.reviewed,
+        status: r.reviewed ? 'read' : 'unread',
+        createdAt: r.createdAt
+      });
+    }
+  });
+
+  cRegs.forEach(r => {
+    if (!seenIds.has('crf_' + r.id)) {
+      aggregatedNotifs.push({
+        id: 'crf_' + r.id,
+        rawId: r.id,
+        col: 'bidi_herfa_registrations',
+        name: r.fullName || r.name || 'حرفي جديد',
+        label: 'بيدي حرفة',
+        formType: 'بيدي حرفة',
+        activityTitle: r.craftName || r.program || 'حرفة',
+        read: !!r.reviewed,
+        status: r.reviewed ? 'read' : 'unread',
+        createdAt: r.createdAt
+      });
+    }
+  });
+
+  let rows = [...aggregatedNotifs];
+  if (notifFilter === 'unread') rows = rows.filter(n => !n.read && n.status !== 'read');
+  else if (notifFilter === 'read') rows = rows.filter(n => n.read || n.status === 'read');
+
+  rows.sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+
+  const unreadCount = aggregatedNotifs.filter(n => !n.read && n.status !== 'read').length;
+
+  el.innerHTML = `
+  <div class="page-head">
+    <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Notifications · الإشعارات</span><span class="e-label">سجل إشعارات النظام</span></div>
+    <h1 class="page-title">إشعارات <span class="accent">اللوحة والطلبات</span></h1>
+    <p class="page-sub">تصفح الإشعارات ومتابعة تسجيلات الزوار. الإشعارات تبقى محفوظة دائماً حتى تحددها كمقروءة أو تحذفها يدوياً.</p>
+  </div>
+
+  <div class="toolbar" style="margin-bottom:20px;">
+    <div class="filters">
+      <button class="chip ${notifFilter === 'all' ? 'active' : ''}" data-nf="all">جميع الإشعارات <span class="chip-count">${aggregatedNotifs.length}</span></button>
+      <button class="chip chip-new ${notifFilter === 'unread' ? 'active' : ''}" data-nf="unread">غير مقروء <span class="chip-count">${unreadCount}</span></button>
+      <button class="chip chip-approved ${notifFilter === 'read' ? 'active' : ''}" data-nf="read">المقروءة</button>
+    </div>
+  </div>
+
+  ${rows.length === 0
+    ? `<div class="card">${emptyState('لا توجد إشعارات حالياً', 'NOTIFICATIONS · EMPTY')}</div>`
+    : `<div style="display:flex;flex-direction:column;gap:12px;">
+        ${rows.map(n => {
+          const isRead = n.read || n.status === 'read';
+          return `
+          <div class="card" style="padding:16px 20px;background:${isRead ? 'var(--paper)' : '#fffbf2'};border-left:4px solid ${isRead ? 'var(--line-soft)' : 'var(--gold-deep)'};border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div style="width:40px;height:40px;border-radius:50%;background:${isRead ? 'var(--parchment-3)' : 'var(--gold-pale)'};display:grid;place-items:center;color:var(--gold-deep);flex-shrink:0;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <strong style="font-size:15px;color:var(--ink);">${esc(n.name || n.personName || 'طلب جديد')}</strong>
+                  <span class="row-status ${isRead ? 'reviewed' : 'new'}">${isRead ? 'مقروء' : 'جديد'}</span>
+                </div>
+                <p style="font-size:13px;color:var(--ink-mid);margin:0;">تم التسجيل في: <strong>${esc(n.label || n.formType || 'طلب جديد')}</strong> ${n.activityTitle ? `— ${esc(n.activityTitle)}` : ''}</p>
+                <span style="font-size:11px;color:var(--ink-muted);margin-top:4px;display:block;">${n.createdAt ? fmtEn(toTs(n.createdAt)) : '—'}</span>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;">
+              ${!isRead ? `<button class="btn btn-sm btn-outline" data-notif-read="${n.id}" data-notif-col="${n.col || 'admin_notifications'}" data-notif-rawid="${n.rawId || n.id}">تحديد كمقروء</button>` : ''}
+              <button class="btn btn-sm btn-ghost del" data-notif-del="${n.id}" data-notif-col="${n.col || 'admin_notifications'}" data-notif-rawid="${n.rawId || n.id}">حذف الإشعار</button>
+            </div>
+          </div>
+          `;
+        }).join('')}
+      </div>`
+  }
+  `;
+
+  // Filters
+  el.querySelectorAll('[data-nf]').forEach(b => b.addEventListener('click', () => { notifFilter = b.dataset.nf; vNotifications(el); }));
+
+  // Mark as Read Action
+  el.querySelectorAll('[data-notif-read]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const nid = b.dataset.notifRead;
+      const colName = b.dataset.notifCol;
+      const rawId = b.dataset.notifRawid;
+      try {
+        if (colName && colName !== 'admin_notifications') {
+          await updateDoc(doc(db, colName, rawId), { reviewed: true, status: 'معتمد' });
+          loaded[colName] = false;
+        } else {
+          await updateDoc(doc(db, 'admin_notifications', nid), { read: true, status: 'read' });
+          loaded.admin_notifications = false;
+        }
+        toast('تم تحديد الإشعار كمقروء بنجاح');
+        vNotifications(el);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء التعديل', 'err'); }
+    });
+  });
+
+  // Delete Notification Action
+  el.querySelectorAll('[data-notif-del]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const nid = b.dataset.notifDel;
+      const colName = b.dataset.notifCol;
+      const rawId = b.dataset.notifRawid;
+      if (!confirm('هل أنت تأكد من حذف الإشعار؟')) return;
+      try {
+        if (colName && colName !== 'admin_notifications') {
+          await deleteDoc(doc(db, colName, rawId));
+          loaded[colName] = false;
+        } else {
+          await deleteDoc(doc(db, 'admin_notifications', nid));
+          loaded.admin_notifications = false;
+        }
+        toast('تم حذف الإشعار بنجاح');
+        vNotifications(el);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
+    });
+  });
+}
+
+/* ════════════════════════════════
+   GLOBAL UNIFIED DATABASE VIEW
+════════════════════════════════ */
+let dbQ = '', dbCat = 'all';
+
+async function vGlobalDB(el) {
+  const [wRegs, vRegs, cRegs, contactMsgs] = await Promise.all([
+    loadCol('workshop_registrations'),
+    loadCol('volunteer_registrations'),
+    loadCol('bidi_herfa_registrations'),
+    loadCol('contact_messages')
+  ]);
+
+  await renderNav();
+
+  // Aggregation without duplication
+  const aggregated = [
+    ...wRegs.map(r => ({
+      id: r.id,
+      col: 'workshop_registrations',
+      name: r.name || r.fullName || 'بدون اسم',
+      phone: r.phone || r.mobile || '—',
+      nationalId: r.nationalId || r.idNumber || '—',
+      email: r.email || '—',
+      category: 'ورش العمل',
+      activity: r.workshopTitle || r.workshopName || 'ورشة عمل',
+      createdAt: r.createdAt,
+      raw: r
+    })),
+    ...vRegs.map(r => ({
+      id: r.id,
+      col: 'volunteer_registrations',
+      name: r.fullName || r.name || 'بدون اسم',
+      phone: r.phone || r.mobile || '—',
+      nationalId: r.nationalId || r.idNumber || '—',
+      email: r.email || '—',
+      category: 'أصدقاء الجمعية',
+      activity: r.program || r.field || 'تطوع',
+      createdAt: r.createdAt,
+      raw: r
+    })),
+    ...cRegs.map(r => ({
+      id: r.id,
+      col: 'bidi_herfa_registrations',
+      name: r.fullName || r.name || 'بدون اسم',
+      phone: r.phone || r.mobile || '—',
+      nationalId: r.nationalId || r.idNumber || '—',
+      email: r.email || '—',
+      category: 'بيدي حرفة',
+      activity: r.craftName || r.program || 'برنامج حرفي',
+      createdAt: r.createdAt,
+      raw: r
+    })),
+    ...contactMsgs.map(r => ({
+      id: r.id,
+      col: 'contact_messages',
+      name: r.name || 'بدون اسم',
+      phone: r.phone || '—',
+      nationalId: '—',
+      email: r.email || '—',
+      category: 'اتصل بنا',
+      activity: r.subject || 'استفسار',
+      createdAt: r.createdAt,
+      raw: r
+    }))
+  ];
+
+  let rows = [...aggregated];
+
+  if (dbCat !== 'all') {
+    rows = rows.filter(r => r.category === dbCat);
+  }
+
+  const q = dbQ.trim().toLowerCase();
+  if (q) {
+    rows = rows.filter(r =>
+      (r.name || '').toLowerCase().includes(q) ||
+      (r.phone || '').includes(q) ||
+      (r.nationalId || '').includes(q) ||
+      (r.activity || '').toLowerCase().includes(q)
+    );
+  }
+
+  rows.sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+
+  el.innerHTML = `
+  <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Global Database · قاعدة البيانات الموحدة</span><span class="e-label">المصدر الوحيد للبيانات</span></div>
+      <h1 class="page-title">قاعدة البيانات <span class="accent">الشاملة</span></h1>
+      <p class="page-sub">تجميع موحد لجميع الأشخاص والمسجلين في كافة أقسام الموقع بدون تكرار السجلات.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline" id="btnExportDbWord" style="gap:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>تصدير Word (.docx)</span>
+      </button>
+      <button class="btn btn-outline" id="btnExportDbExcel" style="gap:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>تصدير Excel</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:24px;">
+    ${sCard('TotalRegistrants', 'إجمالي السجلات', aggregated.length, 'سجل موحد')}
+    ${sCard('WorkshopsRegs', 'مسجلو ورش العمل', aggregated.filter(a => a.category === 'ورش العمل').length, 'متقدم')}
+    ${sCard('VolunteersRegs', 'أصدقاء الجمعية', aggregated.filter(a => a.category === 'أصدقاء الجمعية').length, 'متطوع')}
+    ${sCard('CraftsRegs', 'بيدي حرفة', aggregated.filter(a => a.category === 'بيدي حرفة').length, 'حرفي')}
+  </div>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+      <input type="text" id="dbSearch" placeholder="بحث باسم الشخص، رقم الجوال، الهوية، أو الورشة…" value="${escA(q)}"/>
+    </div>
+    <div class="filters">
+      <button class="chip ${dbCat === 'all' ? 'active' : ''}" data-dbc="all">جميع الأقسام <span class="chip-count">${aggregated.length}</span></button>
+      <button class="chip ${dbCat === 'ورش العمل' ? 'active' : ''}" data-dbc="ورش العمل">ورش العمل</button>
+      <button class="chip ${dbCat === 'أصدقاء الجمعية' ? 'active' : ''}" data-dbc="أصدقاء الجمعية">أصدقاء الجمعية</button>
+      <button class="chip ${dbCat === 'بيدي حرفة' ? 'active' : ''}" data-dbc="بيدي حرفة">بيدي حرفة</button>
+      <button class="chip ${dbCat === 'اتصل بنا' ? 'active' : ''}" data-dbc="اتصل بنا">اتصل بنا</button>
+    </div>
+  </div>
+
+  <div class="card" style="padding:20px;background:var(--paper);border-radius:16px;">
+    ${rows.length === 0
+      ? `<div style="text-align:center;padding:40px;color:var(--ink-muted);">لا توجد سجلات مطابقة للبحث</div>`
+      : `
+      <div style="overflow-x:auto;">
+        <table class="tbl" style="width:100%;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الاسم</th>
+              <th>رقم الجوال</th>
+              <th>رقم الهوية</th>
+              <th>القسم المسجل منه</th>
+              <th>النشاط / الورشة</th>
+              <th>تاريخ التسجيل</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td><strong>${esc(r.name)}</strong></td>
+                <td dir="ltr" style="text-align:right;">${esc(r.phone)}</td>
+                <td>${esc(r.nationalId)}</td>
+                <td><span class="chip-count" style="background:var(--parchment-3);">${esc(r.category)}</span></td>
+                <td>${esc(r.activity)}</td>
+                <td>${r.createdAt ? fmtEn(toTs(r.createdAt)) : '—'}</td>
+                <td>
+                  <div style="display:flex;gap:4px;">
+                    <button class="btn btn-sm btn-ghost" data-db-edit-col="${r.col}" data-db-edit-id="${r.id}">تعديل</button>
+                    <button class="btn btn-sm btn-ghost del" data-db-del-col="${r.col}" data-db-del-id="${r.id}">حذف</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      `
+    }
+  </div>
+  `;
+
+  // Search & Filters
+  const sInput = el.querySelector('#dbSearch');
+  if (sInput) sInput.addEventListener('input', e => { dbQ = e.target.value; vGlobalDB(el); el.querySelector('#dbSearch')?.focus(); });
+  el.querySelectorAll('[data-dbc]').forEach(b => b.addEventListener('click', () => { dbCat = b.dataset.dbc; vGlobalDB(el); }));
+
+  // Export Word & Excel
+  el.querySelector('#btnExportDbWord')?.addEventListener('click', () => {
+    exportGlobalDBToWord(rows);
+  });
+  el.querySelector('#btnExportDbExcel')?.addEventListener('click', () => {
+    exportRegistrantsToCSV('قاعدة_البيانات_الموحدة', rows);
+  });
+
+  // Edit Record
+  el.querySelectorAll('[data-db-edit-id]').forEach(b => {
+    b.addEventListener('click', () => {
+      const colName = b.dataset.dbEditCol;
+      const docId = b.dataset.dbEditId;
+      const targetObj = aggregated.find(a => a.col === colName && a.id === docId);
+      if (targetObj && targetObj.raw) {
+        openRegistrantEditModal(targetObj.raw, colName, async () => {
+          loaded[colName] = false;
+          vGlobalDB(el);
+        });
+      }
+    });
+  });
+
+  // Delete Record
+  el.querySelectorAll('[data-db-del-id]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const colName = b.dataset.dbDelCol;
+      const docId = b.dataset.dbDelId;
+      if (!confirm('هل تريد حذف هذا السجل نهائياً من قاعدة البيانات؟')) return;
+      try {
+        await deleteDoc(doc(db, colName, docId));
+        loaded[colName] = false;
+        toast('تم حذف السجل بنجاح');
+        vGlobalDB(el);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
+    });
+  });
+}
+
+/* ── Modal: Edit Registrant Details ── */
+function openRegistrantEditModal(regObj, colName, callback) {
+  const html = `
+    <div class="modal-head">
+      <div>
+        <div class="la">REGISTRANT · Edit</div>
+        <h2>تعديل بيانات المسجل</h2>
+      </div>
+      <button class="close-btn" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <form id="regEditForm" class="form-grid" style="gap:14px;">
+      <div class="field">
+        <label>الاسم الكامل <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="regE_name" value="${escA(regObj.name || regObj.fullName || '')}" required>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>رقم الجوال</label>
+          <input type="text" id="regE_phone" value="${escA(regObj.phone || regObj.mobile || '')}">
+        </div>
+        <div class="field">
+          <label>رقم الهوية / الإقامة</label>
+          <input type="text" id="regE_nationalId" value="${escA(regObj.nationalId || regObj.idNumber || '')}">
+        </div>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="regE_email" value="${escA(regObj.email || '')}">
+        </div>
+        <div class="field">
+          <label>الحالة</label>
+          <select id="regE_status">
+            <option value="معتمد" ${regObj.status === 'معتمد' ? 'selected' : ''}>معتمد</option>
+            <option value="جديد" ${!regObj.status || regObj.status === 'جديد' ? 'selected' : ''}>جديد / قيد الانتظار</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>الملاحظات</label>
+        <textarea id="regE_notes" rows="3">${esc(regObj.notes || '')}</textarea>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveReg">
+          <span>حفظ التعديلات</span>
+        </button>
+      </div>
+    </form>
+  `;
+
+  showModal(html);
+
+  document.getElementById('regEditForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveReg');
+    btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+
+    const updatedData = {
+      name: document.getElementById('regE_name').value.trim(),
+      fullName: document.getElementById('regE_name').value.trim(),
+      phone: document.getElementById('regE_phone').value.trim(),
+      mobile: document.getElementById('regE_phone').value.trim(),
+      nationalId: document.getElementById('regE_nationalId').value.trim(),
+      idNumber: document.getElementById('regE_nationalId').value.trim(),
+      email: document.getElementById('regE_email').value.trim(),
+      status: document.getElementById('regE_status').value,
+      notes: document.getElementById('regE_notes').value.trim(),
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      await updateDoc(doc(db, colName, regObj.id), updatedData);
+      toast('تم تحديث بيانات المسجل بنجاح');
+      closeModal();
+      if (typeof callback === 'function') callback();
+    } catch (err) {
+      console.error(err);
+      toast('حدث خطأ أثناء التحديث', 'err');
+    }
+  });
+}
+
+/* ── Modal: View Registrants for a Workshop ── */
+async function openRegistrantsModal(workshop, mainEl) {
+  const allRegistrants = await loadCol('workshop_registrations');
+  let wRegs = allRegistrants.filter(r => r.workshopId === workshop.id);
+
+  let searchQ = '', statusFilter = 'all';
+
+  function getFilteredRows() {
+    let rows = [...wRegs];
+    if (statusFilter === 'new') rows = rows.filter(r => !r.reviewed);
+    else if (statusFilter === 'approved') rows = rows.filter(r => r.status === 'معتمد');
+
+    const q = searchQ.trim();
+    if (q) {
+      rows = rows.filter(r =>
+        (r.name || '').includes(q) ||
+        (r.phone || '').includes(q) ||
+        (r.email || '').includes(q) ||
+        (r.nationalId || '').includes(q)
+      );
+    }
+    rows.sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+    return rows;
+  }
+
+  function renderModalBody() {
+    const rows = getFilteredRows();
+    const modalContent = document.getElementById('modalRegBody');
+    if (!modalContent) return;
+
+    modalContent.innerHTML = `
+      <div class="toolbar" style="margin-bottom:16px;">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+          <input type="text" id="regSearchInput" placeholder="بحث بالاسم أو الجوال أو الهوية…" value="${escA(searchQ)}"/>
+        </div>
+        <div class="filters">
+          <button class="chip ${statusFilter === 'all' ? 'active' : ''}" data-rf="all">الكل <span class="chip-count">${wRegs.length}</span></button>
+          <button class="chip chip-new ${statusFilter === 'new' ? 'active' : ''}" data-rf="new">جديد</button>
+          <button class="chip chip-approved ${statusFilter === 'approved' ? 'active' : ''}" data-rf="approved">معتمد</button>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="exportDocxBtn" style="gap:6px;font-weight:700;color:var(--gold-deep);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span>تصدير إلى Word (.docx)</span>
+        </button>
+        <button class="btn btn-ghost" id="exportCsvBtn" style="gap:6px;font-weight:700;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M12 3v12M8 11l4 4 4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>تصدير Excel / CSV</span>
+        </button>
+      </div>
+
+      ${rows.length === 0
+        ? `<div class="card">${emptyState('لا يوجد مسجلون مطبقون للتصفية', 'REGISTRANTS · EMPTY')}</div>`
+        : `
+        <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>اسم المسجل</th>
+                <th>رقم الجوال</th>
+                <th>البريد الإلكتروني</th>
+                <th>الهوية / الإقامة</th>
+                <th>الجنس</th>
+                <th>تاريخ التسجيل</th>
+                <th>الحالة</th>
+                <th>الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td class="name-cell">${esc(r.name || '—')}</td>
+                  <td dir="ltr" style="text-align:right;">${esc(r.phone || '—')}</td>
+                  <td dir="ltr" style="text-align:right;">${esc(r.email || '—')}</td>
+                  <td dir="ltr" style="text-align:right;">${esc(r.nationalId || '—')}</td>
+                  <td>${esc(r.gender || '—')}</td>
+                  <td>${r.createdAt ? fmtEn(toTs(r.createdAt)) : '—'}</td>
+                  <td>
+                    ${r.status === 'معتمد'
+                      ? '<span class="row-status reviewed">معتمد</span>'
+                      : '<span class="row-status new">جديد</span>'}
+                  </td>
+                  <td>
+                    <div class="row-actions">
+                      ${r.status !== 'معتمد'
+                        ? `<button class="ok" data-reg-approve="${r.id}">اعتماد</button>`
+                        : ''}
+                      <button class="del" data-reg-del="${r.id}">حذف</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        `
+      }
+    `;
+
+    // Search & Filter listeners
+    const sIn = modalContent.querySelector('#regSearchInput');
+    if (sIn) sIn.addEventListener('input', e => { searchQ = e.target.value; renderModalBody(); modalContent.querySelector('#regSearchInput')?.focus(); });
+
+    modalContent.querySelectorAll('[data-rf]').forEach(b => b.addEventListener('click', () => { statusFilter = b.dataset.rf; renderModalBody(); }));
+
+    // Word Export
+    const expDocxBtn = modalContent.querySelector('#exportDocxBtn');
+    if (expDocxBtn) {
+      expDocxBtn.addEventListener('click', () => {
+        exportWorkshopRegistrantsToWord(workshop, rows);
+      });
+    }
+
+    // CSV Export
+    const expBtn = modalContent.querySelector('#exportCsvBtn');
+    if (expBtn) {
+      expBtn.addEventListener('click', () => {
+        exportRegistrantsToCSV(workshop.title || 'ورشة_عمل', rows);
+      });
+    }
+
+    // Row Actions: Approve / Delete
+    modalContent.querySelectorAll('[data-reg-approve]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const id = b.dataset.regApprove;
+        try {
+          await updateDoc(doc(db, 'workshop_registrations', id), { status: 'معتمد', reviewed: true });
+          loaded.workshop_registrations = false;
+          toast('تم اعتماد التسجيل بنجاح');
+          // Reload local registrants list
+          const fresh = await loadCol('workshop_registrations');
+          wRegs = fresh.filter(r => r.workshopId === workshop.id);
+          renderModalBody();
+          vWorkshops(mainEl);
+        } catch (e) { console.error(e); toast('حدث خطأ أثناء الاعتماد', 'err'); }
+      });
+    });
+
+    modalContent.querySelectorAll('[data-reg-del]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const id = b.dataset.regDel;
+        if (!confirm('هل أنت تأكد من حذف هذا التسجيل؟')) return;
+        try {
+          await deleteDoc(doc(db, 'workshop_registrations', id));
+          // Decrement registered count on workshop
+          try {
+            await updateDoc(doc(db, 'workshops', workshop.id), { registeredCount: increment(-1) });
+          } catch(err) {}
+
+          loaded.workshop_registrations = false;
+          loaded.workshops = false;
+          toast('تم حذف التسجيل بنجاح');
+          const fresh = await loadCol('workshop_registrations');
+          wRegs = fresh.filter(r => r.workshopId === workshop.id);
+          renderModalBody();
+          vWorkshops(mainEl);
+        } catch (e) { console.error(e); toast('حدث خطأ أثناء الحذف', 'err'); }
+      });
+    });
+  }
+
+  const html = `
+    <div class="modal-head">
+      <div>
+        <div class="la">WORKSHOPS · Registrants</div>
+        <h2>المسجلون في: <span class="accent">${esc(workshop.title || '')}</span></h2>
+      </div>
+      <button class="close-btn" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <div id="modalRegBody" style="margin-top:16px;"></div>
+  `;
+
+  showModal(html);
+  renderModalBody();
+}
+
+/* CSV Exporter with Arabic BOM */
+function exportRegistrantsToCSV(filename, rows) {
+  if (!rows || !rows.length) {
+    toast('لا توجد بيانات للتصدير', 'err');
+    return;
+  }
+
+  const headers = ['الاسم الكامل', 'رقم الجوال', 'البريد الإلكتروني', 'رقم الهوية / الإقامة', 'الجنس', 'الحالة', 'تاريخ التسجيل', 'ملاحظات'];
+  const csvRows = [headers.join(',')];
+
+  rows.forEach(r => {
+    const dateStr = r.createdAt ? fmtEn(toTs(r.createdAt)) : '';
+    const rowData = [
+      `"${(r.name || '').replace(/"/g, '""')}"`,
+      `"${(r.phone || '').replace(/"/g, '""')}"`,
+      `"${(r.email || '').replace(/"/g, '""')}"`,
+      `"${(r.nationalId || '').replace(/"/g, '""')}"`,
+      `"${(r.gender || '').replace(/"/g, '""')}"`,
+      `"${(r.status || 'جديد').replace(/"/g, '""')}"`,
+      `"${dateStr}"`,
+      `"${(r.notes || '').replace(/"/g, '""')}"`
+    ];
+    csvRows.push(rowData.join(','));
+  });
+
+  // UTF-8 BOM \uFEFF for Excel Arabic support
+  const csvContent = '\uFEFF' + csvRows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `${filename.replace(/\s+/g, '_')}_المسجلين.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  toast('تم تصدير ملف Excel/CSV بنجاح');
+}
+
+/* Word (.docx) Professional Exporter */
+async function exportWorkshopRegistrantsToWord(workshop, rows) {
+  if (!rows || !rows.length) {
+    toast('لا توجد بيانات للتصدير إلى Word', 'err');
+    return;
+  }
+
+  if (typeof docx === 'undefined') {
+    toast('جارٍ تحميل مكتبة Word… يرجى المحاولة بعد لحظات', 'err');
+    return;
+  }
+
+  toast('جارٍ تجهيز وإنشاء مستند Word…');
+
+  try {
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle, ImageRun } = docx;
+
+    const mainFont = { name: 'Almarai', cs: 'Almarai' };
+
+    // Try fetching logo image
+    let logoImageRun = null;
+    try {
+      const imgRes = await fetch('../assets/الشعار/الشعار.png');
+      if (imgRes.ok) {
+        const imgBuffer = await imgRes.arrayBuffer();
+        logoImageRun = new ImageRun({
+          data: imgBuffer,
+          transformation: { width: 75, height: 75 }
+        });
+      }
+    } catch(e) { console.warn('Logo image fetch for Word skipped:', e); }
+
+    const reportDate = new Date().toISOString().split('T')[0];
+
+    // Build document header elements
+    const headerChildren = [];
+    if (logoImageRun) {
+      headerChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 120 },
+          children: [logoImageRun]
+        })
+      );
+    }
+
+    headerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: 'جمعية إرث وحضارة بالقريات', bold: true, size: 34, color: '9C6E38', rightToLeft: true, font: mainFont })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 220 },
+        children: [
+          new TextRun({ text: 'كشف المسجلين في ورشة العمل', bold: true, size: 30, color: '1C1A17', rightToLeft: true, font: mainFont })
+        ]
+      })
+    );
+
+    // Workshop Info Summary Table (RTL BidiVisual)
+    const infoTable = new Table({
+      visuallyRightToLeft: true,
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
+          cantSplit: true,
+          children: [
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              shading: { fill: 'F8F9FC' },
+              margins: { top: 120, bottom: 120, left: 160, right: 160 },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' },
+                left: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' },
+                right: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' }
+              },
+              children: [
+                new Paragraph({ alignment: AlignmentType.RIGHT, bidirectional: true, spacing: { after: 40 }, children: [new TextRun({ text: `اسم الورشة: ${workshop.title || '—'}`, bold: true, size: 22, color: '1C1A17', rightToLeft: true, font: mainFont })] }),
+                new Paragraph({ alignment: AlignmentType.RIGHT, bidirectional: true, spacing: { after: 40 }, children: [new TextRun({ text: `التاريخ والوقت: ${workshop.date || 'غير محدد'} (${workshop.time || ''})`, size: 20, color: '4A5068', rightToLeft: true, font: mainFont })] }),
+                new Paragraph({ alignment: AlignmentType.RIGHT, bidirectional: true, children: [new TextRun({ text: `المكان: ${workshop.location || 'مقر الجمعية - القريات'}`, size: 20, color: '4A5068', rightToLeft: true, font: mainFont })] })
+              ]
+            }),
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              shading: { fill: 'F8F9FC' },
+              margins: { top: 120, bottom: 120, left: 160, right: 160 },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' },
+                left: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' },
+                right: { style: BorderStyle.SINGLE, size: 4, color: 'D0C8B8' }
+              },
+              children: [
+                new Paragraph({ alignment: AlignmentType.RIGHT, bidirectional: true, spacing: { after: 40 }, children: [new TextRun({ text: `تاريخ استخراج التقرير: ${reportDate}`, size: 20, color: '4A5068', rightToLeft: true, font: mainFont })] }),
+                new Paragraph({ alignment: AlignmentType.RIGHT, bidirectional: true, spacing: { after: 40 }, children: [new TextRun({ text: `عدد المسجلين: ${rows.length} مشارك`, bold: true, size: 22, color: '9C6E38', rightToLeft: true, font: mainFont })] }),
+                new Paragraph({ alignment: AlignmentType.RIGHT, bidirectional: true, children: [new TextRun({ text: `حالة الورشة: ${workshop.status === 'open' ? 'مفتوحة للتسجيل' : (workshop.status === 'closed' ? 'مغلقة' : 'مكتملة')}`, size: 20, color: '4A5068', rightToLeft: true, font: mainFont })] })
+              ]
+            })
+          ]
+        })
+      ]
+    });
+
+    // Main Registrants Data Table (RTL Table)
+    const tableHeaderTitles = ['#', 'الاسم الكامل', 'رقم الجوال', 'البريد الإلكتروني', 'رقم الهوية', 'تاريخ التسجيل', 'الملاحظات'];
+    const colWidths = [6, 22, 15, 18, 14, 11, 14];
+
+    const tableRows = [];
+
+    // Header Row
+    tableRows.push(
+      new TableRow({
+        tableHeader: true,
+        cantSplit: true,
+        children: tableHeaderTitles.map((title, idx) => new TableCell({
+          width: { size: colWidths[idx], type: WidthType.PERCENTAGE },
+          shading: { fill: '9C6E38' },
+          margins: { top: 140, bottom: 140, left: 100, right: 100 },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 6, color: '8C672B' },
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: '8C672B' },
+            left: { style: BorderStyle.SINGLE, size: 4, color: 'B89B6A' },
+            right: { style: BorderStyle.SINGLE, size: 4, color: 'B89B6A' }
+          },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              bidirectional: true,
+              children: [new TextRun({ text: title, bold: true, size: 20, color: 'FFFFFF', rightToLeft: true, font: mainFont })]
+            })
+          ]
+        }))
+      })
+    );
+
+    // Data Rows
+    rows.forEach((r, idx) => {
+      const dateStr = r.createdAt ? fmtEn(toTs(r.createdAt)) : '—';
+      const isAlt = idx % 2 === 1;
+      const cellBg = isAlt ? 'F9F8F5' : 'FFFFFF';
+      const notesVal = (r.notes && r.notes.trim()) ? r.notes.trim() : '—';
+
+      const rowValues = [
+        `${idx + 1}`,
+        r.name || '—',
+        r.phone || '—',
+        r.email || '—',
+        r.nationalId || '—',
+        dateStr,
+        notesVal
+      ];
+
+      tableRows.push(
+        new TableRow({
+          cantSplit: true,
+          children: rowValues.map((val, cIdx) => new TableCell({
+            width: { size: colWidths[cIdx], type: WidthType.PERCENTAGE },
+            shading: { fill: cellBg },
+            margins: { top: 120, bottom: 120, left: 100, right: 100 },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 4, color: 'E2DCCF' },
+              bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E2DCCF' },
+              left: { style: BorderStyle.SINGLE, size: 4, color: 'E2DCCF' },
+              right: { style: BorderStyle.SINGLE, size: 4, color: 'E2DCCF' }
+            },
+            children: [
+              new Paragraph({
+                alignment: (cIdx === 0 || cIdx === 2 || cIdx === 4 || cIdx === 5) ? AlignmentType.CENTER : AlignmentType.RIGHT,
+                bidirectional: true,
+                children: [new TextRun({ text: val, size: 19, color: '1C1A17', rightToLeft: true, font: mainFont })]
+              })
+            ]
+          }))
+        })
+      );
+    });
+
+    const registrantsTable = new Table({
+      visuallyRightToLeft: true,
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows
+    });
+
+    // Construct final document with section-level bidi: true
+    const doc = new Document({
+      sections: [
+        {
+          properties: {
+            bidi: true,
+            page: {
+              margin: { top: 720, bottom: 720, left: 720, right: 720 }
+            }
+          },
+          children: [
+            ...headerChildren,
+            infoTable,
+            new Paragraph({ spacing: { after: 200 } }),
+            registrantsTable
+          ]
+        }
+      ]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const cleanTitle = (workshop.title || 'ورشة_عمل').replace(/[\s\/\\:\*\?"<>\|]+/g, '_');
+    const filename = `Workshop_${cleanTitle}_Participants_${reportDate}.docx`;
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    toast('تم تصدير ملف Word (.docx) بنجاح!');
+  } catch (err) {
+    console.error('Word export error:', err);
+    toast('حدث خطأ أثناء تصدير ملف Word', 'err');
+  }
+}
+
+/* Dedicated Word (.docx) Exporter for Global Database */
+async function exportGlobalDBToWord(rows) {
+  if (!rows || !rows.length) {
+    toast('لا توجد بيانات للتصدير إلى Word', 'err');
+    return;
+  }
+
+  if (typeof docx === 'undefined') {
+    toast('جارٍ تحميل مكتبة Word… يرجى المحاولة بعد لحظات', 'err');
+    return;
+  }
+
+  toast('جارٍ تجهيز مستند Word لقاعدة البيانات الموحدة…');
+
+  try {
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle, ImageRun, Footer, PageNumber, NumberOfPages } = docx;
+
+    const mainFont = { name: 'Almarai', cs: 'Almarai' };
+
+    // Fetch logo image
+    let logoImageRun = null;
+    try {
+      const imgRes = await fetch('../assets/الشعار/الشعار.png');
+      if (imgRes.ok) {
+        const imgBuffer = await imgRes.arrayBuffer();
+        logoImageRun = new ImageRun({
+          data: imgBuffer,
+          transformation: { width: 75, height: 75 }
+        });
+      }
+    } catch(e) { console.warn('Logo image fetch for Global DB Word skipped:', e); }
+
+    const reportDate = new Date().toISOString().split('T')[0];
+
+    // Header Children Elements
+    const children = [];
+    if (logoImageRun) {
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 120 },
+          children: [logoImageRun]
+        })
+      );
+    }
+
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: 'جمعية إرث وحضارة بالقريات', bold: true, size: 34, color: '9C6E38', rightToLeft: true, font: mainFont })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 140 },
+        children: [
+          new TextRun({ text: 'قاعدة بيانات المسجلين', bold: true, size: 30, color: '1C1A17', rightToLeft: true, font: mainFont })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 240 },
+        children: [
+          new TextRun({ text: `تاريخ استخراج التقرير: ${reportDate}   |   إجمالي عدد السجلات: ${rows.length} سجل`, size: 20, color: '718096', rightToLeft: true, font: mainFont })
+        ]
+      })
+    );
+
+    // Table Headers (RTL - Right to Left)
+    // Columns: الرقم, الاسم الكامل, رقم الهوية, رقم الجوال, البريد الإلكتروني, القسم الذي سجل منه, اسم النشاط أو الورشة, تاريخ التسجيل
+    const tableHeaders = [
+      'الرقم',
+      'الاسم الكامل',
+      'رقم الهوية',
+      'رقم الجوال',
+      'البريد الإلكتروني',
+      'القسم الذي سجل منه',
+      'اسم النشاط أو الورشة',
+      'تاريخ التسجيل'
+    ];
+
+    const colWidths = [5, 18, 12, 12, 16, 13, 14, 10];
+
+    const headerCells = tableHeaders.map((hdr, i) => new TableCell({
+      width: { size: colWidths[i], type: WidthType.PERCENTAGE },
+      shading: { fill: '9C6E38' },
+      margins: { top: 140, bottom: 140, left: 100, right: 100 },
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: '8A5E28' },
+        bottom: { style: BorderStyle.SINGLE, size: 6, color: '8A5E28' },
+        left: { style: BorderStyle.SINGLE, size: 2, color: 'B0844E' },
+        right: { style: BorderStyle.SINGLE, size: 2, color: 'B0844E' }
+      },
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          bidirectional: true,
+          children: [
+            new TextRun({ text: hdr, bold: true, size: 18, color: 'FFFFFF', rightToLeft: true, font: mainFont })
+          ]
+        })
+      ]
+    }));
+
+    const tableRows = [
+      new TableRow({
+        cantSplit: true,
+        tableHeader: true,
+        children: headerCells
+      })
+    ];
+
+    // Data Rows
+    rows.forEach((r, idx) => {
+      const isEven = idx % 2 === 0;
+      const bg = isEven ? 'FFFFFF' : 'F8F9FC';
+      const dateStr = r.createdAt ? fmtEn(toTs(r.createdAt)) : '—';
+
+      const rowValues = [
+        (idx + 1).toString(),
+        r.name || r.fullName || '—',
+        r.nationalId || r.idNumber || '—',
+        r.phone || r.mobile || '—',
+        r.email || '—',
+        r.category || 'عام',
+        r.activity || r.workshopTitle || r.craftName || '—',
+        dateStr
+      ];
+
+      const cells = rowValues.map((val, i) => new TableCell({
+        width: { size: colWidths[i], type: WidthType.PERCENTAGE },
+        shading: { fill: bg },
+        margins: { top: 120, bottom: 120, left: 100, right: 100 },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 2, color: 'E2E8F0' },
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: 'E2E8F0' },
+          left: { style: BorderStyle.SINGLE, size: 2, color: 'E2E8F0' },
+          right: { style: BorderStyle.SINGLE, size: 2, color: 'E2E8F0' }
+        },
+        children: [
+          new Paragraph({
+            alignment: (i === 0 || i === 2 || i === 3 || i === 7) ? AlignmentType.CENTER : AlignmentType.RIGHT,
+            bidirectional: true,
+            children: [
+              new TextRun({ text: val || '—', size: 17, color: '2D3748', rightToLeft: true, font: mainFont })
+            ]
+          })
+        ]
+      }));
+
+      tableRows.push(new TableRow({ cantSplit: true, children: cells }));
+    });
+
+    const mainTable = new Table({
+      visuallyRightToLeft: true,
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows
+    });
+
+    children.push(mainTable);
+
+    // Document Section
+    const docObj = new Document({
+      sections: [{
+        properties: {
+          bidi: true,
+          page: {
+            margin: { top: 720, bottom: 720, left: 720, right: 720 }
+          }
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                bidirectional: true,
+                children: [
+                  new TextRun({ text: 'جمعية إرث وحضارة بالقريات  |  صفحة ', size: 16, color: 'A0AEC0', rightToLeft: true, font: mainFont }),
+                  new TextRun({ children: [PageNumber.CURRENT], size: 16, color: 'A0AEC0' }),
+                  new TextRun({ text: ' من ', size: 16, color: 'A0AEC0', rightToLeft: true, font: mainFont }),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: 'A0AEC0' })
+                ]
+              })
+            ]
+          })
+        },
+        children: children
+      }]
+    });
+
+    const blob = await Packer.toBlob(docObj);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `قاعدة_بيانات_المسجلين_${reportDate}.docx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    toast('تم تصدير ملف Word لقاعدة البيانات الموحدة بنجاح');
+  } catch (err) {
+    console.error('Word export error:', err);
+    toast('حدث خطأ أثناء تصدير ملف Word', 'err');
+  }
 }
 
 /* ════════════════════════════════
@@ -2113,7 +3948,6 @@ async function vSettings(el){
   });
 
   document.getElementById('chgPwBtn').addEventListener('click',async()=>{
-    const { updatePassword } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
     const pw1=document.getElementById('pw1').value;
     const pw2=document.getElementById('pw2').value;
     if(!pw1||!pw2){toast('أدخل كلمة المرور الجديدة وتأكيدها','err');return;}
@@ -2167,9 +4001,12 @@ function trashSvg(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="curren
 
 /* ── NAV ICONS ── */
 function iHome() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 11L12 4l8 7v9H4Z M10 20v-6h4v6" stroke-linejoin="round"/></svg>`; }
+function iBell() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
 function iNews() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 9h16M8 13h8M8 16h5"/></svg>`; }
+function iTools(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`; }
 function iUsers(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><circle cx="17" cy="8" r="2.2"/><path d="M14 19a4 4 0 0 1 7 0"/></svg>`; }
 function iCraft(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l2 5h5l-4 4 2 6-5-3-5 3 2-6-4-4h5Z"/></svg>`; }
+function iDatabase(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
 function iCog()  { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.5 5.5l1.5 1.5M17 17l1.5 1.5M5.5 18.5l1.5-1.5M17 7l1.5-1.5" stroke-linecap="round"/></svg>`; }
 
 /* ── MODAL ── */

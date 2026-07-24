@@ -68,6 +68,14 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if signedIn();
     }
+    match /workshops/{id} {
+      allow read: if true;
+      allow create, update, delete: if signedIn();
+    }
+    match /workshop_registrations/{id} {
+      allow create: if true;
+      allow read, update, delete: if signedIn();
+    }
     match /news/{id} {
       allow read: if true;
       allow create, update, delete: if signedIn();

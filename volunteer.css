@@ -25,71 +25,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* ═══════════════════════════════════════════════════════════════
    LAYOUT SHELL
 ═══════════════════════════════════════════════════════════════ */
-.site-wrapper {
-    max-width: var(--container-max);
-    margin: 0 auto;
-    padding: 0 2.5rem;
-    position: relative;
-    z-index: 2;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   NAVIGATION
-═══════════════════════════════════════════════════════════════ */
-.nav-container {
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--sp-4);
-    height: var(--nav-h);
-    background: var(--c-nav-bg, #f7f4ee);
-    border-bottom: 1px solid var(--c-border-soft, rgba(28, 26, 23, 0.05));
-    transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
-}
-
-.nav-container.scrolled {
-    border-bottom-color: var(--c-border);
-    box-shadow: var(--shadow-xs);
-}
-
-.logo-area-nav { display: flex; align-items: center; gap: 12px; }
-
-.association-name-nav {
-    font-weight: 800;
-    font-size: 1.2rem;
-    color: var(--c-text-primary);
-    letter-spacing: -0.3px;
-}
-
-.nav-links { display: flex; gap: 1.85rem; flex-wrap: wrap; align-items: center; }
-
-.nav-links a {
-    position: relative;
-    color: var(--c-text-secondary);
-    font-weight: 500;
-    font-size: 0.93rem;
-    padding: 6px 2px;
-    transition: color var(--dur-fast) var(--ease-out);
-}
-
-.nav-links a::after {
-    content: "";
-    position: absolute;
-    right: 0; bottom: 0;
-    width: 0; height: 2px;
-    background: var(--c-gold);
-    border-radius: var(--r-pill);
-    transition: width var(--dur-base) var(--ease-spring);
-}
-
-.nav-links a:hover           { color: var(--c-text-primary); }
-.nav-links a:hover::after    { width: 100%; }
-.nav-links a.active          { color: var(--c-text-primary); font-weight: 700; }
-.nav-links a.active::after   { width: 100%; }
+/* ── LAYOUT SHELL & NAVIGATION Inherited from design-system.css ── */
 
 /* ── Mobile toggle ── */
 .mobile-toggle {

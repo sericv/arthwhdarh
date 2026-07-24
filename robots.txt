@@ -1,0 +1,8 @@
+# robots.txt for https://arthwhdarh.com
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /portal/
+
+# Sitemap location
+Sitemap: https://arthwhdarh.com/sitemap.xml
