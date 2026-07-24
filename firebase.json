@@ -47,6 +47,19 @@
         "headers": [
           { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }
         ]
+      },
+      {
+        "source": "/site.webmanifest",
+        "headers": [
+          { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }
+        ]
+      },
+      {
+        "source": "/favicon.ico",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" },
+          { "key": "Content-Type", "value": "image/x-icon" }
+        ]
       }
     ]
   }

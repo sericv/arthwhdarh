@@ -10,10 +10,11 @@
     <link rel="canonical" href="https://arthwhdarh.com/">
 
     <!-- Favicon & Brand Icons -->
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/الشعار/الشعار.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/الشعار/الشعار.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/الشعار/الشعار.png">
-    <link rel="shortcut icon" href="assets/الشعار/الشعار.png">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -217,7 +218,7 @@
         .grid-3cols { grid-template-columns: repeat(3,1fr); }
         @media (max-width: 850px) {
             .grid-2cols, .grid-3cols { grid-template-columns: 1fr; }
-            .nav-container { flex-direction: column; align-items: flex-start; gap: 1rem; }
+            .nav-container { flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 1rem; padding: 0.8rem 0; }
             .site-wrapper { padding: 1rem; }
         }
         @media (max-width: 480px) {
@@ -4519,33 +4520,52 @@ loadHomeNews();
             });
         }, { threshold: 0.25 });
         io.observe(section);
-    /* ── Mobile menu toggle ── */
-    (function() {
-        var toggle = document.getElementById('mobileToggle');
-        var menu   = document.getElementById('mobileMenu');
-        var mclose = document.getElementById('mobileClose');
-        if (toggle && menu) {
-            function openMenu() {
-                menu.classList.add('open');
-                menu.classList.add('active');
-                menu.setAttribute('aria-hidden', 'false');
-                toggle.setAttribute('aria-expanded', 'true');
-                document.body.style.overflow = 'hidden';
-            }
-            function closeMenu() {
-                menu.classList.remove('open');
-                menu.classList.remove('active');
-                menu.setAttribute('aria-hidden', 'true');
-                toggle.setAttribute('aria-expanded', 'false');
-                document.body.style.overflow = '';
-            }
-            toggle.addEventListener('click', openMenu);
-            if (mclose) mclose.addEventListener('click', closeMenu);
-            menu.addEventListener('click', function(e) {
-                if (e.target === menu) closeMenu();
-            });
+    }
+})();
+
+/* ── Mobile menu toggle ── */
+(function() {
+    var toggle = document.getElementById('mobileToggle');
+    var menu   = document.getElementById('mobileMenu');
+    var mclose = document.getElementById('mobileClose');
+    if (toggle && menu) {
+        function openMenu() {
+            menu.classList.add('open');
+            menu.classList.add('active');
+            menu.setAttribute('aria-hidden', 'false');
+            toggle.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
         }
-    })();
+        function closeMenu() {
+            menu.classList.remove('open');
+            menu.classList.remove('active');
+            menu.setAttribute('aria-hidden', 'true');
+            toggle.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
+        }
+        function toggleMenu(e) {
+            if (e) e.stopPropagation();
+            if (menu.classList.contains('open') || menu.classList.contains('active')) {
+                closeMenu();
+            } else {
+                openMenu();
+            }
+        }
+        toggle.addEventListener('click', toggleMenu);
+        if (mclose) mclose.addEventListener('click', closeMenu);
+        menu.addEventListener('click', function(e) {
+            if (e.target === menu) closeMenu();
+        });
+        var navLinks = menu.querySelectorAll('a');
+        for (var i = 0; i < navLinks.length; i++) {
+            navLinks[i].addEventListener('click', closeMenu);
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && (menu.classList.contains('open') || menu.classList.contains('active'))) {
+                closeMenu();
+            }
+        });
+    }
 })();
 </script>
 
