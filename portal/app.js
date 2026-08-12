@@ -1,32 +1,50 @@
 /* ══════════════════════════════════════════════════════════
-   البوابة الداخلية — منطق التطبيق
+   بوابة الموظفين — منطق التطبيق الكامل
    جمعية إرث وحضارة بالقريات
 ══════════════════════════════════════════════════════════ */
 import {
   ROLES, DEPARTMENTS, FILE_STATUS, TASK_STATUS, TASK_PRIORITY,
-  NOTIF_TYPE, NOTIF_PREFS, NOTIF_PREFS_DEFAULT, ACTIVITY_TYPE, COL
-} from "./config.js";
-import * as S from "./services.js";
+  LEAVE_TYPES, LEAVE_STATUS, NOTIF_TYPE, NOTIF_PREFS, NOTIF_PREFS_DEFAULT,
+  COL
+} from "./config.js?v=5";
+import * as S from "./services.js?v=5";
 
-/* ════════ الحالة العامة ════════ */
+/* ════════ الحالة العامة (State) ════════ */
 const State = {
   user: null,          // ملف المستخدم الحالي + الصلاحيات
-  users: [],           // كل الموظفين
+  users: [],           // قائمة الموظفين
   files: [],
   tasks: [],
+  leaves: [],          // طلبات الإجازات
+  myLeaves: [],
+  empLeaves: [],
+  execLeaves: [],
   notifs: [],
-  activity: [],
   view: "dash",
-  filesDept: null,     // الإدارة النشطة في قسم الملفات
+  selectedEmp: null,   // الموظف المعروض حالياً في شاشة الملف الشخصي
+  profileTab: "info",  // التبويب النشط في الملف الشخصي
+  tempAdminTaskFile: null, // الملف المرفق المرفوع مؤقتاً من قبل المدير
+  filesDept: null,
   filesCat: "all",
   filesQuery: "",
+  leaveFilter: "all",
+  taskFilter: "all",
+  userSearchQuery: "",
   notifUnsub: null,
-  notifMode: null,        // "fcm" | "browser" | null
-  notifSeen: new Set(),   // مُعرّفات الإشعارات المعروضة محلياً (لمنع التكرار)
-  notifPrefs: { ...NOTIF_PREFS_DEFAULT },  // تفضيلات الفئات
-  deviceToken: null,      // رمز FCM لهذا الجهاز
-  notifQuery: "",         // بحث مركز الإشعارات
-  notifFilter: "all"      // فلتر الفئة في المركز
+  notifMode: null,
+  notifSeen: new Set(),
+  notifPrefs: { ...NOTIF_PREFS_DEFAULT },
+  deviceToken: null,
+  notifQuery: "",
+  notifFilter: "all",
+  
+  // المهام الشخصية (ملاحظاتي)
+  personalTasks: [],
+  myNotesViewMode: "board", // "board" | "list"
+  myNotesFilterStatus: "all",
+  myNotesFilterPriority: "all",
+  myNotesSortBy: "createdAtDesc", // "createdAtDesc" | "createdAtAsc" | "dueDate" | "priority"
+  myNotesFilterUser: "me" // "me" or a specific user's uid or "all" for admins
 };
 
 /* ════════ أدوات مساعدة ════════ */
@@ -40,22 +58,24 @@ function timeAgo(ts){
   const d=tsToDate(ts); if(!d) return "—";
   const s=Math.floor((Date.now()-d.getTime())/1000);
   if(s<60) return "الآن";
-  if(s<3600) return `قبل ${Math.floor(s/60)} د`;
-  if(s<86400) return `قبل ${Math.floor(s/3600)} س`;
-  if(s<604800) return `قبل ${Math.floor(s/86400)} ي`;
+  if(s<3600) return `قبل ${Math.floor(s/60)} دقيقة`;
+  if(s<86400) return `قبل ${Math.floor(s/3600)} ساعة`;
+  if(s<604800) return `قبل ${Math.floor(s/86400)} يوم`;
   return d.toLocaleDateString("ar-SA",{day:"numeric",month:"short"});
 }
 function fmtDate(ts){ const d=tsToDate(ts); return d?d.toLocaleDateString("ar-SA",{day:"numeric",month:"long",year:"numeric"}):"—"; }
-function fileIconMeta(mime,name){
-  const ext=(name||"").split(".").pop().toLowerCase();
-  if(/image|png|jpe?g|gif|webp|svg/.test(mime+ext)) return {i:"fa-file-image",c:"#3a5e2e"};
-  if(/video|mp4|mov|avi|mkv/.test(mime+ext))        return {i:"fa-file-video",c:"#7a3b52"};
-  if(/pdf/.test(mime+ext))                          return {i:"fa-file-pdf",c:"#7a2518"};
-  if(/word|doc/.test(mime+ext))                     return {i:"fa-file-word",c:"#2d4a63"};
-  if(/excel|sheet|xls|csv/.test(mime+ext))          return {i:"fa-file-excel",c:"#3a5e2e"};
-  if(/powerpoint|presentation|ppt/.test(mime+ext))  return {i:"fa-file-powerpoint",c:"#b8651a"};
-  if(/zip|rar|7z/.test(mime+ext))                   return {i:"fa-file-zipper",c:"#6b4f35"};
-  return {i:"fa-file-lines",c:"#9c6e38"};
+
+function isTechAdmin(u = State.user){
+  return u && (u.isTechAdmin === true || u.role === "tech_admin");
+}
+function isHR(u = State.user){
+  return u && (u.role === "hr" || u.role === "executive" || isTechAdmin(u));
+}
+function isExec(u = State.user){
+  return u && (u.role === "executive" || isTechAdmin(u));
+}
+function canManageLeaves(u = State.user){
+  return u && (u.role === "hr" || (isTechAdmin(u) && u.role !== "executive"));
 }
 
 /* ════════ Toast ════════ */
@@ -70,40 +90,153 @@ function toast(msg, type="ok"){
   toastTimer=setTimeout(()=>t.classList.remove("show"),3200);
 }
 
-/* ════════ Modal ════════ */
+/* ════════ Modal System (Micro-interactions & Smooth Transitions) ════════ */
 function openModal(html, wide){
   const m=$("#modal");
   m.className = "modal" + (wide?" preview-modal":"");
   m.innerHTML=html;
-  $("#modalShroud").classList.add("open");
+  const shroud = $("#modalShroud");
+  shroud.classList.remove("closing");
+  shroud.classList.add("open");
   document.body.style.overflow="hidden";
   $$("[data-close]",m).forEach(b=>b.addEventListener("click",closeModal));
 }
+
 function closeModal(){
-  $("#modalShroud").classList.remove("open");
-  document.body.style.overflow="";
+  const shroud = $("#modalShroud");
+  if(!shroud || !shroud.classList.contains("open")) return;
+  shroud.classList.add("closing");
+  setTimeout(()=>{
+    shroud.classList.remove("open", "closing");
+    document.body.style.overflow="";
+  }, 200);
 }
 $("#modalShroud").addEventListener("click",e=>{ if(e.target.id==="modalShroud") closeModal(); });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && $("#modalShroud").classList.contains("open")) closeModal(); });
 
-/* ════════ تسجيل الدخول ════════ */
+/* Success SVG Checkmark Animation */
+function showSuccessAnimation(title, subtitle, onComplete){
+  const modal = $("#modal");
+  modal.innerHTML = `
+    <div class="success-anim-wrap">
+      <svg class="success-svg" viewBox="0 0 52 52">
+        <circle class="success-circle" cx="26" cy="26" r="23" fill="none"/>
+        <path class="success-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+      </svg>
+      <h3 style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:4px">${esc(title)}</h3>
+      <p style="font-size:13px;color:var(--ink-muted);font-weight:500">${esc(subtitle)}</p>
+    </div>
+  `;
+  setTimeout(() => {
+    closeModal();
+    if(onComplete) onComplete();
+  }, 1300);
+}
+
+/* Custom Professional Confirmation Modal */
+function openConfirmModal({ title, message, confirmText = "حذف", confirmType = "danger", onConfirm }){
+  openModal(`
+    <div class="modal-head">
+      <h2>${esc(title)}</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="font-size:14px;color:var(--ink-soft);line-height:1.6;margin-bottom:20px">
+      ${esc(message)}
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn btn-secondary" data-close>إلغاء</button>
+      <button class="btn btn-${confirmType}" id="modalConfirmBtn">${esc(confirmText)}</button>
+    </div>
+  `);
+  $("#modalConfirmBtn").addEventListener("click", async () => {
+    const btn = $("#modalConfirmBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ التنفيذ…`;
+    try {
+      await onConfirm();
+      closeModal();
+    } catch(e) {
+      toast("حدث خطأ أثناء تنفيذ العملية", "err");
+      closeModal();
+    }
+  });
+}
+
+/* Smooth Row Removal Animation Helper */
+function animateRowRemoval(rowEl, onDone){
+  if(!rowEl) { if(onDone) onDone(); return; }
+  rowEl.classList.add("removing-row");
+  setTimeout(() => {
+    if(onDone) onDone();
+  }, 260);
+}
+
+/* Skeleton Loading HTML Builder */
+function renderSkeletons(count = 3, height = "80px"){
+  return Array.from({length: count}).map(() => `
+    <div class="skeleton-box" style="height:${height};margin-bottom:12px;width:100%"></div>
+  `).join("");
+}
+
+/* ════════ مصادقة المستخدم (Authentication Lifecycle) ════════ */
+console.log("%c[Portal] Boot started", "color:#9c6e38;font-weight:bold");
+console.log("%c[Portal] Firebase initialized", "color:#9c6e38;font-weight:bold");
+console.log("%c[Portal] Authentication ready", "color:#9c6e38;font-weight:bold");
+
 S.onAuthStateChanged(S.auth, async (fbUser)=>{
-  if(!fbUser){ showLogin(); return; }
-  const profile = await S.fetchUserProfile(fbUser.uid);
-  if(!profile){
-    await S.logout();
-    showLogin("هذا الحساب غير مُصرّح له بالدخول إلى البوابة. تواصل مع الإدارة التنفيذية.");
+  if(!fbUser){
+    console.log("%c[Portal] No active session — showing login screen", "color:#6b4f35");
+    stopLiveSync();
+    showLogin();
     return;
   }
-  State.user = profile;
-  await enterApp();
+
+  console.log(`%c[Portal] User authenticated: ${fbUser.email || "User"} (UID: ${fbUser.uid})`, "color:#2d4a63;font-weight:bold");
+
+  try {
+    const profile = await S.fetchUserProfile(fbUser.uid);
+    if(!profile){
+      console.warn(`[Portal] Login failed: No user document in portal_users for UID ${fbUser.uid}`);
+      await S.logout().catch(()=>{});
+      showLogin(`لا يوجد مستند موظف مرتبط بحسابك في portal_users (UID: ${fbUser.uid}). يمكنك نسخته واستخدامه في أداة seed.html لتأسيس الحساب.`);
+      return;
+    }
+
+    if(profile.status === "disabled"){
+      console.warn(`[Portal] Login failed: User account ${fbUser.uid} is disabled`);
+      await S.logout().catch(()=>{});
+      showLogin("حسابك معطل حالياً. يرجى التواصل مع المسؤول التقني لإعادة تفعيله.");
+      return;
+    }
+
+    State.user = profile;
+    console.log(`%c[Portal] User profile loaded for UID: ${fbUser.uid}`, "color:#3a5e2e;font-weight:bold");
+    await enterApp();
+  } catch(err) {
+    console.error("[Portal] Authentication error during profile fetch:", err);
+    await S.logout().catch(()=>{});
+    showLogin("حدث خطأ أثناء تحميل بيانات الملف الشخصي: " + (err.message || err));
+  } finally {
+    $("#bootScreen").classList.add("hidden");
+    console.log("%c[Portal] Boot screen hidden", "color:#3a5e2e;font-weight:bold");
+    resetLoginBtn();
+  }
 });
 
 function showLogin(err=""){
   $("#bootScreen").classList.add("hidden");
   $("#appShell").classList.remove("show");
   $("#loginScreen").classList.remove("hidden");
+  resetLoginBtn();
   $("#loginErr").innerHTML = err ? `<i class="fa-solid fa-circle-exclamation"></i><span>${esc(err)}</span>` : "";
+}
+
+function resetLoginBtn(){
+  const btn = $("#loginBtn");
+  if(btn){
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول`;
+  }
 }
 
 $("#loginForm").addEventListener("submit", async (e)=>{
@@ -112,148 +245,306 @@ $("#loginForm").addEventListener("submit", async (e)=>{
   const pass=$("#loginPass").value;
   const btn=$("#loginBtn");
   $("#loginErr").innerHTML="";
-  if(!email||!pass){ $("#loginErr").innerHTML=`<i class="fa-solid fa-circle-exclamation"></i><span>أدخل البريد وكلمة المرور</span>`; return; }
+
+  if(!email||!pass){
+    $("#loginErr").innerHTML=`<i class="fa-solid fa-circle-exclamation"></i><span>أدخل البريد الإلكتروني وكلمة المرور</span>`;
+    return;
+  }
+
   btn.disabled=true;
-  btn.innerHTML=`<i class="fa-solid fa-spinner spin"></i> جارٍ الدخول…`;
+  btn.innerHTML=`<i class="fa-solid fa-spinner spin"></i> جارٍ تسجيل الدخول…`;
+  console.log("%c[Portal] Login request started...", "color:#9c6e38;font-weight:bold");
+
   try{
-    await S.login(email,pass);
-    // onAuthStateChanged يتولى الباقي
+    const user = await S.login(email, pass);
+    console.log(`%c[Portal] Login success for ${email} (UID: ${user.uid})`, "color:#3a5e2e;font-weight:bold");
   }catch(err){
+    console.error("[Portal] Login failed:", err.code || err, err.message);
     const map={
-      "auth/invalid-credential":"البريد أو كلمة المرور غير صحيحة",
-      "auth/user-not-found":"لا يوجد حساب بهذا البريد",
+      "auth/invalid-credential":"البريد الإلكتروني أو كلمة المرور غير صحيحة",
+      "auth/user-not-found":"لا يوجد حساب بهذا البريد الإلكتروني",
       "auth/wrong-password":"كلمة المرور غير صحيحة",
-      "auth/invalid-email":"صيغة البريد غير صحيحة",
-      "auth/too-many-requests":"محاولات كثيرة — حاول لاحقاً"
+      "auth/invalid-email":"صيغة البريد الإلكتروني غير صحيحة",
+      "auth/too-many-requests":"محاولات كثيرة خاطئة — حاول لاحقاً"
     };
-    $("#loginErr").innerHTML=`<i class="fa-solid fa-circle-exclamation"></i><span>${map[err.code]||"تعذّر تسجيل الدخول"}</span>`;
-    btn.disabled=false;
-    btn.innerHTML=`<i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول`;
+    $("#loginErr").innerHTML=`<i class="fa-solid fa-circle-exclamation"></i><span>${map[err.code]||("تعذّر تسجيل الدخول: "+(err.message||""))}</span>`;
+    resetLoginBtn();
   }
 });
 
-/* ════════ دخول التطبيق ════════ */
+/* ════════ الاستماعات اللحظية لـ Firestore (Live Sync) ════════ */
+function startLiveSync(){
+  const u = State.user;
+  if(!u) return;
+
+  stopLiveSync();
+
+  const isHRUser = u && (u.role === "hr" || (isTechAdmin(u) && u.role !== "executive"));
+  const isExecUser = u && (u.role === "executive" || isTechAdmin(u));
+
+  // 1. Watch Tasks
+  try {
+    State.tasksUnsub = S.watchTasks(u, (list) => {
+      State.tasks = list || [];
+      triggerViewRefresh("tasks");
+    });
+  } catch(e){ console.warn("[Portal] watchTasks error:", e); }
+
+  // 2. Watch My Leaves
+  try {
+    State.leavesUnsub = S.watchMyLeaves(u.uid, (list) => {
+      State.leaves = list || [];
+      State.myLeaves = list || [];
+      triggerViewRefresh("leaves");
+    });
+  } catch(e){ console.warn("[Portal] watchMyLeaves error:", e); }
+
+  // 3. Watch Exec Leaves (for approval)
+  if(isExecUser){
+    try {
+      State.execLeavesUnsub = S.watchLeavesForExecApproval((list) => {
+        State.execLeaves = list || [];
+        triggerViewRefresh("exec_leaves_approval");
+      });
+    } catch(e){ console.warn("[Portal] watchLeavesForExecApproval error:", e); }
+  }
+
+  // 4. Watch HR/Exec Leaves (for Directory & Reviews)
+  if(isHRUser || isExecUser){
+    try {
+      State.empLeavesUnsub = S.watchEmpLeavesForHR(u.uid, (list) => {
+        State.empLeaves = list || [];
+        triggerViewRefresh("emp_leaves");
+        triggerViewRefresh("members");
+      });
+    } catch(e){ console.warn("[Portal] watchEmpLeavesForHR error:", e); }
+  }
+
+  // 5. Watch Suggestions & Complaints
+  try {
+    State.suggestionsUnsub = S.watchSuggestions(u.uid, (list) => {
+      State.suggestions = list || [];
+      triggerViewRefresh("suggestions");
+      renderSidebar(); // Update sidebar notification dots in real-time
+    });
+  } catch(e){ console.warn("[Portal] watchSuggestions error:", e); }
+}
+
+function stopLiveSync(){
+  if(State.tasksUnsub){ try { State.tasksUnsub(); }catch(e){} State.tasksUnsub = null; }
+  if(State.leavesUnsub){ try { State.leavesUnsub(); }catch(e){} State.leavesUnsub = null; }
+  if(State.execLeavesUnsub){ try { State.execLeavesUnsub(); }catch(e){} State.execLeavesUnsub = null; }
+  if(State.empLeavesUnsub){ try { State.empLeavesUnsub(); }catch(e){} State.empLeavesUnsub = null; }
+  if(State.suggestionsUnsub){ try { State.suggestionsUnsub(); }catch(e){} State.suggestionsUnsub = null; }
+  if(State.notifUnsub){ try { State.notifUnsub(); }catch(e){} State.notifUnsub = null; }
+}
+
+function triggerViewRefresh(dataContext){
+  const host = $("#viewHost");
+  if(!host) return;
+
+  if(State.view === "dash"){
+    renderDash(host);
+  } else if(State.view === dataContext){
+    const m = VIEW_META[State.view];
+    if(m && m.fn) m.fn(host);
+  }
+}
+
+/* ════════ دخول التطبيق (Enter Application) ════════ */
+/* ════════ دخول التطبيق (Enter Application) ════════ */
 async function enterApp(){
-  $("#bootScreen").classList.add("hidden");
-  $("#loginScreen").classList.add("hidden");
-  $("#appShell").classList.add("show");
+  try {
+    // Hide boot & login screens immediately
+    $("#bootScreen").classList.add("hidden");
+    $("#loginScreen").classList.add("hidden");
+    // Show main app shell
+    $("#appShell").classList.add("show");
 
-  renderSidebar();
-  renderUserFooter();
+    // Render core UI components that do not depend on async data
+    // Ensure notifications array exists
+    State.notifs = [];
+    renderSidebar();
+    renderUserFooter();
+    console.log("%c[Portal] UI initialized (minimal)", "color:#3a5e2e;font-weight:bold");
 
-  // تحميل البيانات الأولية
-  await loadAllData();
+    // Start real-time sync for tasks and leaves
+    startLiveSync();
 
-  // الإشعارات اللحظية
-  if(State.notifUnsub) State.notifUnsub();
-  let firstNotifLoad = true;
-  State.notifUnsub = S.watchNotifications(State.user, (list)=>{
-    // عند الوصول الأول: سجّل المعروض مسبقاً دون تنبيه (تجنّب إغراق المستخدم)
-    if(firstNotifLoad){
-      list.forEach(n => State.notifSeen.add(n.id));
-      firstNotifLoad = false;
-    } else {
-      // إشعار متصفح محلي للجديد غير المقروء (احتياطي يعمل بلا FCM)
-      // يحترم تفضيلات الفئات؛ يظهر فقط حين يكون التبويب في الخلفية
-      list.filter(n => !n.read && !State.notifSeen.has(n.id)).forEach(n=>{
-        State.notifSeen.add(n.id);
-        if(!prefAllows(n)) return;
-        if(document.visibilityState !== "visible"){
-          S.showLocalNotification(n.title, n.body, {
-            tag: n.id,
-            onClick: () => onNotifClick(n.id)
+    // OPTIONAL: Load data in background – errors will not block UI
+    (async () => {
+      try {
+        await loadAllData();
+        // Re-render current view with the new data
+        const host = $("#viewHost");
+        if (host && State.view && VIEW_META[State.view]) {
+          VIEW_META[State.view].fn(host);
+        }
+      } catch(e){
+        console.warn("[Portal] loadAllData background error:", e);
+      }
+    })();
+
+    // OPTIONAL: Setup notifications – ignore failures
+    try {
+      if(State.notifUnsub) State.notifUnsub();
+      State.notifUnsub = S.watchNotifications(State.user, (list)=>{
+        if(State.notifs && State.notifs.length > 0 && list && list.length > State.notifs.length){
+          const oldIds = new Set(State.notifs.map(n => n.id));
+          const newItems = list.filter(n => !oldIds.has(n.id) && !n.read);
+          newItems.forEach(n => {
+            S.showLocalNotification(n.title, n.body, {
+              onClick: () => navigate(n.link || "notifs")
+            });
           });
         }
+        State.notifs = list;
+        renderNotifBadge();
+        if(State.view==="notifs") renderNotifs();
       });
+    } catch(e){ console.warn("[Portal] watchNotifications error:", e); }
+
+    // Only init messaging automatically if permission is already granted.
+    // This prevents automatic popups on load that iOS Safari blocks/rejects.
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      S.initMessaging(State.user.uid).catch(e=>console.warn("[Portal] Messaging init error:", e));
     }
-    State.notifs = list;
-    renderNotifBadge();
-    if(State.view==="notifs") renderNotifs();
-    renderNotifPanel();
-  });
 
-  // تفضيلات الإشعارات (مع القيمة الافتراضية)
-  State.notifPrefs = { ...NOTIF_PREFS_DEFAULT, ...(await S.getNotifPrefs(State.user.uid).catch(()=>null) || {}) };
-
-  // FCM / إشعارات المتصفح — تهيئة صامتة عند الدخول (بلا أخطاء مزعجة)
-  S.initMessaging(State.user.uid).then(res=>{
-    State.notifMode = res.ok ? res.mode : null;   // "fcm" | "browser" | null
-    if(res.token){ State.deviceToken = res.token; S.touchToken(res.token); }
-    console.log("[Portal] notification mode:", State.notifMode || `inactive (${res.reason})`);
-  });
-  // رسائل FCM في المقدمة (إن وُجدت)
-  S.onForegroundMessage((payload)=>{
-    const d=payload.data||{}; const n=payload.notification||{};
-    toast(n.title||d.title||"إشعار جديد","ok");
-  });
-  // جسر النقر على الإشعار من الـ Service Worker → تنقّل عميق
-  S.onSwMessage((m)=>{
-    if(m.kind==="notification-click"){
-      if(m.notifId) S.markNotifRead(m.notifId).catch(()=>{});
-      if(m.link) navigate(m.link);
+    // Navigate to dashboard or target view from query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetView = urlParams.get("view");
+    if (targetView && VIEW_META[targetView]) {
+      navigate(targetView);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      console.log(`%c[Portal] Navigated to query-param view: ${targetView}`, "color:#3a5e2e;font-weight:bold");
+    } else {
+      navigate("dash");
+      console.log("%c[Portal] Dashboard rendered", "color:#3a5e2e;font-weight:bold");
     }
-  });
-  // تنقّل عميق من رابط الإشعار عند فتح نافذة جديدة (#tasks:ID)
-  handleDeepLinkHash();
-
-  // سجل الدخول
-  S.logActivity({ type:"login", actorId:State.user.uid, actorName:State.user.name, detail:"تسجيل دخول إلى البوابة" });
-
-  navigate("dash");
+  } catch(err) {
+    console.error("[Portal] Fatal error in enterApp:", err);
+    // Fallback: show login again
+    showLogin("حدث خطأ غير متوقع. يرجى إعادة تسجيل الدخول.");
+  } finally {
+    // Ensure boot screen hidden no matter what
+    $("#bootScreen").classList.add("hidden");
+    console.log("%c[Portal] Boot screen hidden (final)", "color:#3a5e2e;font-weight:bold");
+  }
 }
 
 async function loadAllData(){
-  const depts = State.user.perms.departments;
-  const [users, files, tasks, activity] = await Promise.all([
-    State.user.perms.canManage ? S.listUsers() : Promise.resolve([State.user]),
-    S.listFiles(depts).catch(()=>[]),
-    S.listTasks(State.user).catch(()=>[]),
-    S.listActivity(60).catch(()=>[])
-  ]);
-  State.users = users;
-  State.files = files;
-  State.tasks = tasks;
-  State.activity = activity;
-  if(!State.filesDept) State.filesDept = depts[0];
+  try {
+    const [users, personalTasks] = await Promise.all([
+      S.listUsers().catch(err=>{ console.warn("[Portal] listUsers notice:", err); return [State.user]; }),
+      S.listPersonalTasks(State.user).catch(err=>{ console.warn("[Portal] listPersonalTasks notice:", err); return []; })
+    ]);
+    State.users = users || [State.user];
+    State.files = [];
+    State.personalTasks = personalTasks || [];
+  } catch(err) {
+    console.error("[Portal] loadAllData error:", err);
+  }
 }
 
-/* ════════ الشريط الجانبي ════════ */
+/* ════════ الشريط الجانبي (Sidebar) ════════ */
 function renderSidebar(){
-  const p=State.user.perms;
-  let main = `
-    <li><button class="nav-item" data-nav="dash"><i class="fa-solid fa-gauge-high"></i><span class="nlbl">الرئيسية</span></button></li>
-    <li><button class="nav-item" data-nav="files"><i class="fa-solid fa-folder-open"></i><span class="nlbl">الملفات</span></button></li>
-    <li><button class="nav-item" data-nav="tasks"><i class="fa-solid fa-list-check"></i><span class="nlbl">المهام</span><span class="nbadge" id="navTaskBadge" style="display:none"></span></button></li>
-    <li><button class="nav-item" data-nav="notifs"><i class="fa-solid fa-bell"></i><span class="nlbl">الإشعارات</span><span class="nbadge" id="navNotifBadge" style="display:none"></span></button></li>
-    <li><button class="nav-item" data-nav="activity"><i class="fa-solid fa-clock-rotate-left"></i><span class="nlbl">سجل النشاط</span></button></li>`;
-  let admin = "";
-  if(p.canManage){
-    admin = `
-    <div class="nav-sec">الإدارة · Management</div>
-    <ul class="nav-list">
-      <li><button class="nav-item" data-nav="members"><i class="fa-solid fa-users"></i><span class="nlbl">الموظفون</span></button></li>
-      <li><button class="nav-item" data-nav="settings"><i class="fa-solid fa-gear"></i><span class="nlbl">الإعدادات</span></button></li>
-    </ul>`;
-  } else {
-    admin = `
-    <div class="nav-sec">الحساب · Account</div>
-    <ul class="nav-list">
-      <li><button class="nav-item" data-nav="settings"><i class="fa-solid fa-gear"></i><span class="nlbl">الإعدادات</span></button></li>
-    </ul>`;
+  const u = State.user;
+  const isHRUser = u && (u.role === "hr" || (isTechAdmin(u) && u.role !== "executive"));
+  const isExecUser = u && (u.role === "executive" || isTechAdmin(u));
+  const canViewEmps = isHR(u) || isExec(u) || isTechAdmin(u);
+  const unreadCount = State.notifs.filter(n => !n.read).length;
+
+  const pendingHRCount = (State.empLeaves || []).filter(l => l.status === "submitted" || l.status === "in_hr_review").length;
+  const pendingExecCount = (State.execLeaves || []).filter(l => l.status === "hr_approved").length;
+
+  const pendingSuggestionsCount = (State.suggestions || []).filter(s => s.recipientId === u.uid && !s.isRead).length;
+
+  let workNav = `
+    <li><button class="nav-item ${State.view==='dash'?'active':''}" data-nav="dash"><i class="fa-solid fa-house"></i><span class="nlbl">الرئيسية</span></button></li>
+    <li><button class="nav-item ${State.view==='profile'?'active':''}" data-nav="profile"><i class="fa-solid fa-user"></i><span class="nlbl">الملف الشخصي</span></button></li>
+    <li><button class="nav-item ${State.view==='leaves'?'active':''}" data-nav="leaves"><i class="fa-solid fa-calendar-days"></i><span class="nlbl">إجازاتي</span></button></li>
+    <li><button class="nav-item ${State.view==='tasks'?'active':''}" data-nav="tasks"><i class="fa-solid fa-check-double"></i><span class="nlbl">المهام</span></button></li>
+    <li><button class="nav-item ${State.view==='my_notes'?'active':''}" data-nav="my_notes"><i class="fa-solid fa-note-sticky"></i><span class="nlbl">ملاحظاتي</span></button></li>
+    <li><button class="nav-item ${State.view==='suggestions'?'active':''}" data-nav="suggestions">
+      <i class="fa-solid fa-comments"></i><span class="nlbl">الاقتراحات والشكاوى</span>
+      <span class="nav-dot ${pendingSuggestionsCount > 0 ? 'show' : ''}"></span>
+    </button></li>
+  `;
+
+  let toolsNav = `
+    <li><button class="nav-item ${State.view==='tools'?'active':''}" data-nav="tools"><i class="fa-solid fa-toolbox"></i><span class="nlbl">أدوات عامة</span></button></li>
+  `;
+
+  let mgmtNav = "";
+  if(isHRUser){
+    mgmtNav += `<li><button class="nav-item ${State.view==='emp_leaves'?'active':''}" data-nav="emp_leaves">
+      <i class="fa-solid fa-clipboard-user"></i><span class="nlbl">إجازات الموظفين</span>
+      <span class="nav-dot ${pendingHRCount > 0 ? 'show' : ''}"></span>
+    </button></li>`;
   }
+  if(isExecUser){
+    mgmtNav += `<li><button class="nav-item ${State.view==='exec_leaves_approval'?'active':''}" data-nav="exec_leaves_approval">
+      <i class="fa-solid fa-stamp"></i><span class="nlbl">اعتماد الإجازات</span>
+      <span class="nav-dot ${pendingExecCount > 0 ? 'show' : ''}"></span>
+    </button></li>`;
+  }
+
+  let updatesNav = `
+    <li><button class="nav-item ${State.view==='notifs'?'active':''}" data-nav="notifs">
+      <i class="fa-solid fa-bell"></i><span class="nlbl">الإشعارات</span>
+      <span class="nav-dot ${unreadCount > 0 ? 'show' : ''}"></span>
+    </button></li>
+  `;
+
+  let adminNav = "";
+  if(canViewEmps){
+    adminNav = `
+      <div class="nav-sec">الإدارة والتنمية</div>
+      <ul class="nav-list">
+        ${mgmtNav}
+        <li><button class="nav-item ${State.view==='members'?'active':''}" data-nav="members"><i class="fa-solid fa-users"></i><span class="nlbl">دليل الموظفين</span></button></li>
+        <li><button class="nav-item ${State.view==='settings'?'active':''}" data-nav="settings"><i class="fa-solid fa-sliders"></i><span class="nlbl">الإعدادات</span></button></li>
+      </ul>
+    `;
+  } else {
+    adminNav = `
+      <div class="nav-sec">النظام</div>
+      <ul class="nav-list">
+        <li><button class="nav-item ${State.view==='settings'?'active':''}" data-nav="settings"><i class="fa-solid fa-sliders"></i><span class="nlbl">الإعدادات</span></button></li>
+      </ul>
+    `;
+  }
+
   $("#navWrap").innerHTML = `
-    <div class="nav-sec">البوابة · Portal</div>
-    <ul class="nav-list">${main}</ul>
-    ${admin}`;
-  $$("[data-nav]").forEach(b=>b.addEventListener("click",()=>{ navigate(b.dataset.nav); closeSidebar(); }));
+    <div class="nav-sec">بيئة العمل</div>
+    <ul class="nav-list">${workNav}</ul>
+    
+    <div class="nav-sec">أدوات عامة</div>
+    <ul class="nav-list">${toolsNav}</ul>
+    
+    <div class="nav-sec">التحديثات</div>
+    <ul class="nav-list">${updatesNav}</ul>
+    
+    ${adminNav}
+  `;
+
+  $$("[data-nav]").forEach(b => b.addEventListener("click", () => {
+    if (b.dataset.nav === "profile") State.selectedEmp = null;
+    navigate(b.dataset.nav);
+    closeSidebar();
+  }));
 }
 
 function renderUserFooter(){
   const u=State.user;
+  const roleLabel = ROLES[u.role]?.label || u.role;
   $("#sidebarFoot").innerHTML=`
     <div class="sf-card">
-      <div class="sf-avatar">${esc(initials(u.name))}</div>
-      <div class="sf-who"><div class="n">${esc(u.name)}</div><div class="r">${esc(u.perms.label)}</div></div>
+      <div class="sf-avatar">${u.avatar ? `<img src="${esc(u.avatar)}">` : esc(initials(u.name))}</div>
+      <div class="sf-who">
+        <div class="n">${esc(u.name)}</div>
+        <div class="r">${esc(roleLabel)} ${isTechAdmin(u)?' · مسئول تقني':''}</div>
+      </div>
       <button class="sf-logout" id="footLogout" title="تسجيل الخروج"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
     </div>`;
   $("#footLogout").addEventListener("click",doLogout);
@@ -262,20 +553,27 @@ function renderUserFooter(){
 async function doLogout(){
   if(!confirm("هل تريد تسجيل الخروج من البوابة؟")) return;
   if(State.notifUnsub) State.notifUnsub();
-  // إلغاء تسجيل رمز هذا الجهاز حتى لا تصله إشعارات بعد الخروج
   if(State.deviceToken){ await S.deleteFcmTokenDoc(State.deviceToken).catch(()=>{}); }
   await S.logout();
 }
 
-/* ════════ التنقّل ════════ */
+/* ════════ التنقل بين الشاشات (Navigation) ════════ */
 const VIEW_META = {
-  dash:     { la:"Dashboard", lbl:"الرئيسية",     fn:renderDash },
-  files:    { la:"Files",     lbl:"الملفات",      fn:renderFiles },
-  tasks:    { la:"Tasks",     lbl:"المهام",       fn:renderTasks },
-  notifs:   { la:"Alerts",    lbl:"الإشعارات",    fn:renderNotifs },
-  activity: { la:"Activity",  lbl:"سجل النشاط",   fn:renderActivity },
-  members:  { la:"Members",   lbl:"الموظفون",     fn:renderMembers },
-  settings: { la:"Settings",  lbl:"الإعدادات",    fn:renderSettings }
+  dash:                 { la:"Dashboard",        lbl:"الرئيسية",             fn:renderDash },
+  profile:              { la:"Profile",          lbl:"الملف الشخصي",         fn:renderProfile },
+  leaves:               { la:"My Leaves",        lbl:"إجازاتي",               fn:renderMyLeaves },
+  emp_leaves:           { la:"Employee Leaves",  lbl:"إجازات الموظفين",      fn:renderEmpLeavesHR },
+  exec_leaves_approval: { la:"Leave Approvals",  lbl:"اعتماد الإجازات",       fn:renderExecLeavesApproval },
+  tasks:                { la:"Tasks",            lbl:"المهام",               fn:renderTasks },
+  my_notes:             { la:"My Notes",         lbl:"ملاحظاتي",             fn:renderMyNotes },
+  members:              { la:"Employees",        lbl:"الموظفون",             fn:renderMembers },
+  suggestions:          { la:"Suggestions",      lbl:"الاقتراحات والشكاوى",    fn:renderSuggestions },
+  notifs:               { la:"Alerts",           lbl:"الإشعارات",            fn:renderNotifs },
+  settings:             { la:"Settings",         lbl:"الإعدادات",            fn:renderSettings },
+  tools:                { la:"Tools",            lbl:"أدوات عامة",            fn:renderTools },
+  pdf_compress:         { la:"أدوات عامة",       lbl:"ضغط ملفات PDF",        fn:renderPdfCompress },
+  img_to_pdf:           { la:"أدوات عامة",       lbl:"دمج الصور إلى PDF",    fn:renderImgToPdf },
+  qr_generator:         { la:"أدوات عامة",       lbl:"مولد الباركود",        fn:renderQrGenerator }
 };
 
 function navigate(view){
@@ -290,73 +588,260 @@ function navigate(view){
   setTimeout(()=>{ m.fn(host); host.classList.add("active"); host.scrollTop=0; }, 60);
 }
 
-/* ════════ رأس الصفحة ════════ */
+// ربط النقر بمسار التنقل (Breadcrumbs) للرجوع للأدوات العامة
+if (typeof window !== "undefined") {
+  const crumbParent = $("#crumbLa");
+  if (crumbParent) {
+    crumbParent.addEventListener("click", () => {
+      const parentText = crumbParent.textContent.trim();
+      if (parentText === "أدوات عامة" || parentText === "Tools") {
+        navigate("tools");
+      } else {
+        navigate("dash");
+      }
+    });
+  }
+}
+
 function pageHead(la, lbl, title, accent, sub){
   return `<div class="page-head">
-    <div class="page-eyebrow"><span class="pe-dot"></span><span class="pe-la">${la}</span><span class="pe-lbl">${lbl}</span></div>
-    <h1 class="page-title">${title} <span class="accent">${accent||""}</span></h1>
+    <h1 class="page-title">${title} <span style="color:var(--gold-deep)">${accent||""}</span></h1>
     ${sub?`<p class="page-sub">${sub}</p>`:""}
   </div>`;
 }
-function emptyState(msg, sub="لا يوجد ما يُعرض"){
+function emptyState(msg, sub="لا يوجد ما يُعرض حالياً"){
   return `<div class="empty-state">
-    <div class="es-orn"><div class="es-line"></div><div class="es-diamond"></div><div class="es-line r"></div></div>
-    <div class="es-glyph">۞</div>
     <div class="es-msg">${esc(msg)}</div>
     <div class="es-sub">${esc(sub)}</div>
   </div>`;
 }
 
-/* ════════════════ لوحة المعلومات ════════════════ */
+/* ════════════════ 1. الصفحة الرئيسية (Minimal Daily Workspace) ════════════════ */
 function renderDash(el){
-  const u=State.user;
-  const pendingTasks = State.tasks.filter(t=>t.status!=="completed");
-  const pendingApprovals = State.files.filter(f=>f.status==="under_review");
-  const recentFiles = State.files.slice(0,5);
-  const unread = State.notifs.filter(n=>!n.read).length;
+  const u = State.user;
+  if(!u) return;
+
+  const isHRUser = u.role === "hr" || (isTechAdmin(u) && u.role !== "executive");
+  const isExecUser = u.role === "executive" || isTechAdmin(u);
+
+  // 1. حساب الإجراءات المعلقة لتوليد بطاقات الملخص (Bento grid)
+  let summaryCardsHtml = "";
+  let totalPending = 0;
+
+  if (isExecUser) {
+    const pendingApprovalLeaves = (State.execLeaves || []).filter(l => l.status === "hr_approved").length;
+    const pendingMyTasks = (State.tasks || []).filter(t => t.employeeId === u.uid && t.status === "pending").length;
+    const sentTasksPending = (State.tasks || []).filter(t => t.adminId === u.uid && t.status === "pending").length;
+
+    totalPending = pendingApprovalLeaves + pendingMyTasks;
+
+    if (pendingApprovalLeaves > 0) {
+      summaryCardsHtml += `
+        <div class="stat-card" data-goto="exec_leaves_approval" style="cursor:pointer;background:rgba(255, 193, 7, 0.08);border:1px solid rgba(255, 193, 7, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(255, 193, 7, 0.15);display:flex;align-items:center;justify-content:center;color:#b27e05">
+              <i class="fa-solid fa-stamp"></i>
+            </div>
+            <span style="font-size:24px;font-weight:900;color:#b27e05">${pendingApprovalLeaves}</span>
+          </div>
+          <h4 style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:var(--ink)">اعتمادات معلقة</h4>
+          <p style="font-size:11.5px;color:var(--ink-muted)">طلبات إجازات بانتظار موافقتك التنفيذية</p>
+        </div>
+      `;
+    }
+
+    if (pendingMyTasks > 0) {
+      summaryCardsHtml += `
+        <div class="stat-card" data-goto="tasks" style="cursor:pointer;background:rgba(239, 83, 80, 0.08);border:1px solid rgba(239, 83, 80, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(239, 83, 80, 0.15);display:flex;align-items:center;justify-content:center;color:#c62828">
+              <i class="fa-solid fa-list-check"></i>
+            </div>
+            <span style="font-size:24px;font-weight:900;color:#c62828">${pendingMyTasks}</span>
+          </div>
+          <h4 style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:var(--ink)">مهام موجهة لك</h4>
+          <p style="font-size:11.5px;color:var(--ink-muted)">مهام رسمية بانتظار استجابتك</p>
+        </div>
+      `;
+    }
+
+    if (sentTasksPending > 0) {
+      summaryCardsHtml += `
+        <div class="stat-card" data-goto="tasks" style="cursor:pointer;background:rgba(30, 136, 229, 0.08);border:1px solid rgba(30, 136, 229, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(30, 136, 229, 0.15);display:flex;align-items:center;justify-content:center;color:#1565c0">
+              <i class="fa-solid fa-paper-plane"></i>
+            </div>
+            <span style="font-size:24px;font-weight:900;color:#1565c0">${sentTasksPending}</span>
+          </div>
+          <h4 style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:var(--ink)">مهام أرسلتها</h4>
+          <p style="font-size:11.5px;color:var(--ink-muted)">مهام قيد الانتظار لدى الموظفين</p>
+        </div>
+      `;
+    }
+  } else if (isHRUser) {
+    const pendingHRLeaves = (State.empLeaves || []).filter(l => l.status === "submitted").length;
+    const pendingMyTasks = (State.tasks || []).filter(t => t.employeeId === u.uid && t.status === "pending").length;
+
+    totalPending = pendingHRLeaves + pendingMyTasks;
+
+    if (pendingHRLeaves > 0) {
+      summaryCardsHtml += `
+        <div class="stat-card" data-goto="emp_leaves" style="cursor:pointer;background:rgba(255, 193, 7, 0.08);border:1px solid rgba(255, 193, 7, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(255, 193, 7, 0.15);display:flex;align-items:center;justify-content:center;color:#b27e05">
+              <i class="fa-solid fa-user-check"></i>
+            </div>
+            <span style="font-size:24px;font-weight:900;color:#b27e05">${pendingHRLeaves}</span>
+          </div>
+          <h4 style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:var(--ink)">مراجعات معلقة</h4>
+          <p style="font-size:11.5px;color:var(--ink-muted)">طلبات إجازة تتطلب مراجعة الموارد البشرية</p>
+        </div>
+      `;
+    }
+
+    if (pendingMyTasks > 0) {
+      summaryCardsHtml += `
+        <div class="stat-card" data-goto="tasks" style="cursor:pointer;background:rgba(239, 83, 80, 0.08);border:1px solid rgba(239, 83, 80, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(239, 83, 80, 0.15);display:flex;align-items:center;justify-content:center;color:#c62828">
+              <i class="fa-solid fa-list-check"></i>
+            </div>
+            <span style="font-size:24px;font-weight:900;color:#c62828">${pendingMyTasks}</span>
+          </div>
+          <h4 style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:var(--ink)">مهام موجهة لك</h4>
+          <p style="font-size:11.5px;color:var(--ink-muted)">مهام رسمية معلقة بانتظار ردّك</p>
+        </div>
+      `;
+    }
+  } else {
+    // موظف عادي
+    const pendingMyTasks = (State.tasks || []).filter(t => t.employeeId === u.uid && t.status === "pending").length;
+    const pendingMyLeaves = (State.myLeaves || []).filter(l => l.status === "submitted" || l.status === "hr_approved").length;
+
+    totalPending = pendingMyTasks + pendingMyLeaves;
+
+    if (pendingMyTasks > 0) {
+      summaryCardsHtml += `
+        <div class="stat-card" data-goto="tasks" style="cursor:pointer;background:rgba(239, 83, 80, 0.08);border:1px solid rgba(239, 83, 80, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(239, 83, 80, 0.15);display:flex;align-items:center;justify-content:center;color:#c62828">
+              <i class="fa-solid fa-bell-slash"></i>
+            </div>
+            <span style="font-size:24px;font-weight:900;color:#c62828">${pendingMyTasks}</span>
+          </div>
+          <h4 style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:var(--ink)">مهام تنتظر الرد</h4>
+          <p style="font-size:11.5px;color:var(--ink-muted)">مهام رسمية موجهة لك لم تستجب لها بعد</p>
+        </div>
+      `;
+    }
+
+    if (pendingMyLeaves > 0) {
+      summaryCardsHtml += `
+        <div class="stat-card" data-goto="leaves" style="cursor:pointer;background:rgba(255, 193, 7, 0.08);border:1px solid rgba(255, 193, 7, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(255, 193, 7, 0.15);display:flex;align-items:center;justify-content:center;color:#b27e05">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            <span style="font-size:24px;font-weight:900;color:#b27e05">${pendingMyLeaves}</span>
+          </div>
+          <h4 style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:var(--ink)">طلبات إجازة جارية</h4>
+          <p style="font-size:11.5px;color:var(--ink-muted)">طلبات إجازتك الخاصة التي تنتظر الاعتماد</p>
+        </div>
+      `;
+    }
+  }
+
+  // 2. تجميع المحتوى الإجمالي للمهام والإجازات الجارية
+  const activeTasks = (State.tasks || []).filter(t => {
+    if (isExecUser || isHRUser) {
+      return (t.adminId === u.uid || t.employeeId === u.uid) && t.status === "pending";
+    } else {
+      return t.employeeId === u.uid && t.status === "pending";
+    }
+  });
+  const recentLeaves = (State.leaves || []).filter(l => l.status === "submitted" || l.status === "hr_approved").slice(0, 1);
+
+  const hasTasks = activeTasks.length > 0;
+  const hasLeaves = recentLeaves.length > 0;
+
+  const roleLabel = ROLES[u.role]?.label || u.role;
+  const todayStr = new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  let sectionsHtml = "";
+
+  // أ. صفحة ملخص الإجراءات المعلقة (Grid bento responsive layout)
+  if (summaryCardsHtml) {
+    sectionsHtml += `
+      <div style="margin-bottom:24px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">نظرة عامة على الإجراءات المطلوبة</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:16px">
+          ${summaryCardsHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  // ب. قسم المهام الفعلية الجارية
+  if(hasTasks){
+    sectionsHtml += `
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head">
+          <div>
+            <h3>جدول الأعمال والمهام المباشرة</h3>
+            <span style="font-size:12px;color:var(--ink-muted)">المهام الرسمية المسندة إليك أو لإدارتك</span>
+          </div>
+          <button class="card-link" data-goto="tasks">جميع المهام <i class="fa-solid fa-arrow-left"></i></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${activeTasks.slice(0, 4).map(miniTaskCard).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // ج. قسم الإجازات
+  if(hasLeaves){
+    sectionsHtml += `
+      <div style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>متابعة طلبات الإجازة</h3>
+              <span style="font-size:12px;color:var(--ink-muted)">سريان خطة الاعتماد للطلب الأخير</span>
+            </div>
+            <button class="card-link" data-goto="leaves">عرض الإجازات <i class="fa-solid fa-arrow-left"></i></button>
+          </div>
+          ${renderLeaveStepperCard(recentLeaves[0])}
+        </div>
+      </div>
+    `;
+  }
+
+  // د. حالة فارغة بالكامل (إذا لم توجد إجراءات معلقة ولا أي مهام أو إجازات جارية)
+  if(!hasTasks && !hasLeaves && totalPending === 0){
+    sectionsHtml = `
+      <div class="card" style="text-align:center;padding:48px 24px">
+        <div style="font-size:32px;margin-bottom:12px">✨</div>
+        <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">يومك هادئ ومكتمل</h3>
+        <p style="font-size:13px;color:var(--ink-muted)">لا توجد مهام معلقة أو طلبات أو تحديثات جارية تتطلب انتباهك حالياً.</p>
+      </div>
+    `;
+  }
 
   el.innerHTML = `
-    ${pageHead("Dashboard","الرئيسية", `مرحباً، ${esc(u.name.split(" ")[0])}`, "", `نظرة عامة على مهامك وملفاتك وآخر المستجدات في ${esc(u.perms.label)}.`)}
-
-    <div class="stats-grid">
-      ${statCard("fa-folder","Files","الملفات", State.files.length, "إجمالي الملفات المتاحة")}
-      ${statCard("fa-list-check","Tasks","المهام المعلّقة", pendingTasks.length, "بانتظار الإنجاز")}
-      ${statCard("fa-bell","Alerts","إشعارات غير مقروءة", unread, "تحتاج انتباهك")}
-      ${statCard("fa-circle-check","Review","بانتظار الاعتماد", pendingApprovals.length, "ملفات قيد المراجعة")}
+    <div style="margin-bottom:26px">
+      <h1 class="page-title">مرحباً، ${esc(u.name.split(" ")[0])} 👋</h1>
+      <p class="page-sub">${esc(u.jobTitle || roleLabel)} — <span style="color:var(--ink-faint)">${todayStr}</span></p>
     </div>
 
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-head">
-          <div><h3>آخر النشاطات</h3><div class="la">Recent Activity</div></div>
-          <button class="card-link" data-goto="activity">عرض الكل <i class="fa-solid fa-arrow-left" style="font-size:10px"></i></button>
-        </div>
-        <div class="act-list">
-          ${State.activity.length ? State.activity.slice(0,6).map(actRow).join("") : `<div style="padding:30px 0;text-align:center;color:var(--ink-muted);font-size:13px">لا يوجد نشاط بعد</div>`}
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div><h3>مهام بانتظارك</h3><div class="la">Pending Tasks</div></div>
-          <button class="card-link" data-goto="tasks">الكل <i class="fa-solid fa-arrow-left" style="font-size:10px"></i></button>
-        </div>
-        ${pendingTasks.length ? `<div style="display:flex;flex-direction:column;gap:10px">
-          ${pendingTasks.slice(0,4).map(miniTask).join("")}
-        </div>` : `<div style="padding:24px 0;text-align:center;color:var(--ink-muted);font-size:13px">لا مهام معلّقة 🎉</div>`}
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:20px">
-      <div class="card-head">
-        <div><h3>أحدث الملفات</h3><div class="la">Recent Files</div></div>
-        <button class="card-link" data-goto="files">إدارة الملفات <i class="fa-solid fa-arrow-left" style="font-size:10px"></i></button>
-      </div>
-      ${recentFiles.length ? `<div class="files-grid">${recentFiles.map(fileCard).join("")}</div>` : emptyState("لا توجد ملفات بعد","ابدأ برفع أول ملف")}
-    </div>
+    ${sectionsHtml}
   `;
-  bindDashEvents(el);
+
+  $$("[data-goto]", el).forEach(b => b.addEventListener("click", () => navigate(b.dataset.goto)));
+  $$("[data-task]", el).forEach(c => c.addEventListener("click", () => openTaskDetail(c.dataset.task)));
 }
+
 function statCard(icon, la, label, value, foot){
   return `<div class="stat">
     <div class="stat-top"><div class="stat-ico"><i class="fa-solid ${icon}"></i></div><span class="stat-la">${la}</span></div>
@@ -364,830 +849,4846 @@ function statCard(icon, la, label, value, foot){
     <div class="stat-label">${esc(label)} · ${esc(foot)}</div>
   </div>`;
 }
-function actRow(a){
-  const m=ACTIVITY_TYPE[a.type]||ACTIVITY_TYPE.edit;
-  return `<div class="act-item">
-    <div class="act-marker" style="color:${m.color}"><i class="fa-solid ${m.icon}"></i></div>
-    <div class="act-body">
-      <div class="act-title"><b>${esc(a.actorName||"موظف")}</b> · ${esc(m.label)}${a.resource?` — ${esc(a.resource)}`:""}</div>
-      <div class="act-meta">${timeAgo(a.createdAt)}${a.detail?` · ${esc(a.detail)}`:""}</div>
-    </div>
-  </div>`;
-}
-function miniTask(t){
-  const st=TASK_STATUS[t.status]||TASK_STATUS.pending;
+
+
+
+function miniTaskCard(t){
+  const st=TASK_STATUS[t.status]||TASK_STATUS.new;
   const pr=TASK_PRIORITY[t.priority]||TASK_PRIORITY.medium;
-  return `<div class="task-card" data-task="${t.id}">
-    <div class="tc-head"><div class="tc-title">${esc(t.title)}</div>
-      <span class="prio-badge" style="color:${pr.color};border-color:${pr.color}55"><i class="fa-solid fa-flag"></i>${pr.label}</span></div>
-    <div class="tc-foot">
-      <span class="status-badge" style="color:${st.color};border-color:${st.color}55;background:${st.bg}">${st.label}</span>
-      <span class="tc-due"><i class="fa-regular fa-calendar"></i>${t.dueDate?fmtDate(t.dueDate):"بدون موعد"}</span>
-    </div>
-  </div>`;
-}
-function bindDashEvents(el){
-  $$("[data-goto]",el).forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.goto)));
-  $$("[data-task]",el).forEach(c=>c.addEventListener("click",()=>openTaskDetail(c.dataset.task)));
-  $$("[data-file]",el).forEach(c=>{}); // ملفات اللوحة عرض فقط
-  bindFileCardEvents(el);
-}
-
-/* ════════════════ الملفات ════════════════ */
-function renderFiles(el){
-  const depts=State.user.perms.departments;
-  if(!State.filesDept || !depts.includes(State.filesDept)) State.filesDept=depts[0];
-
-  el.innerHTML = `
-    ${pageHead("Files","الملفات","إدارة","الوثائق", "رفع الملفات وتنزيلها ومتابعة حالة اعتمادها حسب الإدارة والتصنيف.")}
-    <div class="dept-tabs" id="deptTabs">
-      ${depts.map(d=>{ const D=DEPARTMENTS[d]; return `<button class="dept-tab ${d===State.filesDept?"active":""}" data-dept="${d}"><i class="fa-solid ${D.icon}"></i>${D.label}</button>`; }).join("")}
-    </div>
-    <div class="toolbar">
-      <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="fileSearch" placeholder="ابحث في الملفات…" value="${esc(State.filesQuery)}"></div>
-      <div class="filters" id="catFilters"></div>
-      <div class="spacer"></div>
-      <button class="btn btn-primary" id="uploadBtn"><i class="fa-solid fa-arrow-up-from-bracket"></i> رفع ملف</button>
-    </div>
-    <div id="filesArea"></div>
-  `;
-  renderCatFilters();
-  renderFilesArea();
-
-  $$("#deptTabs [data-dept]").forEach(b=>b.addEventListener("click",()=>{
-    State.filesDept=b.dataset.dept; State.filesCat="all";
-    $$("#deptTabs .dept-tab").forEach(t=>t.classList.toggle("active",t===b));
-    renderCatFilters(); renderFilesArea();
-  }));
-  $("#fileSearch").addEventListener("input",e=>{ State.filesQuery=e.target.value; renderFilesArea(); });
-  $("#uploadBtn").addEventListener("click",openUploadModal);
-}
-function renderCatFilters(){
-  const cats=DEPARTMENTS[State.filesDept].categories;
-  const counts={};
-  State.files.filter(f=>f.department===State.filesDept).forEach(f=>counts[f.category]=(counts[f.category]||0)+1);
-  const total=State.files.filter(f=>f.department===State.filesDept).length;
-  $("#catFilters").innerHTML =
-    `<button class="chip ${State.filesCat==="all"?"active":""}" data-cat="all">الكل<span class="chip-count">${total}</span></button>` +
-    cats.map(c=>`<button class="chip ${State.filesCat===c.id?"active":""}" data-cat="${c.id}">${c.label}<span class="chip-count">${counts[c.id]||0}</span></button>`).join("");
-  $$("#catFilters [data-cat]").forEach(b=>b.addEventListener("click",()=>{
-    State.filesCat=b.dataset.cat;
-    $$("#catFilters .chip").forEach(c=>c.classList.toggle("active",c===b));
-    renderFilesArea();
-  }));
-}
-function currentFiles(){
-  const q=State.filesQuery.trim().toLowerCase();
-  return State.files.filter(f=>
-    f.department===State.filesDept &&
-    (State.filesCat==="all"||f.category===State.filesCat) &&
-    (!q || (f.name||"").toLowerCase().includes(q) || (f.note||"").toLowerCase().includes(q))
-  );
-}
-function renderFilesArea(){
-  const list=currentFiles();
-  const area=$("#filesArea");
-  if(!area) return;
-  area.innerHTML = list.length
-    ? `<div class="files-grid">${list.map(fileCard).join("")}</div>`
-    : emptyState("لا توجد ملفات في هذا التصنيف","ارفع ملفاً جديداً للبدء");
-  bindFileCardEvents(area);
-}
-function fileCard(f){
-  const ic=fileIconMeta(f.mime,f.name);
-  const st=FILE_STATUS[f.status]||FILE_STATUS.draft;
-  const catLabel=(DEPARTMENTS[f.department]?.categories.find(c=>c.id===f.category)?.label)||f.category;
-  const canApprove=State.user.perms.canApprove;
-  return `<div class="file-card" data-file="${f.id}">
-    <div class="fc-top">
-      <div class="fc-ico" style="background:${ic.c}"><i class="fa-solid ${ic.i}"></i></div>
-      <div class="fc-info">
-        <div class="fc-name">${esc(f.name)}</div>
-        <div class="fc-meta">${esc(catLabel)} · ${fmtSize(f.size)} · ${timeAgo(f.createdAt)}</div>
-      </div>
-    </div>
-    <div class="fc-body">
-      ${f.note?`<div class="fc-note">${esc(f.note)}</div>`:""}
-      <span class="status-badge" style="color:${st.color};border-color:${st.color}55;background:${st.bg}">${st.label}</span>
-    </div>
-    <div class="fc-foot">
-      <div class="fc-actions">
-        <button class="fc-act" data-act="preview" data-id="${f.id}" title="معاينة"><i class="fa-solid fa-eye"></i></button>
-        <button class="fc-act" data-act="download" data-id="${f.id}" title="تنزيل"><i class="fa-solid fa-download"></i></button>
-        ${canApprove?`<button class="fc-act ok" data-act="review" data-id="${f.id}" title="مراجعة واعتماد"><i class="fa-solid fa-gavel"></i></button>`:""}
-        ${(canApprove||f.uploadedBy===State.user.uid)?`<button class="fc-act danger" data-act="delete" data-id="${f.id}" title="حذف"><i class="fa-solid fa-trash"></i></button>`:""}
-      </div>
-      <span class="fc-meta">${esc((f.uploaderName||"").split(" ")[0]||"")}</span>
-    </div>
-  </div>`;
-}
-function bindFileCardEvents(scope){
-  $$("[data-act]",scope).forEach(b=>b.addEventListener("click",e=>{
-    e.stopPropagation();
-    const f=State.files.find(x=>x.id===b.dataset.id);
-    if(!f) return;
-    const act=b.dataset.act;
-    if(act==="preview")  openFilePreview(f);
-    if(act==="download") downloadFile(f);
-    if(act==="review")   openFileReview(f);
-    if(act==="delete")   confirmDeleteFile(f);
-  }));
-}
-
-function downloadFile(f){
-  const a=document.createElement("a");
-  a.href=f.url; a.target="_blank"; a.rel="noopener"; a.download=f.name;
-  document.body.appendChild(a); a.click(); a.remove();
-  S.logActivity({ type:"download", actorId:State.user.uid, actorName:State.user.name, resource:f.name });
-  toast("جارٍ تنزيل الملف");
-}
-
-function openFilePreview(f){
-  const isImg=/image|png|jpe?g|gif|webp|svg/.test((f.mime||"")+f.name);
-  const isVid=/video|mp4|webm|mov/.test((f.mime||"")+f.name);
-  const isPdf=/pdf/.test((f.mime||"")+f.name.toLowerCase());
-  let body;
-  if(isImg) body=`<div class="preview-frame"><img src="${f.url}" alt="${esc(f.name)}"></div>`;
-  else if(isVid) body=`<div class="preview-frame"><video src="${f.url}" controls></video></div>`;
-  else if(isPdf) body=`<div class="preview-frame"><iframe src="${f.url}"></iframe></div>`;
-  else body=`<div class="preview-unsupported"><i class="fa-solid fa-file-lines"></i><div>لا يمكن معاينة هذا النوع مباشرة</div><button class="btn btn-gold" id="pvDl"><i class="fa-solid fa-download"></i> تنزيل الملف</button></div>`;
-  const st=FILE_STATUS[f.status]||FILE_STATUS.draft;
-  const comments=(f.comments||[]);
-  openModal(`
-    <div class="modal-head">
-      <div><div class="la">File Preview · معاينة</div><h2>${esc(f.name)}</h2></div>
-      <button class="close-btn" data-close><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <span class="status-badge" style="color:${st.color};border-color:${st.color}55;background:${st.bg}">${st.label}</span>
-      <span class="fc-meta">${fmtSize(f.size)} · رفعه ${esc(f.uploaderName||"")} · ${fmtDate(f.createdAt)}</span>
-    </div>
-    ${body}
-    ${comments.length?`<div style="margin-top:18px"><div class="field label" style="font-weight:700;margin-bottom:8px">ملاحظات الاعتماد <span class="la">Approval Notes</span></div>
-      <div class="comments-list">${comments.map(c=>`<div class="comment"><div class="comment-head"><span class="comment-by">${esc(c.by)}</span><span class="comment-time">${timeAgo(c.at)}</span></div><div class="comment-text">${esc(c.text)}</div></div>`).join("")}</div></div>`:""}
-    <div class="modal-foot">
-      <button class="btn btn-gold" id="pvDownload"><i class="fa-solid fa-download"></i> تنزيل</button>
-      <div class="spacer"></div>
-      <button class="btn btn-ghost" data-close>إغلاق</button>
-    </div>
-  `, true);
-  $("#pvDownload")?.addEventListener("click",()=>downloadFile(f));
-  $("#pvDl")?.addEventListener("click",()=>downloadFile(f));
-}
-
-function openFileReview(f){
-  openModal(`
-    <div class="modal-head">
-      <div><div class="la">Approval Workflow · سير الاعتماد</div><h2>مراجعة الملف</h2></div>
-      <button class="close-btn" data-close><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div style="margin-bottom:18px;padding:14px 16px;background:var(--parchment-2);border:1px solid var(--line-soft);border-radius:var(--r-sm)">
-      <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px">${esc(f.name)}</div>
-      <div class="fc-meta">${fmtSize(f.size)} · ${esc(f.uploaderName||"")}</div>
-    </div>
-    <div class="form-grid">
-      <div class="field full">
-        <label>الحالة الجديدة <span class="la">New Status</span></label>
-        <select id="rvStatus">
-          ${Object.entries(FILE_STATUS).map(([k,v])=>`<option value="${k}" ${f.status===k?"selected":""}>${v.label}</option>`).join("")}
-        </select>
-      </div>
-      <div class="field full">
-        <label>ملاحظة أو تعليق <span class="la">Comment / Note</span></label>
-        <textarea id="rvComment" placeholder="اكتب ملاحظة الاعتماد أو سبب طلب التعديل…"></textarea>
-        <span class="field-help">تُحفظ الملاحظة في سجل الملف وتظهر لمن رفعه.</span>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-success" id="rvSave"><i class="fa-solid fa-check"></i> حفظ القرار</button>
-      <div class="spacer"></div>
-      <button class="btn btn-ghost" data-close>إلغاء</button>
-    </div>
-  `);
-  $("#rvSave").addEventListener("click",async()=>{
-    const status=$("#rvStatus").value;
-    const comment=$("#rvComment").value.trim();
-    const btn=$("#rvSave"); btn.disabled=true; btn.innerHTML=`<i class="fa-solid fa-spinner spin"></i> حفظ…`;
-    try{
-      await S.setFileStatus(f.id, status, comment, { name:State.user.name });
-      // إشعار + سجل
-      if(status==="approved"){
-        await S.pushNotification({ userId:f.uploadedBy, type:"file_approved", title:"تم اعتماد ملفك", body:f.name, link:"files", refId:f.id });
-        await S.logActivity({ type:"approve", actorId:State.user.uid, actorName:State.user.name, resource:f.name });
-      } else if(status==="revision_required"){
-        await S.pushNotification({ userId:f.uploadedBy, type:"file_revision", title:"ملف يحتاج تعديلاً", body:f.name+(comment?` — ${comment}`:""), link:"files", refId:f.id });
-        await S.logActivity({ type:"revision", actorId:State.user.uid, actorName:State.user.name, resource:f.name, detail:comment });
-      } else {
-        await S.logActivity({ type:"edit", actorId:State.user.uid, actorName:State.user.name, resource:f.name, detail:`الحالة: ${FILE_STATUS[status].label}` });
-      }
-      f.status=status; f.comments=f.comments||[]; if(comment) f.comments.push({text:comment,by:State.user.name,status,at:{seconds:Date.now()/1000}});
-      closeModal(); toast("تم حفظ قرار المراجعة"); refreshAfterMutation();
-    }catch(e){ console.error(e); toast("تعذّر حفظ القرار","err"); btn.disabled=false; btn.innerHTML=`<i class="fa-solid fa-check"></i> حفظ القرار`; }
-  });
-}
-
-function confirmDeleteFile(f){
-  if(!confirm(`حذف الملف "${f.name}" نهائياً؟`)) return;
-  S.deleteFile(f.id, f.storagePath).then(()=>{
-    State.files=State.files.filter(x=>x.id!==f.id);
-    toast("تم حذف الملف"); renderFilesArea(); renderCatFilters();
-  }).catch(()=>toast("تعذّر حذف الملف","err"));
-}
-
-let pendingUpload=null;
-function openUploadModal(){
-  const cats=DEPARTMENTS[State.filesDept].categories;
-  openModal(`
-    <div class="modal-head">
-      <div><div class="la">Upload · رفع ملف</div><h2>رفع ملف جديد</h2></div>
-      <button class="close-btn" data-close><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="form-grid two">
-      <div class="field">
-        <label>الإدارة <span class="la">Department</span></label>
-        <select id="upDept">
-          ${State.user.perms.departments.map(d=>`<option value="${d}" ${d===State.filesDept?"selected":""}>${DEPARTMENTS[d].label}</option>`).join("")}
-        </select>
-      </div>
-      <div class="field">
-        <label>التصنيف <span class="la">Category</span></label>
-        <select id="upCat">${cats.map(c=>`<option value="${c.id}">${c.label}</option>`).join("")}</select>
-      </div>
-      <div class="field full">
-        <label>ملاحظة <span class="la">Note (optional)</span></label>
-        <input id="upNote" placeholder="وصف مختصر للملف…">
-      </div>
-      <div class="field full">
-        <div class="dropzone" id="dropzone">
-          <div class="dz-ico"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-          <div class="dz-main">اسحب الملف هنا أو اضغط للاختيار</div>
-          <div class="dz-sub">PDF · صور · فيديو · مستندات</div>
-          <input type="file" id="fileInput">
-        </div>
-        <div id="dzFile"></div>
-        <div class="prog-wrap" id="progWrap"><div class="prog-bar"><div class="prog-fill" id="progFill"></div></div><div class="prog-lbl" id="progLbl">0%</div></div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-primary" id="upSubmit" disabled><i class="fa-solid fa-arrow-up-from-bracket"></i> رفع الملف</button>
-      <div class="spacer"></div>
-      <button class="btn btn-ghost" data-close>إلغاء</button>
-    </div>
-  `);
-  pendingUpload=null;
-  // ربط تغيير الإدارة بتحديث التصنيفات
-  $("#upDept").addEventListener("change",e=>{
-    const cs=DEPARTMENTS[e.target.value].categories;
-    $("#upCat").innerHTML=cs.map(c=>`<option value="${c.id}">${c.label}</option>`).join("");
-  });
-  const dz=$("#dropzone"), input=$("#fileInput");
-  dz.addEventListener("click",()=>input.click());
-  ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");}));
-  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");}));
-  dz.addEventListener("drop",e=>{ if(e.dataTransfer.files[0]) setUpFile(e.dataTransfer.files[0]); });
-  input.addEventListener("change",e=>{ if(e.target.files[0]) setUpFile(e.target.files[0]); });
-  $("#upSubmit").addEventListener("click",doUpload);
-}
-function setUpFile(file){
-  pendingUpload=file;
-  const ic=fileIconMeta(file.type,file.name);
-  $("#dzFile").innerHTML=`<div class="dz-file"><i class="fa-solid ${ic.i}"></i><span>${esc(file.name)}</span><span class="fc-meta">${fmtSize(file.size)}</span><button class="rm" id="dzRm"><i class="fa-solid fa-xmark"></i></button></div>`;
-  $("#dzRm").addEventListener("click",e=>{e.stopPropagation();pendingUpload=null;$("#dzFile").innerHTML="";$("#upSubmit").disabled=true;});
-  $("#upSubmit").disabled=false;
-}
-async function doUpload(){
-  if(!pendingUpload) return;
-  const dept=$("#upDept").value, cat=$("#upCat").value, note=$("#upNote").value.trim();
-  const btn=$("#upSubmit"); btn.disabled=true;
-  $("#progWrap").classList.add("show");
-  try{
-    const id=await S.uploadFile(pendingUpload,{
-      department:dept, category:cat, note,
-      uploadedBy:State.user.uid, uploaderName:State.user.name
-    },p=>{ $("#progFill").style.width=p+"%"; $("#progLbl").textContent=p+"%"; });
-
-    await S.logActivity({ type:"upload", actorId:State.user.uid, actorName:State.user.name, resource:pendingUpload.name });
-    // إشعار للإدارة التنفيذية للمراجعة
-    await S.pushNotification({ userId:"dept:executive", type:"file_uploaded", title:"ملف جديد بانتظار المراجعة", body:`${pendingUpload.name} — ${DEPARTMENTS[dept].label}`, link:"files", refId:id });
-
-    closeModal(); toast("تم رفع الملف بنجاح");
-    State.files=await S.listFiles(State.user.perms.departments).catch(()=>State.files);
-    if(State.view==="files"){ renderCatFilters(); renderFilesArea(); }
-  }catch(e){
-    console.error(e); toast(e.friendly || "تعذّر رفع الملف — تحقق من إعدادات التخزين","err");
-    btn.disabled=false; $("#progWrap").classList.remove("show");
-  }
-}
-
-/* ════════════════ المهام ════════════════ */
-function renderTasks(el){
-  const canCreate=State.user.perms.canCreateTask;
-  el.innerHTML = `
-    ${pageHead("Tasks","المهام","إدارة","المهام", "متابعة المهام حسب الحالة من التعليق حتى الإنجاز.")}
-    <div class="toolbar">
-      <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="taskSearch" placeholder="ابحث في المهام…"></div>
-      <div class="spacer"></div>
-      ${canCreate?`<button class="btn btn-primary" id="newTaskBtn"><i class="fa-solid fa-plus"></i> مهمة جديدة</button>`:""}
-    </div>
-    <div class="tasks-board" id="tasksBoard"></div>
-  `;
-  renderTasksBoard();
-  $("#taskSearch").addEventListener("input",()=>renderTasksBoard($("#taskSearch").value));
-  if(canCreate) $("#newTaskBtn").addEventListener("click",openTaskModal);
-}
-function renderTasksBoard(q=""){
-  const board=$("#tasksBoard"); if(!board) return;
-  q=q.trim().toLowerCase();
-  const list=State.tasks.filter(t=>!q||(t.title||"").toLowerCase().includes(q)||(t.description||"").toLowerCase().includes(q));
-  board.innerHTML=Object.entries(TASK_STATUS).map(([key,st])=>{
-    const items=list.filter(t=>t.status===key);
-    return `<div class="task-col">
-      <div class="task-col-head">
-        <div class="t"><span class="dot" style="background:${st.color}"></span>${st.label}</div>
-        <span class="c">${items.length}</span>
-      </div>
-      ${items.map(taskCard).join("")||`<div style="padding:18px 4px;text-align:center;color:var(--ink-faint);font-size:11.5px">—</div>`}
-    </div>`;
-  }).join("");
-  $$("[data-task]",board).forEach(c=>c.addEventListener("click",()=>openTaskDetail(c.dataset.task)));
-}
-function taskCard(t){
-  const pr=TASK_PRIORITY[t.priority]||TASK_PRIORITY.medium;
-  const overdue=t.dueDate && tsToDate(t.dueDate)<new Date() && t.status!=="completed";
-  return `<div class="task-card" data-task="${t.id}">
+  return `<div class="task-card" data-task="${t.id}" style="margin-bottom:10px;">
     <div class="tc-head">
       <div class="tc-title">${esc(t.title)}</div>
       <span class="prio-badge" style="color:${pr.color};border-color:${pr.color}55"><i class="fa-solid fa-flag"></i>${pr.label}</span>
     </div>
-    ${t.description?`<div class="tc-desc">${esc(t.description)}</div>`:""}
     <div class="tc-foot">
-      <span class="tc-assignee"><span class="av">${esc(initials(t.assignLabel))}</span>${esc((t.assignLabel||"").split(" ").slice(0,2).join(" "))}</span>
-      <span class="tc-due ${overdue?"overdue":""}"><i class="fa-regular fa-calendar"></i>${t.dueDate?fmtDate(t.dueDate):"—"}</span>
+      <span class="status-badge" style="color:${st.color};border-color:${st.color}55;background:${st.bg}">${st.label}</span>
+      <span class="tc-due"><i class="fa-regular fa-calendar"></i> ${t.dueDate?fmtDate(t.dueDate):"بدون تاريخ"}</span>
     </div>
   </div>`;
 }
-function openTaskDetail(id){
-  const t=State.tasks.find(x=>x.id===id); if(!t) return;
-  const pr=TASK_PRIORITY[t.priority]||TASK_PRIORITY.medium;
-  const canEdit=State.user.perms.canManage ||
-    (t.assignType==="user"&&t.assignTo===State.user.uid) ||
-    (t.assignType==="department"&&State.user.perms.departments.includes(t.assignTo));
+
+/* ════════════════ 2. الملف الشخصي (Profile Redesign) ════════════════ */
+function openViewLeaveModal(leave) {
+  const typeLabel = LEAVE_TYPES[leave.type]?.label || leave.type;
+  const statusLabel = LEAVE_STATUS[leave.status]?.label || leave.status;
+  const statusColor = LEAVE_STATUS[leave.status]?.color || "var(--ink-mid)";
+  const statusBg = LEAVE_STATUS[leave.status]?.bg || "var(--bg-subtle)";
+  
   openModal(`
     <div class="modal-head">
-      <div><div class="la">Task Details · تفاصيل المهمة</div><h2>${esc(t.title)}</h2></div>
-      <button class="close-btn" data-close><i class="fa-solid fa-xmark"></i></button>
+      <h3>تفاصيل طلب الإجازة #${esc(leave.refNo || leave.id.substring(0,6).toUpperCase())}</h3>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
-      <span class="prio-badge" style="color:${pr.color};border-color:${pr.color}55"><i class="fa-solid fa-flag"></i>أولوية ${pr.label}</span>
-      <span class="tc-due"><i class="fa-regular fa-calendar"></i>${t.dueDate?fmtDate(t.dueDate):"بدون موعد"}</span>
-      <span class="tc-assignee"><span class="av">${esc(initials(t.assignLabel))}</span>${esc(t.assignLabel||"")}</span>
-    </div>
-    ${t.description?`<div style="font-size:13.5px;color:var(--ink-mid);line-height:1.85;font-weight:300;margin-bottom:20px;padding:16px;background:var(--parchment-2);border-radius:var(--r-sm);border:1px solid var(--line-soft)">${esc(t.description)}</div>`:""}
-    ${canEdit?`<div class="field full">
-      <label>تحديث الحالة <span class="la">Update Status</span></label>
-      <select id="tdStatus">${Object.entries(TASK_STATUS).map(([k,v])=>`<option value="${k}" ${t.status===k?"selected":""}>${v.label}</option>`).join("")}</select>
-    </div>`:`<div class="status-badge" style="color:${TASK_STATUS[t.status].color};border-color:${TASK_STATUS[t.status].color}55;background:${TASK_STATUS[t.status].bg}">${TASK_STATUS[t.status].label}</div>`}
-    <div class="modal-foot">
-      ${canEdit?`<button class="btn btn-primary" id="tdSave"><i class="fa-solid fa-check"></i> حفظ</button>`:""}
-      ${State.user.perms.canManage?`<button class="btn btn-danger" id="tdDel"><i class="fa-solid fa-trash"></i> حذف</button>`:""}
-      <div class="spacer"></div>
-      <button class="btn btn-ghost" data-close>إغلاق</button>
+    <div class="modal-body" style="padding: 20px; direction: rtl; text-align: right;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div>
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">الموظف:</label>
+          <div style="font-size: 14px; font-weight: 700; color: var(--ink);">${esc(leave.userName)}</div>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">الحالة الحالية:</label>
+          <div>
+            <span class="status-badge" style="background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusColor}44; display: inline-block;">
+              ${esc(statusLabel)}
+            </span>
+          </div>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">نوع الإجازة:</label>
+          <div style="font-size: 14px; font-weight: 700; color: var(--ink);">${esc(typeLabel)}</div>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">مدة الإجازة:</label>
+          <div style="font-size: 14px; font-weight: 700; color: var(--ink);">${esc(leave.daysCount || leave.days)} أيام</div>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">تاريخ البدء:</label>
+          <div style="font-size: 14px; font-weight: 700; color: var(--ink);">${esc(leave.startDate)}</div>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">تاريخ الانتهاء:</label>
+          <div style="font-size: 14px; font-weight: 700; color: var(--ink);">${esc(leave.endDate)}</div>
+        </div>
+      </div>
+      
+      ${leave.reason ? `
+        <div style="margin-bottom: 20px;">
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">سبب الإجازة / الملاحظات:</label>
+          <div style="font-size: 13.5px; color: var(--ink-soft); background: var(--bg-app); padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--line); white-space: pre-line;">${esc(leave.reason)}</div>
+        </div>
+      ` : ""}
+      
+      ${leave.notes ? `
+        <div style="margin-bottom: 20px;">
+          <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 4px;">ملاحظات الاعتماد / المراجعة:</label>
+          <div style="font-size: 13.5px; color: var(--ink-soft); background: var(--bg-app); padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--line); white-space: pre-line;">${esc(leave.notes)}</div>
+        </div>
+      ` : ""}
+
+      <div style="margin-top: 20px; border-top: 1px solid var(--line-soft); padding-top: 20px;">
+        <label style="font-size: 12px; color: var(--ink-muted); display: block; margin-bottom: 12px;">مسار حالة الطلب والتواريخ:</label>
+        ${renderLeaveStepperCard(leave)}
+      </div>
+
+      <div style="text-align: center; margin-top: 24px;">
+        <button class="btn btn-secondary" style="padding: 8px 30px; border-radius: var(--r-pill);" data-close>إغلاق النافذة</button>
+      </div>
     </div>
   `);
-  $("#tdSave")?.addEventListener("click",async()=>{
-    const status=$("#tdStatus").value;
-    try{
-      await S.setTaskStatus(t.id,status);
-      t.status=status;
-      if(status==="completed"){
-        await S.pushNotification({ userId:t.createdBy, type:"task_completed", title:"اكتملت مهمة", body:t.title, link:"tasks", refId:t.id });
-        await S.logActivity({ type:"task_update", actorId:State.user.uid, actorName:State.user.name, resource:t.title, detail:"اكتملت المهمة" });
-      } else {
-        // إشعار "تحديث مهمة" لمنشئها (إن لم يكن هو من حدّثها)
-        if(t.createdBy && t.createdBy!==State.user.uid){
-          await S.pushNotification({ userId:t.createdBy, type:"task_updated", title:"تحديث حالة مهمة", body:`${t.title} — ${TASK_STATUS[status].label}`, link:"tasks", refId:t.id });
+}
+
+function renderProfile(el){
+  if(!el) el = $("#viewHost");
+  const u = State.selectedEmp || State.user;
+  const isSelf = u.uid === State.user.uid;
+  const activeTab = State.profileTab || "info";
+  const roleLabel = ROLES[u.role]?.label || u.role;
+  const isStatusActive = u.status !== "disabled";
+
+  const activeLeave = getUserActiveLeave(u.uid);
+  let leaveAlertHtml = "";
+  if (activeLeave && (isHR() || isExec() || isTechAdmin())) {
+    const typeLabel = LEAVE_TYPES[activeLeave.type]?.label || activeLeave.type;
+    const returnsText = getDaysUntilReturn(activeLeave.endDate);
+    leaveAlertHtml = `
+      <div class="card" style="background: rgba(217, 119, 6, 0.05); border: 1px solid rgba(217, 119, 6, 0.25); border-radius: var(--r-md); padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 280px; flex: 1;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(217, 119, 6, 0.1); color: rgb(217, 119, 6); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+            <i class="fa-solid fa-umbrella-beach"></i>
+          </div>
+          <div>
+            <h4 style="margin: 0 0 4px; font-size: 14px; font-weight: 700; color: rgb(217, 119, 6); text-align: right;">هذا الموظف في إجازة حاليًا</h4>
+            <p style="margin: 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.4; text-align: right;">
+              نوع الإجازة: <strong>${esc(typeLabel)}</strong> · من <strong>${esc(activeLeave.startDate)}</strong> إلى <strong>${esc(activeLeave.endDate)}</strong> · ${esc(returnsText)}
+            </p>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnViewLeaveDetails" style="border: 1px solid rgba(217, 119, 6, 0.2); background: var(--bg-paper); color: rgb(217, 119, 6); font-size: 12px; border-radius: var(--r-pill); padding: 6px 16px; transition: all 0.2s;"><i class="fa-solid fa-eye"></i> عرض طلب الإجازة</button>
+      </div>
+    `;
+  }
+
+  el.innerHTML = `
+    ${leaveAlertHtml}
+    <!-- Top Hero Banner Card inside Double-Bezel Container -->
+    <div class="double-bezel" style="margin-bottom:20px">
+      <div class="card profile-hero" style="margin-bottom:0;padding:24px">
+        <div class="profile-hero-top">
+          <div class="profile-avatar-xl">
+            ${u.avatar ? `<img src="${esc(u.avatar)}">` : esc(initials(u.name))}
+            ${(isSelf || isTechAdmin()) ? `
+              <label for="avatarInput" class="profile-avatar-upload">
+                <i class="fa-solid fa-camera"></i>
+                <span>تغيير</span>
+              </label>
+              <input type="file" id="avatarInput" accept="image/*" style="display:none">
+            ` : ""}
+          </div>
+
+          <div class="profile-hero-meta">
+            <h1 class="profile-hero-name">${esc(u.name)}</h1>
+            <div class="profile-hero-badges">
+              <span class="status-badge" style="background:var(--gold-pale);color:var(--gold-deep);border:1px solid var(--line)">
+                <i class="fa-solid fa-briefcase"></i> ${esc(u.jobTitle || "موظف")}
+              </span>
+              <span class="status-badge" style="${isStatusActive ? 'background:var(--success-bg);color:var(--success)' : 'background:var(--danger-bg);color:var(--danger)'}">
+                <i class="fa-solid ${isStatusActive ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${isStatusActive ? 'حساب نشط' : 'حساب معطل'}
+              </span>
+              ${isTechAdmin(u) ? `<span class="status-badge" style="background:rgba(30,64,175,0.08);color:var(--info)"><i class="fa-solid fa-shield-halved"></i> مسئول تقني</span>` : ''}
+            </div>
+            <div class="profile-hero-info">
+              <span><i class="fa-solid fa-envelope"></i> ${esc(u.email)}</span>
+              <span><i class="fa-solid fa-phone"></i> ${esc(u.phone || "غير محدد")}</span>
+              <span><i class="fa-solid fa-calendar-check"></i> تاريخ الانضمام: ${esc(u.hireDate || "—")}</span>
+            </div>
+          </div>
+
+          <div class="profile-hero-actions">
+            ${(isSelf || isTechAdmin()) ? `
+              <button class="btn btn-secondary btn-capsule" id="editProfileHeaderBtn"><i class="fa-solid fa-pen"></i> تعديل البيانات</button>
+            ` : ""}
+            ${State.selectedEmp ? `
+              <button class="btn btn-secondary btn-capsule" id="backToMembersBtn"><i class="fa-solid fa-arrow-right"></i> العودة للدليل</button>
+            ` : ""}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="hero-tabs" id="profileTabs">
+      <button class="hero-tab ${activeTab==="info"?"active":""}" data-tab="info"><i class="fa-solid fa-user"></i> المعلومات الشخصية</button>
+      <button class="hero-tab ${activeTab==="cv"?"active":""}" data-tab="cv"><i class="fa-solid fa-file-pdf"></i> السيرة الذاتية</button>
+      <button class="hero-tab ${activeTab==="qual"?"active":""}" data-tab="qual"><i class="fa-solid fa-graduation-cap"></i> المؤهلات العلمية</button>
+      <button class="hero-tab ${activeTab==="courses"?"active":""}" data-tab="courses"><i class="fa-solid fa-certificate"></i> الدورات والشهادات</button>
+      <button class="hero-tab ${activeTab==="skills"?"active":""}" data-tab="skills"><i class="fa-solid fa-wand-magic-sparkles"></i> المهارات</button>
+    </div>
+
+    <div id="profileTabBody"></div>
+  `;
+
+  renderProfileTabBody();
+
+  $$("#profileTabs [data-tab]").forEach(b => b.addEventListener("click", () => {
+    State.profileTab = b.dataset.tab;
+    $$("#profileTabs .hero-tab").forEach(t => t.classList.toggle("active", t === b));
+    renderProfileTabBody();
+  }));
+
+  if ($("#editProfileHeaderBtn")) $("#editProfileHeaderBtn").addEventListener("click", () => openEditProfileModal(u));
+  if ($("#backToMembersBtn")) $("#backToMembersBtn").addEventListener("click", () => { State.selectedEmp = null; navigate("members"); });
+  if ($("#btnViewLeaveDetails")) {
+    $("#btnViewLeaveDetails").addEventListener("click", () => openViewLeaveModal(activeLeave));
+  }
+
+  if (isSelf || isTechAdmin()) {
+    const avInput = $("#avatarInput");
+    if (avInput) {
+      avInput.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        toast("جارٍ رفع الصورة الشخصية…");
+        try {
+          const url = await S.uploadAvatar(u.uid, file);
+          u.avatar = url;
+          toast("تم تحديث الصورة الشخصية بنجاح");
+          renderProfile(el);
+        } catch (err) {
+          toast("تعذّر رفع الصورة الشخصية", "err");
         }
-        await S.logActivity({ type:"task_update", actorId:State.user.uid, actorName:State.user.name, resource:t.title, detail:`الحالة: ${TASK_STATUS[status].label}` });
-      }
-      closeModal(); toast("تم تحديث المهمة"); if(State.view==="tasks")renderTasksBoard(); renderTaskBadge();
-    }catch(e){ toast("تعذّر التحديث","err"); }
-  });
-  $("#tdDel")?.addEventListener("click",async()=>{
-    if(!confirm("حذف هذه المهمة؟")) return;
-    await S.deleteTask(t.id);
-    State.tasks=State.tasks.filter(x=>x.id!==t.id);
-    closeModal(); toast("تم حذف المهمة"); if(State.view==="tasks")renderTasksBoard();
+      });
+    }
+  }
+}
+
+function renderProfileTabBody(){
+  const u = State.selectedEmp || State.user;
+  const isSelf = u.uid === State.user.uid;
+  const tab = State.profileTab || "info";
+  const body = $("#profileTabBody");
+  if(!body) return;
+
+  if(tab === "info"){
+    body.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <h3>النبذة والبيانات الأساسية</h3>
+          ${(isSelf || isTechAdmin()) ? `<button class="btn btn-secondary" id="editBioBtn"><i class="fa-solid fa-pen"></i> تعديل</button>` : ""}
+        </div>
+        <p style="font-size:14px;color:var(--ink-mid);line-height:1.8;margin-bottom:20px;">${esc(u.bio || "لا توجد نبذة مختصرة مسجلة بعد.")}</p>
+        
+        <div style="background:var(--bg-subtle);padding:16px;border-radius:var(--r-md);border:1px solid var(--line-soft)">
+          <div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px">المسمى الوظيفي</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink)">${esc(u.jobTitle || "موظف")}</div>
+        </div>
+      </div>
+    `;
+    if($("#editBioBtn")) $("#editBioBtn").addEventListener("click", ()=>openEditProfileModal(u));
+  }
+
+  else if(tab === "cv"){
+    body.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <h3>السيرة الذاتية (CV)</h3>
+          ${(isSelf || isTechAdmin()) ? `<button class="btn btn-primary" id="uploadCvBtn"><i class="fa-solid fa-upload"></i> ${u.cv ? 'استبدال CV' : 'رفع CV'}</button>` : ""}
+        </div>
+        ${u.cv ? `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:var(--bg-subtle);border-radius:var(--r-md);border:1px solid var(--line);flex-wrap:wrap;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <i class="fa-solid fa-file-pdf" style="font-size:28px;color:var(--danger)"></i>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--ink)">${esc(u.cv.name)}</div>
+                <div style="font-size:12px;color:var(--ink-muted)">آخر تحديث: ${esc(u.cv.updatedAt ? new Date(u.cv.updatedAt).toLocaleDateString("ar-SA") : "—")}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <a href="${esc(u.cv.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary"><i class="fa-solid fa-eye"></i> معاينة</a>
+              <a href="${esc(S.getCloudinaryDownloadUrl(u.cv.url))}" target="_blank" download class="btn btn-primary"><i class="fa-solid fa-download"></i> تحميل</a>
+            </div>
+          </div>
+        ` : `
+          <div class="empty-state">
+            <div class="es-msg">لم يتم رفع السيرة الذاتية بعد</div>
+            ${(isSelf || isTechAdmin()) ? `<button class="btn btn-primary" id="uploadCvEmptyBtn" style="margin-top:10px"><i class="fa-solid fa-upload"></i> رفع السيرة الذاتية</button>` : ''}
+          </div>
+        `}
+      </div>
+    `;
+    if($("#uploadCvBtn")) $("#uploadCvBtn").addEventListener("click", ()=>openCvUploadModal(u));
+    if($("#uploadCvEmptyBtn")) $("#uploadCvEmptyBtn").addEventListener("click", ()=>openCvUploadModal(u));
+  }
+
+  else if(tab === "qual"){
+    const list = u.qualifications || [];
+    body.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <h3>المؤهلات العلمية</h3>
+          ${(isSelf || isTechAdmin()) ? `<button class="btn btn-secondary" id="addQualBtn"><i class="fa-solid fa-plus"></i> إضافة مؤهل</button>` : ""}
+        </div>
+        ${list.length ? `
+          <div class="timeline">
+            ${list.map((q, idx)=>`
+              <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div>
+                    <div style="font-size:15px;font-weight:800;color:var(--ink)">${esc(q.degree)} — ${esc(q.field)}</div>
+                    <div style="font-size:12.5px;color:var(--ink-muted)">${esc(q.institution)} · سنة التخرج: ${esc(q.year)}</div>
+                  </div>
+                  ${(isSelf || isTechAdmin()) ? `<button class="btn btn-danger-soft" data-del-qual="${idx}"><i class="fa-solid fa-trash"></i></button>` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        ` : `
+          <div class="empty-state">
+            <div class="es-msg">لا توجد مؤهلات مسجلة</div>
+            ${(isSelf || isTechAdmin()) ? `<button class="btn btn-primary" id="addQualEmptyBtn" style="margin-top:10px"><i class="fa-solid fa-plus"></i> إضافة مؤهل علمي</button>` : ''}
+          </div>
+        `}
+      </div>
+    `;
+    if($("#addQualBtn")) $("#addQualBtn").addEventListener("click", ()=>openAddQualModal(u));
+    if($("#addQualEmptyBtn")) $("#addQualEmptyBtn").addEventListener("click", ()=>openAddQualModal(u));
+    $$("[data-del-qual]", body).forEach(b=>b.addEventListener("click", (e)=>{
+      const idx = parseInt(b.dataset.delQual);
+      const rowEl = b.closest(".timeline-item") || b.closest("div");
+      animateRowRemoval(rowEl, async ()=>{
+        list.splice(idx, 1);
+        await S.updateUserProfile(u.uid, { qualifications: list });
+        toast("تم حذف المؤهل");
+        renderProfileTabBody();
+      });
+    }));
+  }
+
+  else if(tab === "courses"){
+    const list = u.courses || [];
+    body.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <h3>الدورات التدريبية والشهادات</h3>
+          ${(isSelf || isTechAdmin()) ? `<button class="btn btn-secondary" id="addCourseBtn"><i class="fa-solid fa-plus"></i> إضافة دورة</button>` : ""}
+        </div>
+        ${list.length ? `
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${list.map((c, idx)=>`
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg-subtle);border-radius:var(--r-md);border:1px solid var(--line);flex-wrap:wrap;gap:10px">
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--ink)">${esc(c.title)}</div>
+                  <div style="font-size:12px;color:var(--ink-muted)">الجهة: ${esc(c.provider)} · التاريخ: ${esc(c.date || "—")}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  ${c.certUrl ? `<a href="${esc(c.certUrl)}" target="_blank" class="btn btn-secondary"><i class="fa-solid fa-certificate"></i> معاينة الشهادة</a>` : `<span style="font-size:12px;color:var(--ink-faint)">بدون مرفق</span>`}
+                  ${(isSelf || isTechAdmin()) ? `<button class="btn btn-danger-soft" data-del-course="${idx}"><i class="fa-solid fa-trash"></i></button>` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        ` : `
+          <div class="empty-state">
+            <div class="es-msg">لا توجد دورات مسجلة</div>
+            ${(isSelf || isTechAdmin()) ? `<button class="btn btn-primary" id="addCourseEmptyBtn" style="margin-top:10px"><i class="fa-solid fa-plus"></i> إضافة دورة جديدة</button>` : ''}
+          </div>
+        `}
+      </div>
+    `;
+    if($("#addCourseBtn")) $("#addCourseBtn").addEventListener("click", ()=>openAddCourseModal(u));
+    if($("#addCourseEmptyBtn")) $("#addCourseEmptyBtn").addEventListener("click", ()=>openAddCourseModal(u));
+    $$("[data-del-course]", body).forEach(b=>b.addEventListener("click", (e)=>{
+      const idx = parseInt(b.dataset.delCourse);
+      const rowEl = b.closest("div");
+      animateRowRemoval(rowEl, async ()=>{
+        list.splice(idx, 1);
+        await S.updateUserProfile(u.uid, { courses: list });
+        toast("تم حذف الدورة");
+        renderProfileTabBody();
+      });
+    }));
+  }
+
+  else if(tab === "skills"){
+    const list = u.skills || [];
+    body.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <h3>المهارات والخبرات</h3>
+          ${(isSelf || isTechAdmin()) ? `<button class="btn btn-secondary" id="addSkillBtn"><i class="fa-solid fa-plus"></i> إضافة مهارة</button>` : ""}
+        </div>
+        ${list.length ? `
+          <div class="skills-flex">
+            ${list.map((s, idx)=>`
+              <span class="skill-chip">
+                ${esc(s)}
+                ${(isSelf || isTechAdmin()) ? `<i class="fa-solid fa-xmark" data-del-skill="${idx}" style="margin-right:6px;cursor:pointer;color:var(--danger)"></i>` : ""}
+              </span>
+            `).join("")}
+          </div>
+        ` : `
+          <div class="empty-state">
+            <div class="es-msg">لم تُضف مهارات بعد</div>
+            ${(isSelf || isTechAdmin()) ? `<button class="btn btn-primary" id="addSkillEmptyBtn" style="margin-top:10px"><i class="fa-solid fa-plus"></i> إضافة مهارة</button>` : ''}
+          </div>
+        `}
+      </div>
+    `;
+    if($("#addSkillBtn")) $("#addSkillBtn").addEventListener("click", ()=>openAddSkillModal(u));
+    if($("#addSkillEmptyBtn")) $("#addSkillEmptyBtn").addEventListener("click", ()=>openAddSkillModal(u));
+    $$("[data-del-skill]", body).forEach(b=>b.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const idx = parseInt(b.dataset.delSkill);
+      const rowEl = b.closest(".skill-chip");
+      animateRowRemoval(rowEl, async ()=>{
+        list.splice(idx, 1);
+        await S.updateUserProfile(u.uid, { skills: list });
+        toast("تم حذف المهارة");
+        renderProfileTabBody();
+      });
+    }));
+  }
+}
+
+/* Modals for Profile Edit */
+function openEditProfileModal(u){
+  openModal(`
+    <div class="modal-head">
+      <h2>تعديل البيانات والنبذة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="editProfileForm">
+      <div class="form-group" style="margin-bottom:14px">
+        <label>رقم الجوال</label>
+        <input type="text" id="profPhone" value="${esc(u.phone||"")}" class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>النبذة المختصرة</label>
+        <textarea id="profBio" rows="4" class="input">${esc(u.bio||"")}</textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> حفظ التغييرات</button>
+      </div>
+    </form>
+  `);
+  $("#editProfileForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const phone = $("#profPhone").value.trim();
+    const bio = $("#profBio").value.trim();
+    await S.updateUserProfile(u.uid, { phone, bio });
+    u.phone = phone; u.bio = bio;
+    toast("تم حفظ البيانات بنجاح");
+    closeModal();
+    renderProfileTabBody();
   });
 }
-function openTaskModal(){
-  const users=State.users.filter(u=>u.uid!==State.user.uid||true);
+
+function openCvUploadModal(u){
   openModal(`
     <div class="modal-head">
-      <div><div class="la">New Task · مهمة جديدة</div><h2>إنشاء مهمة</h2></div>
-      <button class="close-btn" data-close><i class="fa-solid fa-xmark"></i></button>
+      <h2>رفع / استبدال السيرة الذاتية (CV)</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="form-grid two">
-      <div class="field full">
-        <label>عنوان المهمة <span class="la">Title</span></label>
-        <input id="ntTitle" placeholder="مثال: إعداد تقرير الربع الأول">
+    <form id="cvForm">
+      <div class="form-group" style="margin-bottom:16px">
+        <label>اختر ملف السيرة الذاتية (PDF, Word)</label>
+        <input type="file" id="cvFileInput" accept=".pdf,.doc,.docx" required class="input">
       </div>
-      <div class="field full">
-        <label>الوصف <span class="la">Description</span></label>
-        <textarea id="ntDesc" placeholder="تفاصيل المهمة والمطلوب…"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="cvSubmitBtn"><i class="fa-solid fa-upload"></i> رفع الملف</button>
       </div>
-      <div class="field">
-        <label>الأولوية <span class="la">Priority</span></label>
-        <select id="ntPrio">${Object.entries(TASK_PRIORITY).map(([k,v])=>`<option value="${k}" ${k==="medium"?"selected":""}>${v.label}</option>`).join("")}</select>
-      </div>
-      <div class="field">
-        <label>تاريخ الاستحقاق <span class="la">Due Date</span></label>
-        <input type="date" id="ntDue">
-      </div>
-      <div class="field">
-        <label>نوع الإسناد <span class="la">Assign To</span></label>
-        <select id="ntType"><option value="department">إدارة كاملة</option><option value="user">موظف محدد</option></select>
-      </div>
-      <div class="field">
-        <label>الجهة <span class="la">Target</span></label>
-        <select id="ntTarget"></select>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-primary" id="ntSave"><i class="fa-solid fa-plus"></i> إنشاء المهمة</button>
-      <div class="spacer"></div>
-      <button class="btn btn-ghost" data-close>إلغاء</button>
-    </div>
+    </form>
   `);
-  const fillTargets=()=>{
-    const type=$("#ntType").value;
-    if(type==="department"){
-      $("#ntTarget").innerHTML=Object.entries(DEPARTMENTS).map(([k,d])=>`<option value="${k}">${d.label}</option>`).join("");
-    } else {
-      $("#ntTarget").innerHTML=users.map(u=>`<option value="${u.uid}">${esc(u.name)} — ${esc((ROLES[u.role]||{}).label||"")}</option>`).join("");
+  $("#cvForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const file = $("#cvFileInput").files[0];
+    if(!file) return;
+    const btn = $("#cvSubmitBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+    try{
+      const cvObj = await S.uploadCV(u.uid, file);
+      u.cv = cvObj;
+      toast("تم رفع السيرة الذاتية بنجاح");
+      closeModal();
+      renderProfileTabBody();
+    }catch(err){
+      toast("تعذّر رفع الملف", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-upload"></i> رفع الملف`;
+    }
+  });
+}
+
+function openAddQualModal(u){
+  openModal(`
+    <div class="modal-head">
+      <h2>إضافة مؤهل علمي</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="qualForm">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>الدرجة العلمية (بكالوريوس، ماجستير...)</label>
+        <input type="text" id="qDegree" required class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>التخصص</label>
+        <input type="text" id="qField" required class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>الجامعة / المؤسسة التعليمية</label>
+        <input type="text" id="qInst" required class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>سنة التخرج</label>
+        <input type="text" id="qYear" required class="input">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> إضافة</button>
+      </div>
+    </form>
+  `);
+  $("#qualForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const item = {
+      degree: $("#qDegree").value.trim(),
+      field: $("#qField").value.trim(),
+      institution: $("#qInst").value.trim(),
+      year: $("#qYear").value.trim()
+    };
+    const list = u.qualifications || [];
+    list.push(item);
+    await S.updateUserProfile(u.uid, { qualifications: list });
+    u.qualifications = list;
+    toast("تمت إضافة المؤهل");
+    closeModal();
+    renderProfileTabBody();
+  });
+}
+
+function openAddCourseModal(u){
+  openModal(`
+    <div class="modal-head">
+      <h2>إضافة دورة تدريبية / شهادة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="courseForm">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>عنوان الدورة</label>
+        <input type="text" id="cTitle" required class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>الجهة المنظمة</label>
+        <input type="text" id="cProvider" required class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>تاريخ الحصول عليها</label>
+        <input type="date" id="cDate" class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>إرفاق الشهادة (اختياري)</label>
+        <input type="file" id="cCertFile" class="input">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="cSubmitBtn"><i class="fa-solid fa-plus"></i> إضافة الدورة</button>
+      </div>
+    </form>
+  `);
+  $("#courseForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const btn = $("#cSubmitBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الحفظ…`;
+    let certUrl = "";
+    const certFile = $("#cCertFile").files[0];
+    if(certFile){
+      try{ certUrl = await S.uploadCourseCert(u.uid, certFile); }catch(e){}
+    }
+    const item = {
+      title: $("#cTitle").value.trim(),
+      provider: $("#cProvider").value.trim(),
+      date: $("#cDate").value || "",
+      certUrl
+    };
+    const list = u.courses || [];
+    list.push(item);
+    await S.updateUserProfile(u.uid, { courses: list });
+    u.courses = list;
+    toast("تمت إضافة الدورة والشهادة");
+    closeModal();
+    renderProfileTabBody();
+  });
+}
+
+function openAddSkillModal(u){
+  openModal(`
+    <div class="modal-head">
+      <h2>إضافة مهارة جديدة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="skillForm">
+      <div class="form-group" style="margin-bottom:16px">
+        <label>اسم المهارة</label>
+        <input type="text" id="skTitle" placeholder="مثال: إدارة المشاريع، التصميم، القيادة..." required class="input">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> إضافة</button>
+      </div>
+    </form>
+  `);
+  $("#skillForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const val = $("#skTitle").value.trim();
+    if(!val) return;
+    const list = u.skills || [];
+    list.push(val);
+    await S.updateUserProfile(u.uid, { skills: list });
+    u.skills = list;
+    toast("تمت إضافة المهارة");
+    closeModal();
+    renderProfileTabBody();
+  });
+}
+
+
+/* ════════════════ 3. نظام الإجازات والاعتمادات (Leaves System) ════════════════ */
+
+function isLeaveCurrentlyActive(l) {
+  if(!l || l.status !== "approved") return false;
+  const today = new Date().setHours(0,0,0,0);
+  const start = new Date(l.startDate).setHours(0,0,0,0);
+  const end = new Date(l.endDate).setHours(23,59,59,999);
+  return today >= start && today <= end;
+}
+
+function getUserActiveLeave(userId) {
+  const allLeaves = State.empLeaves || [];
+  return allLeaves.find(l => l.userId === userId && l.status === "approved" && isLeaveCurrentlyActive(l));
+}
+
+function getDaysUntilReturn(endDateStr) {
+  const today = new Date().setHours(0,0,0,0);
+  const returnDate = new Date(endDateStr);
+  returnDate.setDate(returnDate.getDate() + 1); // Day after endDate
+  returnDate.setHours(0,0,0,0);
+  const returnDiffTime = returnDate - today;
+  const returnDiffDays = Math.round(returnDiffTime / (1000 * 60 * 60 * 24));
+  
+  if (returnDiffDays <= 1) {
+    return "يعود غداً";
+  } else if (returnDiffDays === 2) {
+    return "يعود بعد يومين";
+  } else if (returnDiffDays >= 3 && returnDiffDays <= 10) {
+    return `يعود بعد ${returnDiffDays} أيام`;
+  } else {
+    return `يعود بعد ${returnDiffDays} يوماً`;
+  }
+}
+
+function getActiveOrPendingLeave(leavesList) {
+  if(!Array.isArray(leavesList)) return null;
+  return leavesList.find(l => 
+    l.status === "submitted" || 
+    l.status === "in_hr_review" || 
+    l.status === "hr_approved" || 
+    isLeaveCurrentlyActive(l)
+  );
+}
+
+/* 1) صفحة إجازاتي الشخصية (مع الكارت التفاعلي وتقييد الطلبات و Segmented Control) */
+function renderMyLeaves(el){
+  if(!el) el = $("#viewHost");
+  const tab = State.myLeaveTab || "current"; // "current" | "history"
+  const allLeaves = State.myLeaves || [];
+
+  // فحص ما إذا كان الموظف في إجازة قائمة حالياً
+  const activeLeave = allLeaves.find(l => isLeaveCurrentlyActive(l));
+  
+  // فحص ما إذا كان هناك طلب معلق أو إجازة حالية (لتقييد التقديم)
+  const pendingOrActiveRequest = getActiveOrPendingLeave(allLeaves);
+  const isRequestRestricted = !!pendingOrActiveRequest;
+
+  // تصفية القائمة حسب التبويب المختار
+  let list = [];
+  if (tab === "current") {
+    list = allLeaves.filter(l => 
+      l.status === "submitted" || 
+      l.status === "in_hr_review" || 
+      l.status === "hr_approved" || 
+      isLeaveCurrentlyActive(l)
+    );
+  } else {
+    list = allLeaves.filter(l => 
+      l.status === "hr_rejected" || 
+      l.status === "exec_rejected" || 
+      (l.status === "approved" && !isLeaveCurrentlyActive(l))
+    );
+  }
+
+  // حساب الأيام المتبقية للإجازة القائمة
+  let remainingDays = 0;
+  if (activeLeave) {
+    const end = new Date(activeLeave.endDate).getTime();
+    const now = new Date().getTime();
+    remainingDays = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+  }
+
+  const currentCount = allLeaves.filter(l => l.status === "submitted" || l.status === "in_hr_review" || l.status === "hr_approved" || isLeaveCurrentlyActive(l)).length;
+  const historyCount = allLeaves.filter(l => l.status === "hr_rejected" || l.status === "exec_rejected" || (l.status === "approved" && !isLeaveCurrentlyActive(l))).length;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h1 class="page-title" style="margin:0">الإجازات</h1>
+        <p class="page-sub" style="margin:4px 0 0 0">متابعة ورصد رصيد وطلبات الإجازات الشخصية</p>
+      </div>
+      <button class="btn btn-primary btn-capsule" id="newLeaveBtn" ${isRequestRestricted ? 'disabled' : ''}>
+        <i class="fa-solid fa-plus"></i> طلب إجازة
+      </button>
+    </div>
+
+    <!-- كارت الإجازة القائمة الحالية (إن وجدت) -->
+    ${activeLeave ? `
+      <div class="leave-active-hero">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:12px;height:12px;border-radius:50%;background:var(--gold-soft);display:inline-block"></span>
+            <h2 style="font-size:20px;font-weight:800;margin:0;color:#FFF">أنت في إجازة حالياً</h2>
+          </div>
+          <span class="status-badge" style="background:var(--gold-soft);color:#FFF;font-size:12px">معتمدة وقائمة</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:16px;margin-top:16px;font-size:13.5px;color:rgba(255,255,255,0.85)">
+          <div><b>نوع الإجازة:</b> ${esc(LEAVE_TYPES[activeLeave.type]?.label || activeLeave.type)}</div>
+          <div><b>تاريخ البداية:</b> ${esc(activeLeave.startDate)}</div>
+          <div><b>تاريخ النهاية:</b> ${esc(activeLeave.endDate)}</div>
+          <div><b>الأيام المتبقية:</b> <span style="color:var(--gold-soft);font-weight:800;font-size:16px">${remainingDays} يوم</span></div>
+        </div>
+      </div>
+    ` : ""}
+
+    <!-- تنبيه تقييد الطلب الجديد عند وجود طلب معلق أو إجازة قائمة -->
+    ${isRequestRestricted && !activeLeave ? `
+      <div class="restriction-banner">
+        <i class="fa-solid fa-lock" style="font-size:18px"></i>
+        <div>لا يمكنك تقديم طلب إجازة جديد حتى انتهاء إجازتك الحالية أو البت في الطلب المعلق (${esc(pendingOrActiveRequest.refNo)}).</div>
+      </div>
+    ` : ""}
+
+    <!-- Segmented Control للتبديل بين الطلبات الحالية وسجل الإجازات -->
+    <div class="segmented-control">
+      <button class="seg-btn ${tab==="current"?"active":""}" data-seg-tab="current">
+        <i class="fa-solid fa-clock-rotate-left"></i> الطلبات الحالية (${currentCount})
+      </button>
+      <button class="seg-btn ${tab==="history"?"active":""}" data-seg-tab="history">
+        <i class="fa-solid fa-box-archive"></i> سجل الإجازات (${historyCount})
+      </button>
+    </div>
+
+    <!-- منطقة عرض البطاقات -->
+    <div id="leavesArea">
+      ${list.length ? list.map(l => renderLeaveCard(l, "my")).join("") : emptyState(tab === "current" ? "لا توجد طلبات إجازة قائمة أو معلقة حالياً" : "لا يوجد سجل إجازات سابق")}
+    </div>
+  `;
+
+  if($("#newLeaveBtn") && !isRequestRestricted) {
+    $("#newLeaveBtn").addEventListener("click", openNewLeaveModal);
+  }
+
+  $$("[data-seg-tab]", el).forEach(b => b.addEventListener("click", () => {
+    State.myLeaveTab = b.dataset.segTab;
+    renderMyLeaves(el);
+  }));
+}
+
+/* 2) صفحة طلبات إجازات الموظفين (للموارد البشرية) */
+function renderEmpLeavesHR(el){
+  if(!el) el = $("#viewHost");
+  const filter = State.hrLeaveFilter || "all";
+  let list = State.empLeaves || [];
+
+  if(filter === "pending_hr") list = list.filter(l => l.status === "submitted" || l.status === "in_hr_review");
+  if(filter === "pending_exec") list = list.filter(l => l.status === "hr_approved");
+  if(filter === "approved") list = list.filter(l => l.status === "approved");
+  if(filter === "rejected") list = list.filter(l => l.status === "hr_rejected" || l.status === "exec_rejected");
+
+  const allCount = (State.empLeaves || []).length;
+  const pendingHRCount = (State.empLeaves || []).filter(l => l.status === "submitted" || l.status === "in_hr_review").length;
+  const pendingExecCount = (State.empLeaves || []).filter(l => l.status === "hr_approved").length;
+  const approvedCount = (State.empLeaves || []).filter(l => l.status === "approved").length;
+  const rejectedCount = (State.empLeaves || []).filter(l => l.status === "hr_rejected" || l.status === "exec_rejected").length;
+
+  el.innerHTML = `
+    ${pageHead("Employee Leaves", "طلبات الإجازات", "إدارة إجازات", "الموظفين", "مراجعة وتدقيق طلبات إجازات الموظفين وتحويلها للاعتماد التنفيذي.")}
+
+    <!-- Modern App Filter Pills (Capsule Segmented Control) -->
+    <div class="filter-pills-wrap">
+      <button class="filter-pill ${filter==="all"?"active":""}" data-hr-lfilter="all">
+        <span>الكل</span> <span class="pill-count">${allCount}</span>
+      </button>
+      <button class="filter-pill ${filter==="pending_hr"?"active":""}" data-hr-lfilter="pending_hr">
+        <span>بانتظار مراجعتك</span> <span class="pill-count">${pendingHRCount}</span>
+      </button>
+      <button class="filter-pill ${filter==="pending_exec"?"active":""}" data-hr-lfilter="pending_exec">
+        <span>بانتظار المدير التنفيذي</span> <span class="pill-count">${pendingExecCount}</span>
+      </button>
+      <button class="filter-pill ${filter==="approved"?"active":""}" data-hr-lfilter="approved">
+        <span>المعتمدة نهائياً</span> <span class="pill-count">${approvedCount}</span>
+      </button>
+      <button class="filter-pill ${filter==="rejected"?"active":""}" data-hr-lfilter="rejected">
+        <span>المرفوضة</span> <span class="pill-count">${rejectedCount}</span>
+      </button>
+    </div>
+
+    <div id="leavesArea">
+      ${list.length ? list.map(l => renderLeaveCard(l, "hr")).join("") : emptyState("لا توجد طلبات إجازات للموظفين في هذه الفئة")}
+    </div>
+  `;
+
+  $$("[data-hr-lfilter]").forEach(b=>b.addEventListener("click", ()=>{
+    State.hrLeaveFilter = b.dataset.hrLfilter;
+    renderEmpLeavesHR(el);
+  }));
+
+  bindLeaveEvents(el);
+}
+
+/* 3) صفحة اعتماد طلبات الإجازات (للمدير التنفيذي) */
+function renderExecLeavesApproval(el){
+  if(!el) el = $("#viewHost");
+  const filter = State.execLeaveFilter || "pending";
+  let list = State.execLeaves || [];
+
+  if (!State.execArchiveSearch) State.execArchiveSearch = "";
+  if (!State.execArchiveStatus) State.execArchiveStatus = "all";
+
+  if(filter === "pending") {
+    list = list.filter(l => l.status === "hr_approved");
+  }
+  
+  if(filter === "archive") {
+    list = list.filter(l => l.status === "approved" || l.status === "exec_rejected");
+    
+    // Apply search query
+    const sq = State.execArchiveSearch.trim().toLowerCase();
+    if (sq) {
+      list = list.filter(l => (l.userName || "").toLowerCase().includes(sq) || (l.refNo || "").toLowerCase().includes(sq));
+    }
+    
+    // Apply status filter
+    const sf = State.execArchiveStatus;
+    if (sf === "approved") {
+      list = list.filter(l => l.status === "approved");
+    } else if (sf === "rejected") {
+      list = list.filter(l => l.status === "exec_rejected");
+    }
+  }
+
+  const pendingExecCount = (State.execLeaves || []).filter(l => l.status === "hr_approved").length;
+  const archiveCount = (State.execLeaves || []).filter(l => l.status === "approved" || l.status === "exec_rejected").length;
+
+  let archiveFiltersHtml = "";
+  if (filter === "archive") {
+    archiveFiltersHtml = `
+      <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; background: var(--bg-paper); padding: 12px; border-radius: var(--r-md); border: 1px solid var(--line-soft);">
+        <div style="flex: 1; min-width: 200px; position: relative;">
+          <input type="text" id="execArchiveSearchInput" class="form-control input" style="width: 100%; padding: 8px 12px 8px 32px; font-size: 13px;" placeholder="ابحث باسم الموظف أو الرقم المرجعي..." value="${esc(State.execArchiveSearch)}">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-muted); font-size: 13px;"></i>
+        </div>
+        <div style="width: 150px;">
+          <select id="execArchiveStatusSelect" class="form-control input" style="width: 100%; padding: 7px 10px; font-size: 13px;">
+            <option value="all" ${State.execArchiveStatus === 'all' ? 'selected' : ''}>جميع الحالات</option>
+            <option value="approved" ${State.execArchiveStatus === 'approved' ? 'selected' : ''}>معتمدة نهائياً</option>
+            <option value="rejected" ${State.execArchiveStatus === 'rejected' ? 'selected' : ''}>مرفوضة من المدير</option>
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
+  el.innerHTML = `
+    ${pageHead("Leave Approvals", "اعتماد الإجازات", "اعتماد طلبات", "الإجازات", "مراجعة واعتماد طلبات الإجازات المحالة من إدارة الموارد البشرية.")}
+
+    <!-- Modern App Filter Pills (Capsule Segmented Control) -->
+    <div class="filter-pills-wrap" style="margin-bottom: 16px;">
+      <button class="filter-pill ${filter==="pending"?"active":""}" data-exec-lfilter="pending">
+        <span>بانتظار اعتمادك</span> <span class="pill-count">${pendingExecCount}</span>
+      </button>
+      <button class="filter-pill ${filter==="archive"?"active":""}" data-exec-lfilter="archive">
+        <span>أرشيف الاعتمادات السابقة</span> <span class="pill-count">${archiveCount}</span>
+      </button>
+    </div>
+
+    ${archiveFiltersHtml}
+
+    <div id="leavesArea">
+      ${list.length ? list.map(l => renderLeaveCard(l, "exec")).join("") : emptyState(filter === "archive" ? "لا توجد طلبات في الأرشيف مطابقة للبحث" : "لا توجد طلبات إجازات بانتظار الاعتماد حالياً")}
+    </div>
+  `;
+
+  $$("[data-exec-lfilter]").forEach(b=>b.addEventListener("click", ()=>{
+    State.execLeaveFilter = b.dataset.execLfilter;
+    State.execArchiveSearch = "";
+    State.execArchiveStatus = "all";
+    renderExecLeavesApproval(el);
+  }));
+
+  if (filter === "archive") {
+    const searchInp = $("#execArchiveSearchInput", el);
+    const statusSel = $("#execArchiveStatusSelect", el);
+    
+    if (searchInp) {
+      searchInp.addEventListener("input", (e) => {
+        State.execArchiveSearch = e.target.value;
+        renderArchiveListOnly();
+      });
+    }
+    
+    if (statusSel) {
+      statusSel.addEventListener("change", (e) => {
+        State.execArchiveStatus = e.target.value;
+        renderArchiveListOnly();
+      });
+    }
+  }
+
+  function renderArchiveListOnly() {
+    let subList = State.execLeaves || [];
+    subList = subList.filter(l => l.status === "approved" || l.status === "exec_rejected");
+    
+    const sq = State.execArchiveSearch.trim().toLowerCase();
+    if (sq) {
+      subList = subList.filter(l => (l.userName || "").toLowerCase().includes(sq) || (l.refNo || "").toLowerCase().includes(sq));
+    }
+    
+    const sf = State.execArchiveStatus;
+    if (sf === "approved") {
+      subList = subList.filter(l => l.status === "approved");
+    } else if (sf === "rejected") {
+      subList = subList.filter(l => l.status === "exec_rejected");
+    }
+    
+    const leavesArea = $("#leavesArea", el);
+    if (leavesArea) {
+      leavesArea.innerHTML = subList.length 
+        ? subList.map(l => renderLeaveCard(l, "exec")).join("") 
+        : emptyState("لا توجد طلبات مطابقة للبحث في الأرشيف");
+      bindLeaveEvents(el);
+    }
+  }
+
+  bindLeaveEvents(el);
+}
+
+function formatTimelineDate(timestamp) {
+  if (!timestamp) return "";
+  
+  let dateObj;
+  if (typeof timestamp.toDate === "function") {
+    dateObj = timestamp.toDate();
+  } else if (timestamp instanceof Date) {
+    dateObj = timestamp;
+  } else if (timestamp.seconds) {
+    dateObj = new Date(timestamp.seconds * 1000);
+  } else {
+    dateObj = new Date(timestamp);
+  }
+  
+  if (isNaN(dateObj.getTime())) return "";
+
+  const months = [
+    "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+    "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+  ];
+  
+  const day = dateObj.getDate();
+  const month = months[dateObj.getMonth()];
+  const year = dateObj.getFullYear();
+  
+  let hours = dateObj.getHours();
+  const minutes = String(dateObj.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "مساءً" : "صباحاً";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  
+  return `${day} ${month} ${year} - ${hours}:${minutes} ${ampm}`;
+}
+
+function renderLeaveStepperCard(l){
+  const st = LEAVE_STATUS[l.status] || LEAVE_STATUS.submitted;
+  const isHRRejected = l.status === "hr_rejected" || l.status === "exec_rejected";
+  const isHRApproved = l.status === "hr_approved" || l.status === "approved";
+  const isFinalApproved = l.status === "approved";
+
+  const dateSub = formatTimelineDate(l.createdAt);
+  const dateHr = (l.hrReview && l.hrReview.at) ? formatTimelineDate(l.hrReview.at) : "";
+  const dateExec = (l.execReview && l.execReview.at) ? formatTimelineDate(l.execReview.at) : "";
+
+  return `
+    <div style="padding:14px;background:var(--bg-card);border-radius:var(--r-md);border:1px solid var(--line);margin-top:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span class="leave-ref">${esc(l.refNo)}</span>
+        <span class="status-badge" style="color:${st.color};background:${st.bg}">${st.label}</span>
+      </div>
+
+      <div class="stepper-wrap">
+        <div class="stepper">
+          <div class="step ${l.status !== 'submitted' ? 'completed' : 'active'}">
+            <div class="step-ico"><i class="fa-solid fa-paper-plane"></i></div>
+            <div class="step-txt">تم الإرسال</div>
+            ${dateSub ? `<div class="step-date" style="font-size:8px;color:var(--ink-muted);margin-top:2px;font-weight:normal;line-height:1.2;">${esc(dateSub)}</div>` : ""}
+          </div>
+          <div class="step ${isHRRejected ? 'rejected' : (isHRApproved ? 'completed' : 'active')}">
+            <div class="step-ico"><i class="fa-solid fa-users-gear"></i></div>
+            <div class="step-txt">مراجعة الموارد</div>
+            ${dateHr ? `<div class="step-date" style="font-size:8px;color:var(--ink-muted);margin-top:2px;font-weight:normal;line-height:1.2;">${esc(dateHr)}</div>` : ""}
+          </div>
+          <div class="step ${isHRRejected ? '' : (isFinalApproved ? 'completed' : (l.status === 'hr_approved' ? 'active' : ''))}">
+            <div class="step-ico"><i class="fa-solid fa-user-check"></i></div>
+            <div class="step-txt">اعتماد المدير</div>
+            ${dateExec ? `<div class="step-date" style="font-size:8px;color:var(--ink-muted);margin-top:2px;font-weight:normal;line-height:1.2;">${esc(dateExec)}</div>` : ""}
+          </div>
+          <div class="step ${isFinalApproved ? 'completed' : ''}">
+            <div class="step-ico"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="step-txt">معتمد نهائياً</div>
+            ${(isFinalApproved && dateExec) ? `<div class="step-date" style="font-size:8px;color:var(--ink-muted);margin-top:2px;font-weight:normal;line-height:1.2;">${esc(dateExec)}</div>` : ""}
+          </div>
+        </div>
+      </div>
+
+      ${isHRRejected ? `<div style="color:var(--danger);font-size:12.5px;margin-top:8px;"><i class="fa-solid fa-circle-exclamation"></i> سبب الرفض: ${esc(l.rejectionReason || "لم يذكر سبب")}</div>` : ""}
+    </div>
+  `;
+}
+
+function getSoftLeaveStatusBadge(l) {
+  if (isLeaveCurrentlyActive(l)) {
+    return `<span class="status-badge" style="background:var(--gold-soft);color:#FFF"><i class="fa-solid fa-umbrella-beach"></i> إجازة قائمة</span>`;
+  }
+  if (l.status === "submitted" || l.status === "in_hr_review") {
+    return `<span class="status-badge" style="background:rgba(184, 142, 54, 0.12);color:var(--gold-deep)"><i class="fa-solid fa-clock"></i> بانتظار الموارد البشرية</span>`;
+  }
+  if (l.status === "hr_approved") {
+    return `<span class="status-badge" style="background:rgba(43, 94, 168, 0.12);color:var(--info)"><i class="fa-solid fa-user-clock"></i> بانتظار المدير التنفيذي</span>`;
+  }
+  if (l.status === "approved") {
+    return `<span class="status-badge" style="background:var(--success-bg);color:var(--success)"><i class="fa-solid fa-circle-check"></i> معتمدة نهائياً</span>`;
+  }
+  if (l.status === "hr_rejected" || l.status === "exec_rejected") {
+    return `<span class="status-badge" style="background:var(--danger-bg);color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> مرفوضة</span>`;
+  }
+  const st = LEAVE_STATUS[l.status] || LEAVE_STATUS.submitted;
+  return `<span class="status-badge" style="color:${st.color};background:${st.bg}">${st.label}</span>`;
+}
+
+function renderLeaveCard(l, mode){
+  const typeLabel = LEAVE_TYPES[l.type]?.label || l.type;
+  const isHRReviewPending = (mode === "hr") && (l.status === "submitted" || l.status === "in_hr_review");
+  const isExecApprovalPending = (mode === "exec") && (l.status === "hr_approved");
+
+  return `
+    <div class="card" style="margin-bottom:20px;padding:24px">
+      <!-- Top Row: Name, Job Title, Department, Ref Badge, Soft Status -->
+      <div class="card-head" style="margin-bottom:16px">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="leave-ref" style="font-size:11.5px;padding:3px 10px;border-radius:var(--r-full);background:var(--bg-subtle);color:var(--ink-muted);font-weight:700">${esc(l.refNo)}</span>
+            <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--ink)">${esc(l.userName)}</h3>
+          </div>
+          <div style="font-size:13px;color:var(--ink-muted);margin-top:4px">${esc(l.userJobTitle || "موظف")}</div>
+        </div>
+        ${getSoftLeaveStatusBadge(l)}
+      </div>
+
+      <!-- Core Scan-Friendly Metadata Grid -->
+      <div class="leave-meta-grid">
+        <div class="leave-meta-item">
+          <span class="leave-meta-label"><i class="fa-solid fa-tag" style="color:var(--gold-deep)"></i> نوع الإجازة</span>
+          <span class="leave-meta-val">${esc(typeLabel)}</span>
+        </div>
+        <div class="leave-meta-item">
+          <span class="leave-meta-label"><i class="fa-solid fa-hourglass-half" style="color:var(--gold-deep)"></i> المدة</span>
+          <span class="leave-meta-val">${esc(l.daysCount)} يوم</span>
+        </div>
+        <div class="leave-meta-item">
+          <span class="leave-meta-label"><i class="fa-regular fa-calendar" style="color:var(--gold-deep)"></i> تاريخ البداية</span>
+          <span class="leave-meta-val">${esc(l.startDate)}</span>
+        </div>
+        <div class="leave-meta-item">
+          <span class="leave-meta-label"><i class="fa-regular fa-calendar-check" style="color:var(--gold-deep)"></i> تاريخ النهاية</span>
+          <span class="leave-meta-val">${esc(l.endDate)}</span>
+        </div>
+      </div>
+
+      <!-- Reason & Notes Box -->
+      <div style="font-size:13px;color:var(--ink-soft);background:var(--bg-subtle);padding:12px 16px;border-radius:var(--r-md);margin-bottom:14px;border:1px solid var(--line-soft)">
+        <b>السبب والملاحظات:</b> ${esc(l.reason || "لا توجد")}
+      </div>
+
+      <!-- Workflow Timeline Stepper -->
+      ${renderLeaveStepperCard(l)}
+
+      <!-- Action Buttons for HR / Executive -->
+      ${isHRReviewPending ? `
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-soft);flex-wrap:wrap">
+          <button class="btn btn-danger-soft btn-capsule" data-hr-reject="${l.id}"><i class="fa-solid fa-xmark"></i> رفض الطلب</button>
+          <button class="btn btn-primary btn-capsule" data-hr-approve="${l.id}"><i class="fa-solid fa-arrow-left"></i> موافقة وتحويل للمدير التنفيذي</button>
+        </div>
+      ` : ""}
+
+      ${isExecApprovalPending ? `
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-soft);flex-wrap:wrap">
+          <button class="btn btn-danger-soft btn-capsule" data-exec-reject="${l.id}"><i class="fa-solid fa-xmark"></i> رفض الطلب</button>
+          <button class="btn btn-primary btn-capsule" data-exec-approve="${l.id}"><i class="fa-solid fa-certificate"></i> اعتماد الطلب نهائياً</button>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function bindLeaveEvents(el){
+  $$("[data-hr-approve]", el).forEach(b=>b.addEventListener("click", async ()=>{
+    const id = b.dataset.hrApprove;
+    b.disabled = true;
+    b.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ التحويل…`;
+    try {
+      await S.reviewLeaveHR(id, State.user, "approve", "موافقة الموارد البشرية وتحويل الطلب للمدير التنفيذي");
+      const leaveObj = State.empLeaves.find(l => l.id === id);
+      await S.pushNotification({
+        userId: "dept:executive",
+        type: "leave_submitted",
+        title: "طلب إجازة بانتظار اعتمادك 📝",
+        body: `تمت موافقة الموارد البشرية على طلب إجازة الموظف ${leaveObj ? leaveObj.userName : ""}`
+      }).catch(()=>{});
+
+      // إرسال إشعار بريد للمدير التنفيذي (أفضل جهد - غير معطل للواجهة)
+      (async () => {
+        try {
+          console.log("[Email Debug] Reached email dispatch block");
+          const execUsers = await S.getUsersByRole("executive");
+          console.log("[Email Debug] Executive users found:", execUsers);
+          const reviewLink = `${window.location.origin}${window.location.pathname}?view=exec_leaves_approval`;
+          for (const exec of execUsers) {
+            if (exec.email) {
+              console.log("[Email Debug] Calling sendLeaveRequestEmail for:", exec.email);
+              await S.sendLeaveRequestEmail(exec.email, exec.name || "المدير التنفيذي", leaveObj ? leaveObj.userName : "الموظف", reviewLink)
+                .then(() => console.log("[Email Debug] Email sent successfully"))
+                .catch(err => console.log("[Email Debug] Email failed:", err));
+            }
+          }
+        } catch (e) {
+          console.warn("[Email Debug] Executive email dispatch error:", e);
+        }
+      })();
+
+      if (leaveObj) {
+        await S.pushNotification({
+          userId: leaveObj.userId,
+          type: "leave_hr_appr",
+          title: "موافقة مبدئية على طلب إجازتك 🎉",
+          body: `تمت موافقة الموارد البشرية على طلب إجازتك رقم ${leaveObj.refNo} وتحويله للاعتماد النهائي`
+        }).catch(()=>{});
+      }
+      toast("تمت موافقة الموارد البشرية وتحويل الطلب للمدير التنفيذي بنجاح");
+      await loadAllData();
+      renderEmpLeavesHR(el);
+    } catch(err) {
+      toast("تعذّر تحويل طلب الإجازة", "err");
+      b.disabled = false;
+    }
+  }));
+
+  $$("[data-hr-reject]", el).forEach(b=>b.addEventListener("click", ()=>{
+    const id = b.dataset.hrReject;
+    openRejectLeaveModal(id);
+  }));
+
+  $$("[data-exec-approve]", el).forEach(b=>b.addEventListener("click", async ()=>{
+    const id = b.dataset.execApprove;
+    b.disabled = true;
+    b.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الاعتماد…`;
+    try {
+      await S.approveLeaveExec(id, State.user, "تم الاعتماد النهائي للإجازة من قبل المدير التنفيذي");
+      const leaveObj = State.execLeaves.find(l => l.id === id);
+      if (leaveObj) {
+        await S.pushNotification({
+          userId: leaveObj.userId,
+          type: "leave_exec_appr",
+          title: "تم الاعتماد النهائي لإجازتك",
+          body: `تم الاعتماد النهائي لطلب إجازتك رقم ${leaveObj.refNo}`
+        }).catch(()=>{});
+      }
+      toast("تم اعتماد طلب الإجازة نهائياً بنجاح");
+      await loadAllData();
+      renderExecLeavesApproval(el);
+    } catch(err) {
+      toast("تعذّر اعتماد الإجازة", "err");
+      b.disabled = false;
+    }
+  }));
+
+  $$("[data-exec-reject]", el).forEach(b=>b.addEventListener("click", ()=>{
+    const id = b.dataset.execReject;
+    openRejectLeaveExecModal(id);
+  }));
+}
+
+function openRejectLeaveModal(leaveId){
+  openModal(`
+    <div class="modal-head">
+      <h2>رفض طلب الإجازة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="rejectLeaveForm">
+      <div class="form-group" style="margin-bottom:16px">
+        <label>سبب الرفض</label>
+        <textarea id="rejReasonText" rows="3" required class="input" placeholder="اكتب سبب رفض طلب الإجازة للموظف..."></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-danger" id="rejSubBtn">تأكيد الرفض</button>
+      </div>
+    </form>
+  `);
+
+  $("#rejectLeaveForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const reason = $("#rejReasonText").value.trim();
+    if(!reason) return;
+    const btn = $("#rejSubBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفض…`;
+    try {
+      await S.reviewLeaveHR(leaveId, State.user, "reject", reason);
+      const leaveObj = State.empLeaves.find(l => l.id === leaveId);
+      if (leaveObj) {
+        await S.pushNotification({
+          userId: leaveObj.userId,
+          type: "leave_hr_rej",
+          title: "تم رفض طلب الإجازة",
+          body: `تم رفض طلب الإجازة رقم ${leaveObj.refNo}. السبب: ${reason}`
+        }).catch(()=>{});
+      }
+      toast("تم رفض طلب الإجازة وتنبيه الموظف");
+      closeModal();
+      await loadAllData();
+      renderEmpLeavesHR(document.querySelector("#viewHost"));
+    } catch(err) {
+      toast("تعذّر رفض الطلب", "err");
+      btn.disabled = false;
+    }
+  });
+}
+
+function openRejectLeaveExecModal(leaveId){
+  openModal(`
+    <div class="modal-head">
+      <h2>رفض طلب الإجازة (المدير التنفيذي)</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="rejectLeaveExecForm">
+      <div class="form-group" style="margin-bottom:16px">
+        <label>سبب الرفض النهائي</label>
+        <textarea id="rejExecReasonText" rows="3" required class="input" placeholder="اكتب سبب الرفض النهائي لطلب الإجازة..."></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-danger" id="rejExecSubBtn">تأكيد الرفض النهائي</button>
+      </div>
+    </form>
+  `);
+
+  $("#rejectLeaveExecForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const reason = $("#rejExecReasonText").value.trim();
+    if(!reason) return;
+    const btn = $("#rejExecSubBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفض…`;
+    try {
+      await S.rejectLeaveExec(leaveId, State.user, reason);
+      const leaveObj = State.execLeaves.find(l => l.id === leaveId);
+      if (leaveObj) {
+        await S.pushNotification({
+          userId: leaveObj.userId,
+          type: "leave_exec_rej",
+          title: "تم رفض طلب إجازتك نهائياً",
+          body: `تم رفض طلب إجازتك رقم ${leaveObj.refNo}. السبب: ${reason}`
+        }).catch(()=>{});
+      }
+      toast("تم رفض طلب الإجازة وتنبيه الموظف");
+      closeModal();
+      await loadAllData();
+      renderExecLeavesApproval(document.querySelector("#viewHost"));
+    } catch(err) {
+      toast("تعذّر رفض الإجازة", "err");
+      btn.disabled = false;
+    }
+  });
+}
+
+function openNewLeaveModal(){
+  openModal(`
+    <div class="modal-head">
+      <h2>تقديم طلب إجازة جديد</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="newLeaveForm">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>نوع الإجازة</label>
+        <select id="lType" required class="input">
+          ${Object.entries(LEAVE_TYPES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("")}
+        </select>
+      </div>
+      <div class="form-grid two" style="margin-bottom:12px">
+        <div class="form-group">
+          <label>تاريخ البداية</label>
+          <input type="date" id="lStart" required class="input">
+        </div>
+        <div class="form-group">
+          <label>تاريخ النهاية</label>
+          <input type="date" id="lEnd" required class="input">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>عدد الأيام</label>
+        <input type="number" id="lDays" min="1" value="0" required class="input" readonly style="background: var(--bg-surface-variant, #f5f5f5); cursor: not-allowed;">
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>سبب الإجازة والملاحظات</label>
+        <textarea id="lReason" rows="3" required class="input" placeholder="وضح أسباب الطلب..."></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="lSubBtn"><i class="fa-solid fa-paper-plane"></i> إرسال الطلب</button>
+      </div>
+    </form>
+  `);
+
+  const startEl = $("#lStart");
+  const endEl = $("#lEnd");
+  const daysEl = $("#lDays");
+
+  function updateDays() {
+    const startVal = startEl.value;
+    const endVal = endEl.value;
+    if (!startVal || !endVal) {
+      daysEl.value = "0";
+      return;
+    }
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (end < start) {
+      daysEl.value = "0";
+      toast("تاريخ النهاية يجب أن يكون بعد تاريخ البداية أو يساويه", "err");
+      return;
+    }
+    const diffTime = end - start;
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    daysEl.value = diffDays;
+  }
+
+  startEl.addEventListener("change", updateDays);
+  endEl.addEventListener("change", updateDays);
+
+  $("#newLeaveForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const btn = $("#lSubBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الإرسال…`;
+
+    const startVal = startEl.value;
+    const endVal = endEl.value;
+    if (!startVal || !endVal) {
+      toast("يرجى اختيار تاريخ البداية والنهاية", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> إرسال الطلب`;
+      return;
+    }
+
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (end < start) {
+      toast("تاريخ النهاية يجب أن يكون بعد تاريخ البداية أو يساويه", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> إرسال الطلب`;
+      return;
+    }
+
+    const calculatedDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    try{
+      const res = await S.createLeaveRequest({
+        userId: State.user.uid,
+        userName: State.user.name,
+        userJobTitle: State.user.jobTitle || "موظف",
+        type: $("#lType").value,
+        startDate: startVal,
+        endDate: endVal,
+        daysCount: calculatedDays,
+        reason: $("#lReason").value.trim()
+      });
+
+      await S.pushNotification({
+        userId: `dept:hr`,
+        type: "leave_submitted",
+        title: "طلب إجازة جديد",
+        body: `قام الموظف ${State.user.name} بتقديم طلب إجازة جديد برقم ${res.refNo}`
+      });
+
+      // إرسال إشعار بريد للموارد البشرية (أفضل جهد - غير معطل للواجهة)
+      (async () => {
+        try {
+          console.log("[Email Debug] Reached email dispatch block");
+          const hrUsers = await S.getUsersByRole("hr");
+          console.log("[Email Debug] HR users found:", hrUsers);
+          const reviewLink = `${window.location.origin}${window.location.pathname}?view=emp_leaves`;
+          for (const hr of hrUsers) {
+            if (hr.email) {
+              console.log("[Email Debug] Calling sendLeaveRequestEmail for:", hr.email);
+              await S.sendLeaveRequestEmail(hr.email, hr.name || "مسؤول الموارد البشرية", State.user.name, reviewLink)
+                .then(() => console.log("[Email Debug] Email sent successfully"))
+                .catch(err => console.log("[Email Debug] Email failed:", err));
+            }
+          }
+        } catch (e) {
+          console.warn("[Email Debug] HR email dispatch error:", e);
+        }
+      })();
+
+      showSuccessAnimation("تم تقديم طلب الإجازة بنجاح", `رقم المرجعي للطلب: ${res.refNo}`, async () => {
+        await loadAllData();
+        navigate("leaves");
+      });
+    }catch(err){
+      toast("تعذّر تقديم طلب الإجازة", "err");
+      btn.disabled = false;
+    }
+  });
+}
+
+/* ════════════════ 4. دليل الموظفين والمسؤول التقني (Members) ════════════════ */
+/* ════════════════ 4. دليل الموظفين والمسؤول التقني (Members Redesign) ════════════════ */
+function renderMembers(el){
+  const u = State.user;
+  const canAdmin = isTechAdmin(u);
+
+  if(!State.empDeptFilter) State.empDeptFilter = "all";
+  if(!State.empRoleFilter) State.empRoleFilter = "all";
+  if(!State.empStatusFilter) State.empStatusFilter = "all";
+  if(!State.empLeaveFilter) State.empLeaveFilter = "all";
+
+  el.innerHTML = `
+    ${pageHead("Employees", "دليل الموظفين", "الموظفون وفريق العمل", "", "عرض جميع الموظفين في الجمعية والتواصل والتنظيم الإداري.")}
+
+    <!-- شريط التحكم والفلترة -->
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="empSearchInput" placeholder="ابحث باسم الموظف، المسمى الوظيفي، أو البريد…" value="${esc(State.userSearchQuery)}">
+      </div>
+
+      <div class="filters">
+        <select id="empRoleFilter" class="input" style="padding:7px 10px;font-size:12.5px">
+          <option value="all">جميع الصلاحيات</option>
+          <option value="executive" ${State.empRoleFilter==='executive'?'selected':''}>مدير تنفيذي</option>
+          <option value="hr" ${State.empRoleFilter==='hr'?'selected':''}>موارد بشرية</option>
+          <option value="employee" ${State.empRoleFilter==='employee'?'selected':''}>موظف</option>
+        </select>
+
+        <select id="empStatusFilter" class="input" style="padding:7px 10px;font-size:12.5px">
+          <option value="all">جميع الحالات</option>
+          <option value="active" ${State.empStatusFilter==='active'?'selected':''}>حسابات نشطة</option>
+          <option value="disabled" ${State.empStatusFilter==='disabled'?'selected':''}>حسابات معطلة</option>
+        </select>
+
+        <select id="empLeaveFilter" class="input" style="padding:7px 10px;font-size:12.5px">
+          <option value="all" ${State.empLeaveFilter==='all'?'selected':''}>حالة الحضور (الكل)</option>
+          <option value="on_leave" ${State.empLeaveFilter==='on_leave'?'selected':''}>في إجازة حالياً 🌴</option>
+          <option value="active_work" ${State.empLeaveFilter==='active_work'?'selected':''}>على رأس العمل 💼</option>
+        </select>
+      </div>
+
+      <div class="spacer"></div>
+      ${canAdmin ? `<button class="btn btn-primary" id="addEmpBtn"><i class="fa-solid fa-user-plus"></i> إضافة موظف جديد</button>` : ""}
+    </div>
+
+    <!-- شبكة بطاقات الموظفين -->
+    <div class="emp-grid" id="empGridArea"></div>
+  `;
+
+  renderEmpGrid();
+
+  $("#empSearchInput").addEventListener("input", (e)=>{
+    State.userSearchQuery = e.target.value.trim().toLowerCase();
+    renderEmpGrid();
+  });
+  $("#empRoleFilter").addEventListener("change", (e)=>{
+    State.empRoleFilter = e.target.value;
+    renderEmpGrid();
+  });
+  $("#empStatusFilter").addEventListener("change", (e)=>{
+    State.empStatusFilter = e.target.value;
+    renderEmpGrid();
+  });
+  $("#empLeaveFilter").addEventListener("change", (e)=>{
+    State.empLeaveFilter = e.target.value;
+    renderEmpGrid();
+  });
+
+  if(canAdmin && $("#addEmpBtn")){
+    $("#addEmpBtn").addEventListener("click", openCreateUserModalTechAdmin);
+  }
+}
+
+function renderEmpGrid(){
+  const area = $("#empGridArea");
+  if(!area) return;
+
+  const q = State.userSearchQuery || "";
+  const roleF = State.empRoleFilter || "all";
+  const statusF = State.empStatusFilter || "all";
+  const leaveF = State.empLeaveFilter || "all";
+
+  const list = State.users.filter(u => {
+    const matchesQ = !q || (u.name||"").toLowerCase().includes(q) || (u.jobTitle||"").toLowerCase().includes(q) || (u.email||"").toLowerCase().includes(q);
+    const matchesRole = roleF === "all" || u.role === roleF;
+    const matchesStatus = statusF === "all" || (statusF === "active" && u.status !== "disabled") || (statusF === "disabled" && u.status === "disabled");
+    
+    const hasActiveLeave = !!getUserActiveLeave(u.uid);
+    const matchesLeave = leaveF === "all" || 
+                         (leaveF === "on_leave" && hasActiveLeave) || 
+                         (leaveF === "active_work" && !hasActiveLeave);
+
+    return matchesQ && matchesRole && matchesStatus && matchesLeave;
+  });
+
+  if(!list.length){
+    area.innerHTML = emptyState("لا يوجد موظفون ينطبق عليهم البحث والفلترة");
+    return;
+  }
+
+  area.innerHTML = list.map(emp => {
+    const roleLabel = ROLES[emp.role]?.label || emp.role;
+    const isDisabled = emp.status === "disabled";
+    
+    // حساب شارة الإجازة
+    const activeLeave = getUserActiveLeave(emp.uid);
+    let leaveBadgeHtml = "";
+    if (activeLeave) {
+      const typeLabel = LEAVE_TYPES[activeLeave.type]?.label || activeLeave.type;
+      const returnsText = getDaysUntilReturn(activeLeave.endDate);
+      leaveBadgeHtml = `
+        <span class="status-badge tooltip-trigger" style="background:rgba(217,119,6,0.08);color:rgb(217,119,6);border:1px solid rgba(217,119,6,0.2);cursor:help;">
+          <i class="fa-solid fa-umbrella-beach"></i> في إجازة
+          <span class="tooltip-content">
+            ${esc(typeLabel)} · من ${esc(activeLeave.startDate)} إلى ${esc(activeLeave.endDate)} · ${esc(returnsText)}
+          </span>
+        </span>
+      `;
+    }
+
+    return `
+      <div class="emp-card">
+        <div class="emp-avatar-lg">
+          ${emp.avatar ? `<img src="${esc(emp.avatar)}">` : esc(initials(emp.name))}
+        </div>
+        <div class="emp-name">${esc(emp.name)}</div>
+        
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;justify-content:center;margin-top:10px">
+          <span class="status-badge" style="${isDisabled ? 'background:var(--danger-bg);color:var(--danger)' : 'background:var(--success-bg);color:var(--success)'}">
+            <i class="fa-solid ${isDisabled ? 'fa-circle-xmark' : 'fa-circle-check'}"></i> ${isDisabled ? 'معطل' : 'نشط'}
+          </span>
+          <span class="status-badge" style="background:var(--bg-subtle);color:var(--ink-mid);border:1px solid var(--line)">
+            ${esc(emp.jobTitle || "موظف")}
+          </span>
+          ${isTechAdmin(emp) ? `<span class="status-badge" style="background:rgba(30,64,175,0.08);color:var(--info)">تقني</span>` : ''}
+          ${leaveBadgeHtml}
+        </div>
+
+        <div class="emp-actions">
+          <button class="btn btn-secondary" style="width:100%" data-view-emp="${emp.uid}"><i class="fa-solid fa-id-card"></i> عرض الملف</button>
+          ${isTechAdmin() ? `
+            <button class="btn btn-secondary" data-admin-edit="${emp.uid}" title="إدارة الحساب"><i class="fa-solid fa-gear"></i></button>
+          ` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  $$("[data-view-emp]", area).forEach(btn => {
+    btn.addEventListener("click", ()=>{
+      const emp = State.users.find(x => x.uid === btn.dataset.viewEmp);
+      if(emp){
+        State.selectedEmp = emp;
+        State.profileTab = "info";
+        navigate("profile");
+      }
+    });
+  });
+
+  if(isTechAdmin()){
+    $$("[data-admin-edit]", area).forEach(btn => {
+      btn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const emp = State.users.find(x => x.uid === btn.dataset.adminEdit);
+        if(emp) openEditUserTechAdminModal(emp);
+      });
+    });
+  }
+}
+
+function openCreateUserModalTechAdmin(){
+  openModal(`
+    <div class="modal-head">
+      <h2>إنشاء / ربط مستند موظف جديد (المسؤول التقني)</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="createEmpForm">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>الاسم الكامل</label>
+        <input type="text" id="neName" required class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="neEmail" required class="input">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Firebase Auth UID (مُعرّف حساب المصادقة)</label>
+        <input type="text" id="neUid" class="input" placeholder="أدخل الـ UID الخاص بالمستخدم في Firebase Auth لتأسيس المستند">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>المسمى الوظيفي</label>
+        <input type="text" id="neTitle" required class="input" placeholder="مثال: أخصائي موارد بشرية">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>الصلاحية والنظام</label>
+        <select id="neRole" class="input">
+          <option value="employee">موظف</option>
+          <option value="hr">موارد بشرية</option>
+          <option value="executive">مدير تنفيذي</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>
+          <input type="checkbox" id="neTechAdmin"> منح صلاحيات المسؤول التقني (تحديد وإدارة الحسابات)
+        </label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="neBtn"><i class="fa-solid fa-user-plus"></i> حفظ وإنشاء المستند</button>
+      </div>
+    </form>
+  `);
+
+  $("#createEmpForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const btn = $("#neBtn");
+    const uid = $("#neUid").value.trim();
+    if(!uid){
+      toast("يرجى إدخال الـ UID الخاص بحساب المستخدم في Firebase Auth (يمكن الحصول عليه من لوحة Firebase أو أداة seed.html)", "err");
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الإنشاء…`;
+
+    try{
+      await S.createEmployeeAccountTechAdmin({
+        uid,
+        name: $("#neName").value.trim(),
+        email: $("#neEmail").value.trim(),
+        jobTitle: $("#neTitle").value.trim(),
+        role: $("#neRole").value,
+        isTechAdmin: $("#neTechAdmin").checked
+      });
+
+      toast("تم إنشاء وتثبيت مستند الموظف بالـ UID بنجاح");
+      closeModal();
+      await loadAllData();
+      navigate("members");
+    }catch(err){
+      toast("تعذّر إنشاء الحساب: " + (err.message || err), "err");
+      btn.disabled = false;
+    }
+  });
+}
+
+function openEditUserTechAdminModal(emp){
+  openModal(`
+    <div class="modal-head">
+      <h2>إدارة حساب: ${esc(emp.name)}</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="editEmpTechForm">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>الصلاحية الحالية</label>
+        <select id="edRole" class="input">
+          <option value="employee" ${emp.role==='employee'?'selected':''}>موظف</option>
+          <option value="hr" ${emp.role==='hr'?'selected':''}>موارد بشرية</option>
+          <option value="executive" ${emp.role==='executive'?'selected':''}>مدير تنفيذي</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>حالة الحساب</label>
+        <select id="edStatus" class="input">
+          <option value="active" ${emp.status!=='disabled'?'selected':''}>نشط</option>
+          <option value="disabled" ${emp.status==='disabled'?'selected':''}>معطل</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>
+          <input type="checkbox" id="edTechAdmin" ${emp.isTechAdmin?'checked':''}> منح صلاحيات المسؤول التقني
+        </label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> حفظ التغييرات</button>
+      </div>
+    </form>
+  `);
+
+  $("#editEmpTechForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    await S.updateEmployeeAccountTechAdmin(emp.uid, {
+      role: $("#edRole").value,
+      status: $("#edStatus").value,
+      isTechAdmin: $("#edTechAdmin").checked
+    });
+    toast("تم تحديث صلاحيات الحساب بنجاح");
+    closeModal();
+    await loadAllData();
+    navigate("members");
+  });
+}
+
+/* ════════════════ 5. المهام (Tasks) ════════════════ */
+const OFFICIAL_TASK_STATUS = {
+  pending:   { label: "قيد الانتظار", color: "#b8651a", bg: "rgba(184,101,26,.10)" },
+  completed: { label: "مكتملة",      color: "#3a5e2e", bg: "rgba(58,94,46,.08)" },
+  rejected:  { label: "مرفوضة",      color: "#7a2518", bg: "rgba(122,37,24,.10)" }
+};
+
+function renderTasks(el){
+  if(!el) el = $("#viewHost");
+  const u = State.user;
+  const isAd = isExec(u);
+
+  // تهيئة متغيرات الفلترة في حال عدم وجودها
+  if(State.taskFilterStatus === undefined) State.taskFilterStatus = "all";
+  if(State.taskFilterEmployee === undefined) State.taskFilterEmployee = "all";
+
+  let list = [...State.tasks];
+
+  // تصفية حسب الحالة
+  if(State.taskFilterStatus !== "all"){
+    list = list.filter(t => t.status === State.taskFilterStatus);
+  }
+
+  // تصفية حسب الموظف للمدير
+  if(isAd && State.taskFilterEmployee !== "all"){
+    list = list.filter(t => t.employeeId === State.taskFilterEmployee);
+  }
+
+  if(isAd){
+    // واجهة المدير التنفيذي
+    el.innerHTML = `
+      ${pageHead("Tasks", "المهام", "إدارة وتتبع", "المهام", "إصدار المهام الرسمية للموظفين ومتابعة حالة تنفيذها ومرفقاتها.")}
+
+      <div class="toolbar" style="margin-bottom:24px;gap:12px;display:flex;align-items:center;flex-wrap:wrap">
+        <!-- تصفية الحالات -->
+        <div class="form-group" style="min-width:140px">
+          <label style="font-size:11px;font-weight:700;color:var(--ink-muted);display:block;margin-bottom:4px">حالة المهمة</label>
+          <select class="input" id="taskFilterStatus" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-sm)">
+            <option value="all" ${State.taskFilterStatus === "all" ? "selected" : ""}>الكل (${State.tasks.length})</option>
+            <option value="pending" ${State.taskFilterStatus === "pending" ? "selected" : ""}>قيد الانتظار</option>
+            <option value="completed" ${State.taskFilterStatus === "completed" ? "selected" : ""}>مكتملة</option>
+            <option value="rejected" ${State.taskFilterStatus === "rejected" ? "selected" : ""}>مرفوضة</option>
+          </select>
+        </div>
+
+        <!-- تصفية الموظفين -->
+        <div class="form-group" style="min-width:160px">
+          <label style="font-size:11px;font-weight:700;color:var(--ink-muted);display:block;margin-bottom:4px">الموظف المستلم</label>
+          <select class="input" id="taskFilterEmployee" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-sm)">
+            <option value="all" ${State.taskFilterEmployee === "all" ? "selected" : ""}>جميع الموظفين</option>
+            ${State.users.filter(usr => usr.uid !== u.uid).map(usr => `
+              <option value="${usr.uid}" ${State.taskFilterEmployee === usr.uid ? "selected" : ""}>${esc(usr.name)}</option>
+            `).join("")}
+          </select>
+        </div>
+
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="newTaskBtn" style="border-radius:var(--r-sm);padding:8px 16px"><i class="fa-solid fa-plus"></i> مهمة رسمية جديدة</button>
+      </div>
+
+      <div id="tasksArea">
+        ${renderAdminTasksList(list)}
+      </div>
+    `;
+
+    $("#taskFilterStatus").addEventListener("change", (e)=>{
+      State.taskFilterStatus = e.target.value;
+      renderTasks(el);
+    });
+
+    $("#taskFilterEmployee").addEventListener("change", (e)=>{
+      State.taskFilterEmployee = e.target.value;
+      renderTasks(el);
+    });
+
+    $("#newTaskBtn").addEventListener("click", openNewTaskModal);
+  } else {
+    // واجهة الموظف المستلم
+    el.innerHTML = `
+      ${pageHead("Tasks", "المهام", "المهام", "المسندة إليك", "تتبع واستجابة للمهام الإدارية الرسمية المسندة إليك من الإدارة التنفيذية.")}
+
+      <div class="toolbar" style="margin-bottom:24px;gap:12px;display:flex;align-items:center;flex-wrap:wrap">
+        <div class="form-group" style="min-width:140px">
+          <label style="font-size:11px;font-weight:700;color:var(--ink-muted);display:block;margin-bottom:4px">تصفية حسب الحالة</label>
+          <select class="input" id="taskFilterStatus" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-sm)">
+            <option value="all" ${State.taskFilterStatus === "all" ? "selected" : ""}>الكل (${State.tasks.length})</option>
+            <option value="pending" ${State.taskFilterStatus === "pending" ? "selected" : ""}>قيد الانتظار</option>
+            <option value="completed" ${State.taskFilterStatus === "completed" ? "selected" : ""}>مكتملة</option>
+            <option value="rejected" ${State.taskFilterStatus === "rejected" ? "selected" : ""}>مرفوضة</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="tasksArea">
+        ${renderEmployeeTasksList(list)}
+      </div>
+    `;
+
+    $("#taskFilterStatus").addEventListener("change", (e)=>{
+      State.taskFilterStatus = e.target.value;
+      renderTasks(el);
+    });
+  }
+
+  // مستمع نقر البطاقات لفتح تفاصيل المهمة
+  $$("[data-task-detail-id]", el).forEach(card => {
+    card.addEventListener("click", () => {
+      openTaskDetailModal(card.dataset.taskDetailId);
+    });
+  });
+}
+
+function renderAdminTasksList(list) {
+  if(!list.length){
+    return `<div class="card" style="text-align:center;padding:48px 24px">
+      <div style="font-size:32px;margin-bottom:12px">📋</div>
+      <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">لا توجد مهام حالياً</h3>
+      <p style="font-size:13px;color:var(--ink-muted)">قم بإنشاء مهمة جديدة لإسنادها وتتبع تنفيذها.</p>
+    </div>`;
+  }
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px">
+      ${list.map(t => {
+        const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
+        const st = OFFICIAL_TASK_STATUS[t.status] || OFFICIAL_TASK_STATUS.pending;
+
+        return `
+          <div class="card note-task-card" data-task-detail-id="${t.id}">
+            <div class="ntc-head">
+              <h4 class="ntc-title">${esc(t.title)}</h4>
+              <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
+                <i class="fa-solid fa-flag"></i> ${pr.label}
+              </span>
+            </div>
+            <p class="ntc-desc" style="margin-bottom:12px">${t.description ? esc(t.description) : "بدون وصف تفصيلي"}</p>
+            
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px;color:var(--ink-soft)">
+              <span><strong>المستلم:</strong> ${esc(t.employeeName)}</span>
+              <span class="status-badge" style="color:${st.color};background:${st.bg};border-color:transparent;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:var(--r-full);">
+                <i class="fa-solid fa-circle-info"></i> ${st.label}
+              </span>
+            </div>
+
+            <div class="ntc-meta" style="padding-top:10px;border-top:1px dashed var(--line-soft)">
+              <div class="ntc-meta-item">
+                <i class="fa-regular fa-calendar-check" style="color:var(--gold-deep)"></i>
+                <span>${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</span>
+              </div>
+              <div class="ntc-meta-item">
+                <i class="fa-solid fa-paperclip" style="color:${t.attachmentRequired ? 'var(--danger)' : 'var(--ink-faint)'}"></i>
+                <span>${t.attachmentRequired ? 'مرفق إلزامي' : 'مرفق اختياري'}</span>
+              </div>
+              ${t.adminAttachmentUrl ? `
+                <div class="ntc-meta-item" style="color:var(--gold-deep)">
+                  <i class="fa-solid fa-paperclip"></i>
+                  <span>مرفق من المدير</span>
+                </div>
+              ` : ""}
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderEmployeeTasksList(list) {
+  if(!list.length){
+    return `<div class="card" style="text-align:center;padding:48px 24px">
+      <div style="font-size:32px;margin-bottom:12px">🎉</div>
+      <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">لا توجد مهام مسندة حالياً</h3>
+      <p style="font-size:13px;color:var(--ink-muted)">أنت مواكب لجميع مهامك الرسمية، تمنياتنا لك بالتوفيق!</p>
+    </div>`;
+  }
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px">
+      ${list.map(t => {
+        const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
+        const st = OFFICIAL_TASK_STATUS[t.status] || OFFICIAL_TASK_STATUS.pending;
+
+        return `
+          <div class="card note-task-card" data-task-detail-id="${t.id}">
+            <div class="ntc-head">
+              <h4 class="ntc-title">${esc(t.title)}</h4>
+              <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
+                <i class="fa-solid fa-flag"></i> ${pr.label}
+              </span>
+            </div>
+            <p class="ntc-desc" style="margin-bottom:12px">${t.description ? esc(t.description) : "بدون وصف تفصيلي"}</p>
+            
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px;color:var(--ink-soft)">
+              <span><strong>المرسل:</strong> ${esc(t.adminName)}</span>
+              <span class="status-badge" style="color:${st.color};background:${st.bg};border-color:transparent;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:var(--r-full);">
+                <i class="fa-solid fa-circle-info"></i> ${st.label}
+              </span>
+            </div>
+
+            <div class="ntc-meta" style="padding-top:10px;border-top:1px dashed var(--line-soft)">
+              <div class="ntc-meta-item">
+                <i class="fa-regular fa-calendar-check" style="color:var(--gold-deep)"></i>
+                <span>${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</span>
+              </div>
+              <div class="ntc-meta-item">
+                <i class="fa-solid fa-paperclip" style="color:${t.attachmentRequired ? 'var(--danger)' : 'var(--ink-faint)'}"></i>
+                <span>${t.attachmentRequired ? 'يتطلب مرفق' : 'مرفق اختياري'}</span>
+              </div>
+              ${t.adminAttachmentUrl ? `
+                <div class="ntc-meta-item" style="color:var(--gold-deep)">
+                  <i class="fa-solid fa-paperclip"></i>
+                  <span>مرفق من المدير</span>
+                </div>
+              ` : ""}
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function openNewTaskModal(){
+  State.tempAdminTaskFile = null; // تصفير الملف المرفوع مؤقتاً عند الفتح
+
+  openModal(`
+    <div class="modal-head">
+      <h2>إنشاء وإسناد مهمة رسمية جديدة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="newTaskForm">
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:700">عنوان المهمة</label>
+        <input type="text" id="tTitle" required class="input" placeholder="مثال: إعداد مسودة تقرير إنجاز المشاريع">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:700">الوصف والتعليمات التفصيلية</label>
+        <textarea id="tDesc" rows="3" class="input" placeholder="اكتب التعليمات والنتائج المطلوبة بوضوح..." required></textarea>
+      </div>
+      <div class="form-grid two" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div class="form-group">
+          <label style="font-weight:700">الأولوية</label>
+          <select id="tPriority" class="input">
+            <option value="low">منخفضة</option>
+            <option value="medium" selected>متوسطة</option>
+            <option value="high">عالية</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="font-weight:700">تاريخ الاستحقاق (اختياري)</label>
+          <input type="date" id="tDueDate" class="input">
+        </div>
+      </div>
+      
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:700">تحديد المستلم</label>
+        <select id="tAssignType" class="input">
+          <option value="user">موظف محدد</option>
+          <option value="all">جميع الموظفين</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="tAssignTargetWrap" style="margin-bottom:14px">
+        <label style="font-weight:700">اختر الموظف</label>
+        <select id="tAssignTarget" class="input">
+          ${State.users.filter(u => u.uid !== State.user.uid).map(u => `
+            <option value="${u.uid}">${esc(u.name)} (${esc(u.jobTitle || "موظف")})</option>
+          `).join("")}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:700">مرفق من المدير (اختياري)</label>
+        <div id="tAdminAttachmentStatus" style="margin-bottom:8px;font-size:12px;color:var(--ink-soft)">
+          <span style="color:var(--ink-faint)">لم يتم إرفاق ملف.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="file" id="tAdminFileInput" style="display:none">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnTriggerAdminFile" style="padding:4px 10px;font-size:12px"><i class="fa-solid fa-file-import"></i> اختيار ملف</button>
+          <div id="tAdminUploadProgress" style="font-size:12px;color:var(--ink-muted);font-weight:700"></div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:18px;flex-direction:row;align-items:center;gap:10px;display:flex">
+        <input type="checkbox" id="tAttachmentRequired" style="width:18px;height:18px;cursor:pointer">
+        <label for="tAttachmentRequired" style="cursor:pointer;font-weight:700;font-size:13px;color:var(--ink-soft);user-select:none">المهمة تتطلب رفع ملف مرفق لإتمامها</label>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="tSubmitBtn"><i class="fa-solid fa-paper-plane"></i> إسناد المهمة</button>
+      </div>
+    </form>
+  `);
+
+  const bindRemoveAdminFile = () => {
+    const btnRemove = $("#btnRemoveAdminFile");
+    if(btnRemove){
+      btnRemove.addEventListener("click", () => {
+        State.tempAdminTaskFile = null;
+        $("#tAdminAttachmentStatus").innerHTML = `<span style="color:var(--ink-faint)">لم يتم إرفاق ملف.</span>`;
+      });
     }
   };
-  fillTargets();
-  $("#ntType").addEventListener("change",fillTargets);
-  $("#ntSave").addEventListener("click",async()=>{
-    const title=$("#ntTitle").value.trim();
-    if(!title){ toast("أدخل عنوان المهمة","err"); return; }
-    const type=$("#ntType").value;
-    const target=$("#ntTarget").value;
-    const label= type==="department" ? DEPARTMENTS[target].label : (users.find(u=>u.uid===target)?.name||"موظف");
-    const btn=$("#ntSave"); btn.disabled=true; btn.innerHTML=`<i class="fa-solid fa-spinner spin"></i> إنشاء…`;
-    try{
-      const newTaskId=await S.createTask({
-        title, description:$("#ntDesc").value.trim(),
-        priority:$("#ntPrio").value, dueDate:$("#ntDue").value||null,
-        assignType:type, assignTo:target, assignLabel:label,
-        createdBy:State.user.uid, creatorName:State.user.name
-      });
-      // إشعار
-      if(type==="department") await S.notifyDepartment(target,{ type:"task_assigned", title:"مهمة جديدة لإدارتك", body:title, link:"tasks", refId:newTaskId });
-      else await S.pushNotification({ userId:target, type:"task_assigned", title:"أُسندت إليك مهمة", body:title, link:"tasks", refId:newTaskId });
-      await S.logActivity({ type:"task_create", actorId:State.user.uid, actorName:State.user.name, resource:title, detail:`أُسندت إلى ${label}` });
 
-      closeModal(); toast("تم إنشاء المهمة");
-      State.tasks=await S.listTasks(State.user).catch(()=>State.tasks);
-      if(State.view==="tasks")renderTasksBoard(); renderTaskBadge();
-    }catch(e){ console.error(e); toast("تعذّر إنشاء المهمة","err"); btn.disabled=false; btn.innerHTML=`<i class="fa-solid fa-plus"></i> إنشاء المهمة`; }
-  });
-}
+  $("#btnTriggerAdminFile").addEventListener("click", () => $("#tAdminFileInput").click());
 
-/* ════════════════ مركز الإشعارات ════════════════ */
-function renderNotifs(el){
-  if(!el) el=$("#viewHost");
-  const unread=State.notifs.filter(n=>!n.read);
-  // عدّادات لكل فئة
-  const counts={ all:State.notifs.length, unread:unread.length };
-  Object.keys(NOTIF_PREFS).forEach(p=>counts[p]=0);
-  State.notifs.forEach(n=>{ const p=NOTIF_TYPE[n.type]?.pref; if(p&&counts[p]!=null)counts[p]++; });
+  $("#tAdminFileInput").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
 
-  el.innerHTML=`
-    ${pageHead("Notifications","مركز الإشعارات","مركز","الإشعارات", "سجلّ كامل للتنبيهات مع بحث وتصفية حسب الفئة والحالة.")}
-    <div class="toolbar">
-      <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="notifSearch" placeholder="ابحث في الإشعارات…" value="${esc(State.notifQuery)}"></div>
-      <div class="spacer"></div>
-      ${unread.length?`<button class="btn btn-ghost" id="markAllBtn"><i class="fa-solid fa-check-double"></i> تعليم الكل كمقروء (${unread.length})</button>`:""}
-    </div>
-    <div class="filters" id="notifFilters" style="margin-bottom:18px">
-      <button class="chip ${State.notifFilter==="all"?"active":""}" data-nf="all">الكل<span class="chip-count">${counts.all}</span></button>
-      <button class="chip ${State.notifFilter==="unread"?"active":""}" data-nf="unread">غير مقروءة<span class="chip-count">${counts.unread}</span></button>
-      ${Object.entries(NOTIF_PREFS).map(([k,v])=>`<button class="chip ${State.notifFilter===k?"active":""}" data-nf="${k}">${v.label}<span class="chip-count">${counts[k]||0}</span></button>`).join("")}
-    </div>
-    <div id="notifCenterArea"></div>
-  `;
-  renderNotifCenterList();
-  $("#markAllBtn")?.addEventListener("click",async()=>{
-    await S.markAllNotifsRead(unread.map(n=>n.id));
-    toast("تم تعليم الكل كمقروء");
-  });
-  $("#notifSearch")?.addEventListener("input",e=>{ State.notifQuery=e.target.value; renderNotifCenterList(); });
-  $$("#notifFilters [data-nf]").forEach(b=>b.addEventListener("click",()=>{
-    State.notifFilter=b.dataset.nf;
-    $$("#notifFilters .chip").forEach(c=>c.classList.toggle("active",c===b));
-    renderNotifCenterList();
-  }));
-}
-function filteredNotifs(){
-  const q=State.notifQuery.trim().toLowerCase();
-  return State.notifs.filter(n=>{
-    if(State.notifFilter==="unread" && n.read) return false;
-    if(State.notifFilter!=="all" && State.notifFilter!=="unread"){
-      if((NOTIF_TYPE[n.type]?.pref) !== State.notifFilter) return false;
-    }
-    if(q && !((n.title||"").toLowerCase().includes(q)||(n.body||"").toLowerCase().includes(q))) return false;
-    return true;
-  });
-}
-function renderNotifCenterList(){
-  const area=$("#notifCenterArea"); if(!area) return;
-  const list=filteredNotifs();
-  area.innerHTML = list.length
-    ? `<div class="notif-list">${list.map(notifItem).join("")}</div>`
-    : emptyState("لا إشعارات مطابقة","جرّب فلتراً أو بحثاً مختلفاً");
-  $$("[data-notif]",area).forEach(it=>it.addEventListener("click",()=>onNotifClick(it.dataset.notif)));
-}
-function notifItem(n){
-  const m=NOTIF_TYPE[n.type]||{icon:"fa-bell",color:"#9c6e38",label:"إشعار"};
-  return `<div class="notif-item ${n.read?"":"unread"}" data-notif="${n.id}">
-    <div class="notif-ico" style="background:${m.color}"><i class="fa-solid ${m.icon}"></i></div>
-    <div class="notif-body">
-      <div class="notif-title">${esc(n.title)}</div>
-      ${n.body?`<div class="notif-text">${esc(n.body)}</div>`:""}
-      <div class="notif-time">${timeAgo(n.createdAt)}</div>
-    </div>
-  </div>`;
-}
-/* هل تسمح تفضيلات المستخدم بإشعار هذه الفئة؟ */
-function prefAllows(n){
-  const pref = (NOTIF_TYPE[n.type]?.pref) || "system";
-  return State.notifPrefs[pref] !== false;
-}
+    const triggerBtn = $("#btnTriggerAdminFile");
+    const progressTxt = $("#tAdminUploadProgress");
+    triggerBtn.disabled = true;
+    triggerBtn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+    progressTxt.textContent = "0%";
 
-/* تنقّل عميق من هاش الرابط: #tasks:ID أو #files:ID */
-function handleDeepLinkHash(){
-  const h = (location.hash || "").replace(/^#/, "");
-  if(!h) return;
-  const [view, refId] = h.split(":");
-  if(VIEW_META[view]){
-    navigate(view);
-    if(refId){
-      // افتح العنصر المعني بعد ريندر العرض
-      setTimeout(()=>{
-        if(view==="tasks") openTaskDetail(refId);
-        else if(view==="files"){ const f=State.files.find(x=>x.id===refId); if(f) openFilePreview(f); }
-      }, 350);
-    }
-    history.replaceState(null, "", location.pathname + location.search);
-  }
-}
-
-function onNotifClick(id){
-  const n=State.notifs.find(x=>x.id===id); if(!n) return;
-  if(!n.read) S.markNotifRead(id).catch(()=>{});
-  closeNotifPanel();
-  if(n.link){
-    navigate(n.link);
-    if(n.refId){
-      setTimeout(()=>{
-        if(n.link==="tasks") openTaskDetail(n.refId);
-        else if(n.link==="files"){ const f=State.files.find(x=>x.id===n.refId); if(f) openFilePreview(f); }
-      }, 350);
-    }
-  }
-}
-
-/* لوحة الإشعارات المنسدلة */
-function renderNotifBadge(){
-  const c=State.notifs.filter(n=>!n.read).length;
-  $("#tbDot").classList.toggle("show",c>0);
-  renderNotifPanel();
-  renderNavBadges();
-}
-function renderNavBadges(){
-  const c=State.notifs.filter(n=>!n.read).length;
-  const nb=$("#navNotifBadge");
-  if(nb){ nb.style.display=c?"inline-block":"none"; nb.textContent=c; }
-  renderTaskBadge();
-}
-function renderTaskBadge(){
-  const c=State.tasks.filter(t=>t.status!=="completed" &&
-    ((t.assignType==="user"&&t.assignTo===State.user.uid)||
-     (t.assignType==="department"&&State.user.perms.departments.includes(t.assignTo)))).length;
-  const tb=$("#navTaskBadge");
-  if(tb){ tb.style.display=c?"inline-block":"none"; tb.textContent=c; }
-}
-function renderNotifPanel(){
-  const panel=$("#notifPanel"); if(!panel) return;
-  const top=State.notifs.slice(0,8);
-  const unread=State.notifs.filter(n=>!n.read);
-  panel.innerHTML=`
-    <div class="np-head"><h4>الإشعارات</h4>${unread.length?`<button id="npMarkAll">تعليم الكل كمقروء</button>`:""}</div>
-    <div class="np-list">
-      ${top.length?top.map(n=>{const m=NOTIF_TYPE[n.type]||{icon:"fa-bell",color:"#9c6e38"};return `<div class="np-item ${n.read?"":"unread"}" data-notif="${n.id}"><div class="np-ico" style="background:${m.color}"><i class="fa-solid ${m.icon}"></i></div><div class="np-body"><div class="np-t">${esc(n.title)}</div>${n.body?`<div class="np-x">${esc(n.body)}</div>`:""}<div class="np-time">${timeAgo(n.createdAt)}</div></div></div>`;}).join(""):`<div style="padding:30px;text-align:center;color:var(--ink-muted);font-size:12.5px">لا إشعارات</div>`}
-    </div>`;
-  $("#npMarkAll")?.addEventListener("click",async()=>{ await S.markAllNotifsRead(unread.map(n=>n.id)); });
-  $$("[data-notif]",panel).forEach(it=>it.addEventListener("click",()=>onNotifClick(it.dataset.notif)));
-}
-function toggleNotifPanel(){ $("#notifPanel").classList.toggle("open"); }
-function closeNotifPanel(){ $("#notifPanel").classList.remove("open"); }
-$("#bellBtn").addEventListener("click",e=>{ e.stopPropagation(); toggleNotifPanel(); });
-document.addEventListener("click",e=>{ if(!e.target.closest("#notifPanel")&&!e.target.closest("#bellBtn")) closeNotifPanel(); });
-
-/* ════════════════ سجل النشاط ════════════════ */
-async function renderActivity(el){
-  el.innerHTML=`
-    ${pageHead("Activity Log","سجل النشاط","سجل","العمليات", "تتبّع كامل للرفع والتنزيل والتعديلات والاعتمادات وتحديثات المهام.")}
-    <div class="table-wrap" id="actTable"><div style="padding:40px;text-align:center"><i class="fa-solid fa-spinner spin" style="color:var(--gold)"></i></div></div>
-  `;
-  const acts=await S.listActivity(80).catch(()=>State.activity);
-  State.activity=acts;
-  $("#actTable").innerHTML = acts.length ? `<table class="data">
-    <thead><tr><th>الموظف</th><th>العملية</th><th>المورد</th><th>التفاصيل</th><th>الوقت</th></tr></thead>
-    <tbody>${acts.map(a=>{const m=ACTIVITY_TYPE[a.type]||ACTIVITY_TYPE.edit;return `<tr>
-      <td><div class="tbl-user"><div class="tbl-av">${esc(initials(a.actorName))}</div>${esc(a.actorName||"موظف")}</div></td>
-      <td><span style="color:${m.color};font-weight:700"><i class="fa-solid ${m.icon}" style="margin-left:6px"></i>${m.label}</span></td>
-      <td>${esc(a.resource||"—")}</td>
-      <td style="font-weight:300">${esc(a.detail||"—")}</td>
-      <td style="font-family:'Montserrat';font-size:11px;color:var(--ink-muted)">${timeAgo(a.createdAt)}</td>
-    </tr>`;}).join("")}</tbody></table>` : emptyState("لا يوجد نشاط مسجّل بعد");
-}
-
-/* ════════════════ الموظفون (تنفيذي) ════════════════ */
-async function renderMembers(el){
-  if(!State.user.perms.canManage){ navigate("dash"); return; }
-  const users=await S.listUsers().catch(()=>State.users);
-  State.users=users;
-  el.innerHTML=`
-    ${pageHead("Team","الموظفون","فريق","العمل", "أعضاء البوابة وأدوارهم وإداراتهم.")}
-    <div class="table-wrap">
-      <table class="data">
-        <thead><tr><th>الموظف</th><th>البريد</th><th>الدور</th><th>الإدارة</th></tr></thead>
-        <tbody>${users.map(u=>{const r=ROLES[u.role]||ROLES.media;return `<tr>
-          <td><div class="tbl-user"><div class="tbl-av">${esc(initials(u.name))}</div>${esc(u.name)}</div></td>
-          <td style="font-family:'Montserrat';font-size:12px">${esc(u.email||"—")}</td>
-          <td><span class="status-badge" style="color:${r.accent};border-color:${r.accent}55">${r.label}</span></td>
-          <td style="font-weight:300">${esc(r.la)}</td>
-        </tr>`;}).join("")}</tbody>
-      </table>
-    </div>
-    <div class="card" style="margin-top:20px">
-      <div class="card-head"><div><h3>إضافة موظف جديد</h3><div class="la">Add Employee</div></div></div>
-      <p style="font-size:13px;color:var(--ink-mid);font-weight:300;line-height:1.85;margin-bottom:16px">
-        لإضافة موظف: أنشئ حسابه في <strong>Firebase Console → Authentication</strong>، ثم أضِف مستنداً في مجموعة <code style="background:var(--parchment-2);padding:2px 6px;border-radius:4px">${COL.users}</code> بمُعرّف الحساب (UID) يحتوي الحقول:
-      </p>
-      <div style="background:var(--parchment-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:16px 18px;font-family:'Montserrat';font-size:12px;color:var(--ink-mid);line-height:1.9;direction:ltr;text-align:left">
-        { name: "الاسم", email: "user@erth.sa", role: "finance | projects | media | executive" }
-      </div>
-    </div>
-  `;
-}
-
-/* حالة الإشعارات الحيّة في الإعدادات */
-async function paintNotifStatus(){
-  const box=$("#notifStatus"); if(!box) return;
-  const perm = ("Notification" in window) ? Notification.permission : "unsupported";
-  const fcmOk = await S.fcmSupported();
-  let txt, color, ic;
-  if(perm==="granted"){
-    if(State.notifMode==="fcm" || fcmOk){ txt="مفعّلة · إشعارات دفع (FCM)"; color="var(--success)"; ic="fa-circle-check"; }
-    else { txt="مفعّلة · إشعارات المتصفح"; color="var(--success)"; ic="fa-circle-check"; }
-  } else if(perm==="denied"){
-    txt="محظورة من إعدادات المتصفح"; color="var(--danger)"; ic="fa-circle-xmark";
-  } else if(perm==="unsupported"){
-    txt="غير مدعومة في هذا المتصفح"; color="var(--ink-muted)"; ic="fa-circle-minus";
-  } else {
-    txt="غير مفعّلة بعد"; color="var(--ink-muted)"; ic="fa-circle-info";
-  }
-  box.innerHTML=`<span class="status-badge" style="color:${color};border-color:${color}55"><i class="fa-solid ${ic}" style="margin-left:5px"></i>${txt}</span>`;
-}
-
-/* ════════════════ الإعدادات ════════════════ */
-function renderSettings(el){
-  const u=State.user;
-  el.innerHTML=`
-    ${pageHead("Settings","الإعدادات","إعدادات","الحساب", "إدارة حسابك وكلمة المرور والإشعارات.")}
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-head"><div><h3>الحساب الشخصي</h3><div class="la">Account</div></div></div>
-        <div style="display:flex;flex-direction:column;gap:14px">
-          <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)"><div><div style="font-weight:700;font-size:13.5px">الاسم</div><div style="font-size:12px;color:var(--ink-muted)">${esc(u.name)}</div></div></div>
-          <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)"><div><div style="font-weight:700;font-size:13.5px">البريد</div><div style="font-size:12px;color:var(--ink-muted)">${esc(u.email||"—")}</div></div></div>
-          <div style="display:flex;justify-content:space-between;padding:12px 0"><div><div style="font-weight:700;font-size:13.5px">الدور</div><div style="font-size:12px;color:var(--ink-muted)">${esc(u.perms.label)} — ${esc(u.perms.la)}</div></div></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><h3>كلمة المرور</h3><div class="la">Change Password</div></div></div>
-        <div class="form-grid">
-          <div class="field"><label>كلمة المرور الجديدة</label><input type="password" id="pw1" placeholder="6 أحرف على الأقل"></div>
-          <div class="field"><label>تأكيد كلمة المرور</label><input type="password" id="pw2" placeholder="أعِد الكتابة"></div>
-        </div>
-        <div style="margin-top:16px"><button class="btn btn-primary" id="chgPw"><i class="fa-solid fa-key"></i> تحديث</button></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><h3>إشعارات المتصفح</h3><div class="la">Browser Notifications</div></div></div>
-        <p style="font-size:13px;color:var(--ink-mid);font-weight:300;line-height:1.8;margin-bottom:14px">فعّل إشعارات المتصفح لتصلك التنبيهات حتى عند إغلاق البوابة.</p>
-        <div id="notifStatus" style="margin-bottom:14px"></div>
-        <button class="btn btn-gold" id="enableNotif"><i class="fa-solid fa-bell"></i> تفعيل الإشعارات</button>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><h3>تفضيلات الإشعارات</h3><div class="la">Notification Preferences</div></div></div>
-        <p style="font-size:13px;color:var(--ink-mid);font-weight:300;line-height:1.7;margin-bottom:14px">اختر فئات الإشعارات التي تريد استقبالها.</p>
-        <div id="prefList" style="display:flex;flex-direction:column;gap:4px">
-          ${Object.entries(NOTIF_PREFS).map(([k,v])=>`
-            <label style="display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line-soft);cursor:pointer">
-              <span style="width:30px;height:30px;border-radius:8px;background:var(--parchment-2);display:grid;place-items:center;color:var(--gold-deep);font-size:13px"><i class="fa-solid ${v.icon}"></i></span>
-              <span style="flex:1"><span style="font-weight:700;font-size:13.5px;display:block">${v.label}</span><span style="font-family:'Montserrat';font-size:10px;color:var(--ink-muted)">${v.la}</span></span>
-              <input type="checkbox" class="pref-toggle" data-pref="${k}" ${State.notifPrefs[k]!==false?"checked":""} style="width:18px;height:18px;accent-color:var(--gold-deep);cursor:pointer">
-            </label>`).join("")}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><h3>الأجهزة المسجّلة</h3><div class="la">Registered Devices</div></div></div>
-        <p style="font-size:13px;color:var(--ink-mid);font-weight:300;line-height:1.7;margin-bottom:14px">الأجهزة والمتصفحات التي تستقبل إشعارات الدفع لحسابك.</p>
-        <div id="deviceList"><div style="padding:14px;text-align:center;color:var(--ink-muted)"><i class="fa-solid fa-spinner spin"></i></div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div><h3>تسجيل الخروج</h3><div class="la">Sign Out</div></div></div>
-        <p style="font-size:13px;color:var(--ink-mid);font-weight:300;line-height:1.8;margin-bottom:16px">إنهاء الجلسة على هذا الجهاز.</p>
-        <button class="btn btn-danger" id="settLogout"><i class="fa-solid fa-arrow-right-from-bracket"></i> تسجيل الخروج</button>
-      </div>
-    </div>
-  `;
-  $("#chgPw").addEventListener("click",async()=>{
-    const p1=$("#pw1").value,p2=$("#pw2").value;
-    if(!p1||!p2){toast("أدخل كلمة المرور وتأكيدها","err");return;}
-    if(p1!==p2){toast("كلمتا المرور غير متطابقتين","err");return;}
-    if(p1.length<6){toast("6 أحرف على الأقل","err");return;}
-    try{ await S.updatePassword(S.auth.currentUser,p1); toast("تم تحديث كلمة المرور"); $("#pw1").value="";$("#pw2").value=""; }
-    catch(e){ toast(e.code==="auth/requires-recent-login"?"سجّل الدخول مجدداً ثم حاول":"تعذّر التحديث","err"); }
-  });
-  paintNotifStatus();
-  $("#enableNotif").addEventListener("click",async()=>{
-    const btn=$("#enableNotif"); btn.disabled=true;
-    btn.innerHTML=`<i class="fa-solid fa-spinner spin"></i> جارٍ التفعيل…`;
-    const res=await S.initMessaging(State.user.uid);
-    btn.disabled=false; btn.innerHTML=`<i class="fa-solid fa-bell"></i> تفعيل الإشعارات`;
-    if(res.ok){
-      State.notifMode=res.mode;
-      toast(res.mode==="fcm" ? "تم تفعيل إشعارات الدفع بنجاح" : "تم تفعيل إشعارات المتصفح","ok");
-      // إشعار تجريبي ليتأكد المستخدم من عملها
-      S.showLocalNotification("تم تفعيل الإشعارات ✓","ستصلك تنبيهات المهام والملفات هنا.");
-    } else {
-      const m={
-        denied:"الإشعارات محظورة من إعدادات المتصفح — فعّلها يدوياً من شريط العنوان 🔒",
-        unsupported:"متصفحك لا يدعم الإشعارات",
-        "no-sw":"متصفحك لا يدعم Service Worker",
-        error:"تعذّر التفعيل — حاول مجدداً"
+    try {
+      const res = await S.uploadToCloudinary(
+        file,
+        (pct) => {
+          progressTxt.textContent = `${pct}%`;
+        },
+        (status) => {
+          if (status === "compressing") {
+            triggerBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles spin"></i> جاري تجهيز الملف…`;
+            progressTxt.textContent = "";
+          } else if (status === "uploading") {
+            triggerBtn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+            progressTxt.textContent = "0%";
+          }
+        }
+      );
+      
+      State.tempAdminTaskFile = {
+        url: res,
+        fileName: file.name,
+        fileType: file.type
       };
-      toast(m[res.reason]||"تعذّر تفعيل الإشعارات","err");
+
+      $("#tAdminAttachmentStatus").innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
+          <span style="font-weight:700;font-size:12.5px;"><i class="fa-solid fa-file-circle-check" style="color:var(--success)"></i> ${esc(file.name)}</span>
+          <button type="button" id="btnRemoveAdminFile" style="color:var(--danger);font-weight:700;border:none;background:none;cursor:pointer"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `;
+
+      bindRemoveAdminFile();
+      toast("تم رفع المرفق بنجاح");
+    } catch(err) {
+      toast(err.message || "فشل رفع الملف إلى الخادم", "err");
+    } finally {
+      triggerBtn.disabled = false;
+      triggerBtn.innerHTML = `<i class="fa-solid fa-file-import"></i> اختيار ملف`;
+      progressTxt.textContent = "";
     }
-    paintNotifStatus();
   });
 
-  // تفضيلات الإشعارات — حفظ فوري عند التبديل
-  $$(".pref-toggle").forEach(cb=>cb.addEventListener("change",async()=>{
-    State.notifPrefs[cb.dataset.pref]=cb.checked;
-    try{ await S.setNotifPrefs(State.user.uid, State.notifPrefs); toast("تم حفظ التفضيلات"); }
-    catch(e){ toast("تعذّر حفظ التفضيلات","err"); }
-  }));
+  $("#tAssignType").addEventListener("change", (e)=>{
+    const val = e.target.value;
+    const wrap = $("#tAssignTargetWrap");
+    if(val === "all"){
+      wrap.style.display = "none";
+    } else {
+      wrap.style.display = "block";
+    }
+  });
 
-  // قائمة الأجهزة المسجّلة
-  loadDeviceList();
+  $("#newTaskForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const btn = $("#tSubmitBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الإسناد…`;
 
-  $("#settLogout").addEventListener("click",doLogout);
+    const title = $("#tTitle").value.trim();
+    const description = $("#tDesc").value.trim();
+    const priority = $("#tPriority").value;
+    const dueDate = $("#tDueDate").value || null;
+    const assignType = $("#tAssignType").value;
+    const attachmentRequired = $("#tAttachmentRequired").checked;
+
+    const adminAttachmentUrl = State.tempAdminTaskFile ? State.tempAdminTaskFile.url : null;
+    const adminAttachmentName = State.tempAdminTaskFile ? State.tempAdminTaskFile.fileName : null;
+    const adminAttachmentType = State.tempAdminTaskFile ? State.tempAdminTaskFile.fileType : null;
+
+    try {
+      if(assignType === "all"){
+        const targetUsers = State.users.filter(u => u.uid !== State.user.uid);
+        if(!targetUsers.length){
+          throw new Error("لا يوجد موظفون نشطون لإسناد المهمة لهم حالياً");
+        }
+        
+        await Promise.all(targetUsers.map(u => 
+          S.createTask({
+            title,
+            description,
+            priority,
+            dueDate,
+            attachmentRequired,
+            adminId: State.user.uid,
+            adminName: State.user.name,
+            employeeId: u.uid,
+            employeeName: u.name,
+            adminAttachmentUrl,
+            adminAttachmentName,
+            adminAttachmentType
+          }).then(async (taskId) => {
+            // إرسال إشعار فوري لكل موظف مستهدف
+            await S.pushNotification({
+              userId: u.uid,
+              type: "task_new",
+              title: "مهمة رسمية جديدة مسندة إليك",
+              body: `تم إسناد مهمة جديدة لك: "${title}"`,
+              link: "tasks",
+              refId: taskId
+            }).catch(()=>{});
+
+            // إرسال إيميل إسناد المهمة (أفضل جهد - غير معطل للواجهة)
+            (async () => {
+              try {
+                if (u.email) {
+                  const reviewLink = `${window.location.origin}${window.location.pathname}?view=tasks`;
+                  const PRIORITY_MAP = { low: "منخفضة", medium: "متوسطة", high: "عالية", critical: "حرجة" };
+                  const arabPriority = PRIORITY_MAP[priority] || priority;
+                  
+                  console.log("[Email Debug] Reached email dispatch block");
+                  console.log("[Email Debug] Target user found:", u);
+                  console.log("[Email Debug] Task creation - about to send task email to:", u.email);
+                  
+                  await S.sendTaskAssignedEmail(u.email, u.name || "الموظف", State.user.name, title, arabPriority, reviewLink)
+                    .then(() => console.log("[Email Debug] Email sent successfully"))
+                    .catch(err => console.log("[Email Debug] Email failed:", err));
+                }
+              } catch (e) {
+                console.warn("[Email Debug] Task assignment email dispatch error:", e);
+              }
+            })();
+          })
+        ));
+      } else {
+        const sel = $("#tAssignTarget");
+        if(!sel || sel.selectedIndex === -1){
+          throw new Error("يرجى اختيار الموظف المستهدف أولاً");
+        }
+        const empId = sel.value;
+        const empName = sel.options[sel.selectedIndex].text.split(" (")[0];
+
+        const taskId = await S.createTask({
+          title,
+          description,
+          priority,
+          dueDate,
+          attachmentRequired,
+          adminId: State.user.uid,
+          adminName: State.user.name,
+          employeeId: empId,
+          employeeName: empName,
+          adminAttachmentUrl,
+          adminAttachmentName,
+          adminAttachmentType
+        });
+
+        // إرسال إشعار فوري
+        await S.pushNotification({
+          userId: empId,
+          type: "task_new",
+          title: "مهمة رسمية جديدة مسندة إليك",
+          body: `تم إسناد مهمة جديدة لك: "${title}"`,
+          link: "tasks",
+          refId: taskId
+        }).catch(()=>{});
+
+        // إرسال إيميل إسناد المهمة (أفضل جهد - غير معطل للواجهة)
+        (async () => {
+          try {
+            const targetUser = State.users.find(u => u.uid === empId);
+            if (targetUser && targetUser.email) {
+              const reviewLink = `${window.location.origin}${window.location.pathname}?view=tasks`;
+              const PRIORITY_MAP = { low: "منخفضة", medium: "متوسطة", high: "عالية", critical: "حرجة" };
+              const arabPriority = PRIORITY_MAP[priority] || priority;
+
+              console.log("[Email Debug] Reached email dispatch block");
+              console.log("[Email Debug] Target user found:", targetUser);
+              console.log("[Email Debug] Task creation - about to send task email to:", targetUser.email);
+
+              await S.sendTaskAssignedEmail(targetUser.email, targetUser.name || "الموظف", State.user.name, title, arabPriority, reviewLink)
+                .then(() => console.log("[Email Debug] Email sent successfully"))
+                .catch(err => console.log("[Email Debug] Email failed:", err));
+            }
+          } catch (e) {
+            console.warn("[Email Debug] Task assignment email dispatch error:", e);
+          }
+        })();
+      }
+
+      toast("تم إنشاء وإسناد المهام بنجاح");
+      closeModal();
+      await loadAllData();
+      renderTasks();
+    } catch(err) {
+      toast(err.message || "تعذّر إسناد المهمة", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> إسناد المهمة`;
+    }
+  });
 }
 
-/* تحميل وعرض أجهزة المستخدم المسجّلة للإشعارات */
-async function loadDeviceList(){
-  const box=$("#deviceList"); if(!box) return;
-  const tokens=await S.listUserTokens(State.user.uid);
-  if(!tokens.length){ box.innerHTML=`<div style="padding:10px;color:var(--ink-muted);font-size:12.5px">لا أجهزة مسجّلة بعد — فعّل الإشعارات أعلاه.</div>`; return; }
-  box.innerHTML=tokens.map(t=>{
-    const isThis = t.token===State.deviceToken;
-    return `<div style="display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--line-soft)">
-      <span style="width:30px;height:30px;border-radius:8px;background:var(--parchment-2);display:grid;place-items:center;color:var(--gold-deep);font-size:13px"><i class="fa-solid fa-mobile-screen"></i></span>
-      <span style="flex:1"><span style="font-weight:700;font-size:13px;display:block">${esc(t.device||"جهاز")}${isThis?` <span style="color:var(--success);font-size:10px">(هذا الجهاز)</span>`:""}</span>
-        <span style="font-family:'Montserrat';font-size:9.5px;color:var(--ink-muted)">آخر ظهور: ${timeAgo(t.lastSeen||t.createdAt)}</span></span>
-      <button class="fc-act danger" data-rmtoken="${esc(t.id)}" title="إلغاء التسجيل"><i class="fa-solid fa-xmark"></i></button>
+function openTaskDetailModal(taskId){
+  const t = State.tasks.find(x => x.id === taskId);
+  if(!t) return;
+
+  const isAd = isExec(State.user);
+  const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
+  const st = OFFICIAL_TASK_STATUS[t.status] || OFFICIAL_TASK_STATUS.pending;
+
+  let adminAttachmentBlock = "";
+  if(t.adminAttachmentUrl){
+    adminAttachmentBlock = `
+      <div style="background:rgba(192,154,98,0.06);border:1px solid rgba(192,154,98,0.2);border-radius:var(--r-md);padding:14px;margin-bottom:16px">
+        <span style="font-size:12.5px;color:var(--gold-deep);font-weight:700"><i class="fa-solid fa-paperclip"></i> مرفق من المدير:</span>
+        <div style="margin-top:8px;font-size:13px;color:var(--ink-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <span style="font-weight:700"><i class="fa-regular fa-file" style="color:var(--gold-deep)"></i> ${esc(t.adminAttachmentName || "ملف مرفق")}</span>
+          <div style="display:flex;gap:6px">
+            <a href="${esc(t.adminAttachmentUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-eye"></i> معاينة</a>
+            <a href="${esc(S.getCloudinaryDownloadUrl(t.adminAttachmentUrl))}" target="_blank" download class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-download"></i> تحميل</a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  let detailsHtml = "";
+
+  if(isAd){
+    // تفاصيل المهمة للمدير
+    let rejectionBlock = "";
+    if(t.status === "rejected"){
+      rejectionBlock = `
+        <div style="background:rgba(220,53,69,0.06);border:1px solid rgba(220,53,69,0.15);border-radius:var(--r-md);padding:14px;margin-bottom:16px;color:var(--danger)">
+          <h4 style="font-weight:800;margin-bottom:4px;font-size:13px"><i class="fa-solid fa-triangle-exclamation"></i> سبب الرفض المكتوب:</h4>
+          <p style="font-size:12.5px;line-height:1.5;white-space:pre-wrap;margin:0">${esc(t.rejectionReason || "لم يتم تدوين سبب للرفض")}</p>
+        </div>
+      `;
+    }
+
+    let attachmentBlock = `
+      <div style="background:var(--bg-subtle);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:16px">
+        <span style="font-size:12.5px;color:var(--ink-muted);font-weight:700"><i class="fa-solid fa-paperclip"></i> المرفقات المستلمة من الموظف:</span>
+        <div style="margin-top:8px;font-size:13px;color:var(--ink-soft)">
+          ${t.attachment ? `
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:700"><i class="fa-regular fa-file" style="color:var(--gold-deep)"></i> ${esc(t.attachment.fileName)}</span>
+              <a href="${esc(t.attachment.url)}" target="_blank" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px" download><i class="fa-solid fa-download"></i> تنزيل المرفق</a>
+            </div>
+          ` : `
+            <span style="color:var(--ink-faint)"><i class="fa-solid fa-ban"></i> لم يتم رفع أي ملف مرفق حتى الآن.</span>
+          `}
+        </div>
+      </div>
+    `;
+
+    detailsHtml = `
+      <div class="modal-head">
+        <h2>تفاصيل المهمة الرسمية</h2>
+        <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:16px;font-weight:800;color:var(--ink);margin:0 0 8px 0">${esc(t.title)}</h3>
+        <p style="font-size:13px;color:var(--ink-soft);line-height:1.6;white-space:pre-wrap;background:var(--bg-app);padding:14px;border-radius:var(--r-md);border:1px solid var(--line-soft);margin:0">${esc(t.description || "بدون تفاصيل إضافية")}</p>
+      </div>
+
+      <div class="form-grid two" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px;color:var(--ink-soft)">
+        <div><strong>الموظف المستلم:</strong> ${esc(t.employeeName)}</div>
+        <div><strong>تاريخ الاستحقاق:</strong> ${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</div>
+        <div><strong>الأولوية:</strong> <span style="color:${pr.color};font-weight:700"><i class="fa-solid fa-flag"></i> ${pr.label}</span></div>
+        <div><strong>حالة المهمة:</strong> <span style="color:${st.color};font-weight:700"><i class="fa-solid fa-circle-info"></i> ${st.label}</span></div>
+      </div>
+
+      ${adminAttachmentBlock}
+      ${rejectionBlock}
+      ${attachmentBlock}
+
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--line-soft)">
+        <button type="button" class="btn btn-danger-soft" id="btnCancelTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-ban"></i> إلغاء وحذف المهمة</button>
+        <button type="button" class="btn btn-secondary" data-close>إغلاق</button>
+      </div>
+    `;
+  } else {
+    // تفاصيل المهمة للموظف
+    let actionArea = "";
+    let uploadArea = "";
+
+    if(t.status === "pending"){
+      uploadArea = `
+        <div style="background:var(--bg-subtle);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:16px" id="empUploadBox">
+          <label style="font-size:12.5px;color:var(--ink-soft);font-weight:700;display:block;margin-bottom:8px">
+            <i class="fa-solid fa-upload"></i> ${t.attachmentRequired ? 'رفع المرفق المطلوب (إلزامي)' : 'إرفاق ملف (اختياري)'}
+          </label>
+          <div id="attachmentStatusWrap" style="margin-bottom:8px;font-size:12px;color:var(--ink-soft)">
+            ${State.tempTaskFile ? `
+              <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
+                <span style="font-weight:700"><i class="fa-solid fa-file-circle-check" style="color:var(--success)"></i> ${esc(State.tempTaskFile.fileName)}</span>
+                <button type="button" id="btnRemoveTempFile" style="color:var(--danger);font-weight:700;border:none;background:none;cursor:pointer"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            ` : `
+              <span style="color:var(--ink-faint)">لم يتم رفع أي ملف.</span>
+            `}
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="file" id="taskFileInput" style="display:none">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnTriggerSelectFile" style="padding:4px 10px;font-size:12px"><i class="fa-solid fa-file-import"></i> اختيار ملف</button>
+            <div id="uploadProgressText" style="font-size:12px;color:var(--ink-muted);font-weight:700"></div>
+          </div>
+        </div>
+      `;
+
+      actionArea = `
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:14px;border-top:1px solid var(--line-soft)">
+          <button type="button" class="btn btn-danger-soft" id="btnRejectTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-circle-xmark"></i> رفض المهمة</button>
+          <button type="button" class="btn btn-primary" id="btnCompleteTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-circle-check"></i> تم إنهاء المهمة</button>
+        </div>
+      `;
+    } else {
+      let rejectionBlock = "";
+      if(t.status === "rejected"){
+        rejectionBlock = `
+          <div style="background:rgba(220,53,69,0.06);border:1px solid rgba(220,53,69,0.15);border-radius:var(--r-md);padding:14px;margin-bottom:16px;color:var(--danger)">
+            <h4 style="font-weight:800;margin-bottom:4px;font-size:13px"><i class="fa-solid fa-triangle-exclamation"></i> سبب الرفض المكتوب:</h4>
+            <p style="font-size:12.5px;line-height:1.5;white-space:pre-wrap;margin:0">${esc(t.rejectionReason || "لم يتم تدوين سبب")}</p>
+          </div>
+        `;
+      }
+
+      let attachmentBlock = "";
+      if(t.attachment){
+        attachmentBlock = `
+          <div style="background:var(--bg-subtle);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:16px">
+            <span style="font-size:12.5px;color:var(--ink-muted);font-weight:700"><i class="fa-solid fa-paperclip"></i> المرفق الخاص بك:</span>
+            <div style="margin-top:6px;font-size:13px;color:var(--ink-soft);display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:700"><i class="fa-regular fa-file" style="color:var(--gold-deep)"></i> ${esc(t.attachment.fileName)}</span>
+              <a href="${esc(t.attachment.url)}" target="_blank" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px" download><i class="fa-solid fa-download"></i> تحميل / عرض</a>
+            </div>
+          </div>
+        `;
+      }
+
+      actionArea = `
+        ${rejectionBlock}
+        ${attachmentBlock}
+        <div style="display:flex;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--line-soft)">
+          <button type="button" class="btn btn-secondary" data-close>إغلاق</button>
+        </div>
+      `;
+    }
+
+    detailsHtml = `
+      <div class="modal-head">
+        <h2>تفاصيل المهمة المستلمة</h2>
+        <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:16px;font-weight:800;color:var(--ink);margin:0 0 8px 0">${esc(t.title)}</h3>
+        <p style="font-size:13px;color:var(--ink-soft);line-height:1.6;white-space:pre-wrap;background:var(--bg-app);padding:14px;border-radius:var(--r-md);border:1px solid var(--line-soft);margin:0">${esc(t.description || "بدون وصف تفصيلي")}</p>
+      </div>
+
+      <div class="form-grid two" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px;color:var(--ink-soft)">
+        <div><strong>المرسل:</strong> ${esc(t.adminName)}</div>
+        <div><strong>تاريخ الاستحقاق:</strong> ${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</div>
+        <div><strong>الأولوية:</strong> <span style="color:${pr.color};font-weight:700"><i class="fa-solid fa-flag"></i> ${pr.label}</span></div>
+        <div><strong>الحالة:</strong> <span style="color:${st.color};font-weight:700"><i class="fa-solid fa-circle-info"></i> ${st.label}</span></div>
+      </div>
+
+      ${adminAttachmentBlock}
+      ${uploadArea}
+      ${actionArea}
+    `;
+  }
+
+  // تصفير المرفق المؤقت أو وضع المرفق الحالي
+  if(!isAd) State.tempTaskFile = t.attachment || null;
+
+  openModal(detailsHtml, true);
+
+  // ربط الأزرار والمستمعات
+  if(isAd){
+    $("#btnCancelTask").addEventListener("click", ()=>{
+      openConfirmModal({
+        title: "إلغاء وحذف المهمة الرسمية",
+        message: "هل أنت متأكد من رغبتك في إلغاء وحذف هذه المهمة نهائياً من سجل الموظف؟ لا يمكن التراجع عن هذا الإجراء.",
+        confirmText: "نعم، الغي المهمة",
+        confirmType: "danger",
+        onConfirm: async () => {
+          await S.deleteTask(taskId);
+          toast("تم إلغاء وحذف المهمة بنجاح");
+          closeModal();
+          await loadAllData();
+          renderTasks();
+        }
+      });
+    });
+  } else if(t.status === "pending") {
+    const fileInput = $("#taskFileInput");
+    const progressTxt = $("#uploadProgressText");
+
+    const bindRemoveTempFile = () => {
+      const btnRemove = $("#btnRemoveTempFile");
+      if(btnRemove){
+        btnRemove.addEventListener("click", () => {
+          State.tempTaskFile = null;
+          $("#attachmentStatusWrap").innerHTML = `<span style="color:var(--ink-faint)">لم يتم رفع أي ملف.</span>`;
+        });
+      }
+    };
+
+    bindRemoveTempFile();
+
+    $("#btnTriggerSelectFile").addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+
+      const triggerBtn = $("#btnTriggerSelectFile");
+      triggerBtn.disabled = true;
+      triggerBtn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+      progressTxt.textContent = "0%";
+
+      try {
+        const res = await S.uploadToCloudinary(
+          file,
+          (pct) => {
+            progressTxt.textContent = `${pct}%`;
+          },
+          (status) => {
+            if (status === "compressing") {
+              triggerBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles spin"></i> جاري تجهيز الملف…`;
+              progressTxt.textContent = "";
+            } else if (status === "uploading") {
+              triggerBtn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+              progressTxt.textContent = "0%";
+            }
+          }
+        );
+        
+        State.tempTaskFile = {
+          url: res,
+          fileName: file.name,
+          fileType: file.type
+        };
+
+        $("#attachmentStatusWrap").innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
+            <span style="font-weight:700;font-size:12.5px;"><i class="fa-solid fa-file-circle-check" style="color:var(--success)"></i> ${esc(file.name)}</span>
+            <button type="button" id="btnRemoveTempFile" style="color:var(--danger);font-weight:700;border:none;background:none;cursor:pointer"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        `;
+
+        bindRemoveTempFile();
+        toast("تم رفع الملف بنجاح");
+      } catch(err) {
+        toast(err.message || "فشل رفع الملف إلى الخادم", "err");
+      } finally {
+        triggerBtn.disabled = false;
+        triggerBtn.innerHTML = `<i class="fa-solid fa-file-import"></i> اختيار ملف`;
+        progressTxt.textContent = "";
+      }
+    });
+
+    // رفض المهمة
+    $("#btnRejectTask").addEventListener("click", () => {
+      openModal(`
+        <div class="modal-head">
+          <h2>رفض المهمة وإبداء السبب</h2>
+          <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="rejectReasonForm">
+          <div class="form-group" style="margin-bottom:16px">
+            <label style="font-weight:700">سبب رفض المهمة (إلزامي)</label>
+            <textarea id="rejReason" rows="3" class="input" placeholder="اكتب مبررات رفض المهمة بالتفصيل لكي يراها المدير التنفيذي..." required></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" class="btn btn-secondary" id="btnBackToDetail"><i class="fa-solid fa-arrow-right"></i> العودة</button>
+            <button type="submit" class="btn btn-danger" id="btnConfirmReject"><i class="fa-solid fa-ban"></i> تأكيد الرفض</button>
+          </div>
+        </form>
+      `);
+
+      $("#btnBackToDetail").addEventListener("click", () => {
+        openTaskDetailModal(taskId);
+      });
+
+      $("#rejectReasonForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const reason = $("#rejReason").value.trim();
+        if(!reason) return;
+
+        const btn = $("#btnConfirmReject");
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفض…`;
+
+        try {
+          await S.updateTask(taskId, {
+            status: "rejected",
+            rejectionReason: reason
+          });
+
+          await S.pushNotification({
+            userId: t.adminId,
+            type: "task_updated",
+            title: "تم رفض مهمة رسمية",
+            body: `قام الموظف "${State.user.name}" برفض المهمة: "${t.title}"`,
+            link: "tasks",
+            refId: taskId
+          }).catch(()=>{});
+
+          toast("تم رفض المهمة بنجاح");
+          closeModal();
+          await loadAllData();
+          renderTasks();
+        } catch(err) {
+          toast("تعذّر إتمام عملية الرفض", "err");
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-ban"></i> تأكيد الرفض`;
+        }
+      });
+    });
+
+    // إنهاء المهمة
+    $("#btnCompleteTask").addEventListener("click", async () => {
+      if(t.attachmentRequired && !State.tempTaskFile){
+        toast("خطأ: يجب رفع المرفق المطلوب أولاً لتتمكن من إنجاز المهمة!", "err");
+        return;
+      }
+
+      const btn = $("#btnCompleteTask");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الإرسال…`;
+
+      try {
+        await S.updateTask(taskId, {
+          status: "completed",
+          attachment: State.tempTaskFile || null
+        });
+
+        await S.pushNotification({
+          userId: t.adminId,
+          type: "task_completed",
+          title: "اكتملت مهمة رسمية",
+          body: `أنجز الموظف "${State.user.name}" المهمة الرسمية: "${t.title}"`,
+          link: "tasks",
+          refId: taskId
+        }).catch(()=>{});
+
+        toast("تم إنجاز المهمة بنجاح، شكراً لك!");
+        closeModal();
+        await loadAllData();
+        renderTasks();
+      } catch(err) {
+        toast("تعذّر تحديث حالة المهمة", "err");
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> تم إنهاء المهمة`;
+      }
+    });
+  }
+}
+
+/* ════════════════ 5.5. ملاحظاتي (Personal Notes & Tasks) ════════════════ */
+function renderMyNotes(el) {
+  if (!el) el = $("#viewHost");
+  
+  // تصفية القائمة
+  let list = [...State.personalTasks];
+  
+  // تصفية حسب المستخدم (المستخدم يرى مهامه الشخصية فقط لخصوصية القسم)
+  list = list.filter(t => t.userId === State.user.uid);
+
+  // تصفية حسب الحالة (مفعلة دائماً في اللوحة والقائمة)
+  if (State.myNotesFilterStatus !== "all") {
+    list = list.filter(t => t.status === State.myNotesFilterStatus);
+  }
+
+  // الفرز الافتراضي (الأحدث إنشاءً أولاً)
+  list.sort((a, b) => tsToDate(b.createdAt) - tsToDate(a.createdAt));
+
+  el.innerHTML = `
+    ${pageHead("My Notes", "ملاحظاتي", "مساحة المهام", "والملاحظات", "نظّم مهامك الشخصية وسجل ملاحظاتك اليومية وسير أعمالك بكل سرية تامة.")}
+
+    <div class="toolbar" style="margin-bottom:24px;gap:12px;display:flex;align-items:center;flex-wrap:wrap">
+      <!-- زر تبديل طريقة العرض -->
+      <div class="segmented-control" style="display:flex;background:var(--bg-subtle);padding:3px;border-radius:var(--r-md);border:1px solid var(--line-soft)">
+        <button class="chip ${State.myNotesViewMode === "board" ? "active" : ""}" id="viewModeBoard" style="border:none;border-radius:var(--r-sm);padding:6px 12px;font-size:12px;margin:0">
+          <i class="fa-solid fa-grip-vertical"></i> لوحة الأعمدة
+        </button>
+        <button class="chip ${State.myNotesViewMode === "list" ? "active" : ""}" id="viewModeList" style="border:none;border-radius:var(--r-sm);padding:6px 12px;font-size:12px;margin:0">
+          <i class="fa-solid fa-list"></i> قائمة/جدول
+        </button>
+      </div>
+
+      <!-- الفلتر الوحيد: الحالة -->
+      <div class="form-group" style="min-width:140px">
+        <select class="input" id="noteFilterStatus" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-sm)">
+          <option value="all" ${State.myNotesFilterStatus === "all" ? "selected" : ""}>كل الحالات</option>
+          <option value="new" ${State.myNotesFilterStatus === "new" ? "selected" : ""}>قيد الانتظار</option>
+          <option value="in_progress" ${State.myNotesFilterStatus === "in_progress" ? "selected" : ""}>قيد التنفيذ</option>
+          <option value="completed" ${State.myNotesFilterStatus === "completed" ? "selected" : ""}>مكتملة</option>
+        </select>
+      </div>
+
+      <div class="spacer"></div>
+      
+      <!-- زر إضافة مهمة -->
+      <button class="btn btn-primary" id="newNoteBtn" style="border-radius:var(--r-sm);padding:8px 16px"><i class="fa-solid fa-plus"></i> مهمة شخصية جديدة</button>
+    </div>
+
+    <!-- مساحة عرض البيانات -->
+    <div id="notesViewContent">
+      ${State.myNotesViewMode === "board" ? renderNotesBoard(list) : renderNotesList(list)}
+    </div>
+  `;
+
+  // مستمعو الأحداث
+  $("#viewModeBoard").addEventListener("click", () => {
+    State.myNotesViewMode = "board";
+    renderMyNotes(el);
+  });
+  $("#viewModeList").addEventListener("click", () => {
+    State.myNotesViewMode = "list";
+    renderMyNotes(el);
+  });
+
+  $("#noteFilterStatus").addEventListener("change", (e) => {
+    State.myNotesFilterStatus = e.target.value;
+    renderMyNotes(el);
+  });
+
+  $("#newNoteBtn").addEventListener("click", openNewPersonalTaskModal);
+
+  // نقرات البطاقات لفتح المودال
+  $$("[data-personal-task]").forEach(card => {
+    card.addEventListener("click", () => {
+      openPersonalTaskDetailModal(card.dataset.personalTask);
+    });
+  });
+}
+
+function renderPersonalTaskCard(t) {
+  const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
+  const desc = t.description ? esc(t.description) : "بدون وصف تفصيلي";
+  const notesCount = t.notes ? t.notes.length : 0;
+  
+  const ownerHtml = isExec(State.user) ? `
+    <div class="ntc-meta-item" style="color:var(--gold-deep)">
+      <i class="fa-solid fa-user-tag"></i>
+      <span>${esc(t.userName || "موظف")}</span>
+    </div>
+  ` : "";
+
+  return `
+    <div class="note-task-card" data-personal-task="${t.id}">
+      <div class="ntc-head">
+        <h4 class="ntc-title">${esc(t.title)}</h4>
+        <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
+          <i class="fa-solid fa-flag"></i> ${pr.label}
+        </span>
+      </div>
+      <p class="ntc-desc">${desc}</p>
+      <div class="ntc-meta">
+        <div class="ntc-meta-item">
+          <i class="fa-regular fa-calendar-check" style="color:var(--gold-deep)"></i>
+          <span>${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</span>
+        </div>
+        <div class="ntc-meta-item">
+          <i class="fa-regular fa-comment" style="color:var(--gold-deep)"></i>
+          <span>${notesCount} ${notesCount === 1 ? 'ملاحظة' : 'ملاحظات'}</span>
+        </div>
+        ${ownerHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderNotesBoard(list) {
+  const newTasks = list.filter(t => t.status === "new" || t.status === "pending");
+  const progressTasks = list.filter(t => t.status === "in_progress");
+  const completedTasks = list.filter(t => t.status === "completed");
+
+  const colData = [
+    { key: "new", title: "قيد الانتظار", icon: "fa-solid fa-hourglass-start", list: newTasks, color: "var(--info)" },
+    { key: "in_progress", title: "قيد التنفيذ", icon: "fa-solid fa-spinner fa-spin-pulse", list: progressTasks, color: "var(--gold)" },
+    { key: "completed", title: "مكتملة", icon: "fa-solid fa-circle-check", list: completedTasks, color: "var(--success)" }
+  ];
+
+  return `
+    <div class="notes-board">
+      ${colData.map(c => `
+        <div class="board-col">
+          <div class="col-header">
+            <span class="col-title" style="color:${c.color}">
+              <i class="${c.icon}"></i> ${c.title}
+            </span>
+            <span class="col-count">${c.list.length}</span>
+          </div>
+          <div class="col-cards" style="display:flex;flex-direction:column;gap:12px;min-height:150px;" data-status-col="${c.key}">
+            ${c.list.length ? c.list.map(renderPersonalTaskCard).join("") : `
+              <div style="text-align:center;padding:32px 10px;color:var(--ink-faint);font-size:12.5px;border:1px dashed var(--line-soft);border-radius:var(--r-md);background:var(--bg-paper)">
+                لا توجد مهام حالياً
+              </div>
+            `}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderNotesList(list) {
+  if (!list.length) {
+    return `<div class="card" style="text-align:center;padding:48px 24px">
+      <div style="font-size:32px;margin-bottom:12px">🗒️</div>
+      <h3 style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">لا توجد مهام مطابقة للبحث</h3>
+      <p style="font-size:13px;color:var(--ink-muted)">حاول تغيير خيارات التصفية أو أضف مهمة جديدة.</p>
     </div>`;
+  }
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:16px">
+      ${list.map(renderPersonalTaskCard).join("")}
+    </div>
+  `;
+}
+
+function openNewPersonalTaskModal() {
+  openModal(`
+    <div class="modal-head">
+      <h2>إضافة مهمة وملاحظة شخصية جديدة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="newPersonalTaskForm">
+      <div class="form-group" style="margin-bottom:14px">
+        <label>عنوان المهمة / الموضوع</label>
+        <input type="text" id="ntTitle" required class="input" placeholder="مثال: مراجعة الميزانية السنوية أو النشر اليومي">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>الوصف والتفاصيل (اختياري)</label>
+        <textarea id="ntDesc" rows="3" class="input" placeholder="سجل تفاصيل وملاحظات المهمة..."></textarea>
+      </div>
+      <div class="form-grid two" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+        <div class="form-group">
+          <label>الأولوية</label>
+          <select id="ntPriority" class="input">
+            <option value="low">منخفضة</option>
+            <option value="medium" selected>متوسطة</option>
+            <option value="high">عالية</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>تاريخ الاستحقاق (اختياري)</label>
+          <input type="date" id="ntDueDate" class="input">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="ntSubmitBtn"><i class="fa-solid fa-save"></i> حفظ المهمة</button>
+      </div>
+    </form>
+  `);
+
+  $("#newPersonalTaskForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("#ntSubmitBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الحفظ…`;
+
+    try {
+      await S.createPersonalTask({
+        title: $("#ntTitle").value.trim(),
+        description: $("#ntDesc").value.trim(),
+        priority: $("#ntPriority").value,
+        dueDate: $("#ntDueDate").value || null,
+        userId: State.user.uid,
+        userName: State.user.name,
+        notes: []
+      });
+      
+      toast("تمت إضافة المهمة الشخصية بنجاح");
+      closeModal();
+      await loadAllData();
+      renderMyNotes();
+    } catch (err) {
+      toast("عذراً، فشل إضافة المهمة", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-save"></i> حفظ المهمة`;
+    }
+  });
+}
+
+function openPersonalTaskDetailModal(taskId) {
+  const t = State.personalTasks.find(x => x.id === taskId);
+  if (!t) return;
+
+  const dueDateVal = t.dueDate ? tsToDate(t.dueDate).toISOString().split("T")[0] : "";
+
+  openModal(`
+    <div class="modal-head">
+      <h2>تفاصيل المهمة والملاحظات</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="form-group" style="margin-bottom:12px">
+      <label>العنوان / الموضوع</label>
+      <input type="text" id="edTitle" class="input" value="${esc(t.title)}" required>
+    </div>
+
+    <div class="form-group" style="margin-bottom:12px">
+      <label>وصف المهمة</label>
+      <textarea id="edDesc" rows="3" class="input">${esc(t.description || "")}</textarea>
+    </div>
+
+    <div class="form-grid two" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="form-group">
+        <label>الأولوية</label>
+        <select id="edPriority" class="input">
+          <option value="low" ${t.priority === 'low' ? 'selected' : ''}>منخفضة</option>
+          <option value="medium" ${t.priority === 'medium' ? 'selected' : ''}>متوسطة</option>
+          <option value="high" ${t.priority === 'high' ? 'selected' : ''}>عالية</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>الحالة</label>
+        <select id="edStatus" class="input">
+          <option value="new" ${t.status === 'new' ? 'selected' : ''}>قيد الانتظار</option>
+          <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>قيد التنفيذ</option>
+          <option value="completed" ${t.status === 'completed' ? 'selected' : ''}>مكتملة</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label>تاريخ الاستحقاق (اختياري)</label>
+      <input type="date" id="edDueDate" class="input" value="${dueDateVal}">
+    </div>
+
+    <!-- قسم الملاحظات المقيدة داخل المهمة -->
+    <div style="margin-bottom:18px">
+      <label style="font-size:12.5px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:6px">
+        <i class="fa-solid fa-comments"></i> الملاحظات والتعليقات المكتوبة (${t.notes ? t.notes.length : 0})
+      </label>
+      
+      <div class="notes-container" id="modalNotesContainer">
+        ${renderModalNotesList(t.notes || [])}
+      </div>
+
+      <div class="add-note-box" style="display:flex;flex-direction:column;gap:6px">
+        <textarea id="edNewNoteText" placeholder="اكتب ملاحظة أو إضافة جديدة..." class="input" rows="2" style="font-size:12.5px;resize:none"></textarea>
+        <div style="display:flex;justify-content:flex-end">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnSaveNote" style="padding:6px 12px;font-size:12px"><i class="fa-solid fa-plus"></i> إضافة ملاحظة</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--line-soft)">
+      <button type="button" class="btn btn-danger-soft" id="btnDeletePersonalTask" title="حذف المهمة نهائياً"><i class="fa-solid fa-trash"></i> حذف</button>
+      <div style="display:flex;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="button" class="btn btn-primary" id="btnSavePersonalTask"><i class="fa-solid fa-check"></i> حفظ التغييرات</button>
+      </div>
+    </div>
+  `, true);
+
+  // زر إضافة ملاحظة
+  $("#btnSaveNote").addEventListener("click", async () => {
+    const txtArea = $("#edNewNoteText");
+    const val = txtArea.value.trim();
+    if (!val) return;
+
+    const btn = $("#btnSaveNote");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الإضافة…`;
+
+    try {
+      const newNote = {
+        text: val,
+        createdAt: new Date().toISOString(),
+        authorId: State.user.uid,
+        authorName: State.user.name
+      };
+
+      const currentTask = State.personalTasks.find(x => x.id === taskId);
+      const updatedNotes = [...(currentTask.notes || []), newNote];
+
+      await S.updatePersonalTask(taskId, { notes: updatedNotes });
+      txtArea.value = "";
+      
+      currentTask.notes = updatedNotes;
+      
+      // إعادة رسم الملاحظات داخل المودال فوراً
+      $("#modalNotesContainer").innerHTML = renderModalNotesList(updatedNotes);
+      
+      toast("تمت إضافة الملاحظة بنجاح");
+      
+      // التحديث في الخلفية للمزامنة وتحديث الصفحة خلف المودال
+      loadAllData().then(() => {
+        renderMyNotes();
+      });
+    } catch (err) {
+      toast("عذراً، فشل إضافة الملاحظة", "err");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-plus"></i> إضافة ملاحظة`;
+    }
+  });
+
+  // حفظ التغييرات
+  $("#btnSavePersonalTask").addEventListener("click", async () => {
+    const btn = $("#btnSavePersonalTask");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الحفظ…`;
+
+    try {
+      await S.updatePersonalTask(taskId, {
+        title: $("#edTitle").value.trim(),
+        description: $("#edDesc").value.trim(),
+        priority: $("#edPriority").value,
+        status: $("#edStatus").value,
+        dueDate: $("#edDueDate").value || null
+      });
+
+      toast("تم تعديل المهمة بنجاح");
+      closeModal();
+      await loadAllData();
+      renderMyNotes();
+    } catch (err) {
+      toast("عذراً، فشل تعديل المهمة", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-check"></i> حفظ التغييرات`;
+    }
+  });
+
+  // حذف المهمة
+  $("#btnDeletePersonalTask").addEventListener("click", () => {
+    openConfirmModal({
+      title: "حذف المهمة الشخصية",
+      message: "هل أنت متأكد من رغبتك في حذف هذه المهمة وجميع الملاحظات المرتبطة بها نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
+      confirmText: "نعم، حذف",
+      confirmType: "danger",
+      onConfirm: async () => {
+        await S.deletePersonalTask(taskId);
+        toast("تم حذف المهمة بنجاح");
+        closeModal();
+        await loadAllData();
+        renderMyNotes();
+      }
+    });
+  });
+}
+
+function renderModalNotesList(notes) {
+  if (!notes.length) {
+    return `<div style="text-align:center;padding:20px;color:var(--ink-muted);font-size:12.5px;">لا توجد ملاحظات مضافة بعد.</div>`;
+  }
+
+  // ترتيب تصاعدي لعرض المحادثة من الأقدم للأحدث
+  const sorted = [...notes].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  return sorted.map(n => {
+    const dateStr = new Date(n.createdAt).toLocaleDateString("ar-SA", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    return `
+      <div class="note-item" style="margin-bottom:8px">
+        <div class="note-text">${esc(n.text)}</div>
+        <div class="note-meta">
+          <span style="font-weight:700;"><i class="fa-regular fa-user"></i> ${esc(n.authorName)}</span>
+          <span><i class="fa-regular fa-clock"></i> ${dateStr}</span>
+        </div>
+      </div>
+    `;
   }).join("");
-  $$("[data-rmtoken]",box).forEach(b=>b.addEventListener("click",async()=>{
-    await S.deleteFcmTokenDoc(b.dataset.rmtoken);
-    toast("تم إلغاء تسجيل الجهاز"); loadDeviceList();
+}
+
+/* ════════════════ 6. الإشعارات (Notifications) ════════════════ */
+function renderNotifs(el){
+  if(!el) el = $("#viewHost");
+  const filter = State.notifFilter || "all";
+  let list = State.notifs;
+  if(filter === "unread") list = list.filter(n => !n.read);
+  const unreadCount = State.notifs.filter(n => !n.read).length;
+
+  el.innerHTML = `
+    ${pageHead("Alerts", "الإشعارات", "مركز", "التنبيهات والإشعارات", "تتبع كافة التنبيهات المباشرة والإدارية المستلمة.")}
+    <div class="toolbar">
+      <div class="filters">
+        <button class="chip ${filter==="all"?"active":""}" data-nfilter="all">الكل (${State.notifs.length})</button>
+        <button class="chip ${filter==="unread"?"active":""}" data-nfilter="unread">غير المقروءة (${unreadCount})</button>
+      </div>
+      <div class="spacer"></div>
+      ${unreadCount > 0 ? `<button class="btn btn-secondary" id="readAllNotifsBtn"><i class="fa-solid fa-check-double"></i> تحديد الكل كمقروء</button>` : ""}
+    </div>
+    <div style="margin-top:16px;">
+      ${list.length ? list.map(n => `
+        <div class="card notif-card-item" data-notif-id="${n.id}" data-notif-link="${esc(n.link||"")}" style="margin-bottom:10px;padding:16px;cursor:pointer;transition:all 0.15s;${!n.read?'border-right:4px solid var(--gold-deep);background:var(--bg-subtle)':''}">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h4 style="margin:0;font-size:15px;color:var(--ink);display:flex;align-items:center;gap:8px">
+              ${!n.read ? `<span style="width:8px;height:8px;border-radius:50%;background:var(--gold-deep)"></span>` : ""}
+              ${esc(n.title)}
+            </h4>
+            <span style="font-size:11px;color:var(--ink-faint)">${timeAgo(n.createdAt)}</span>
+          </div>
+          <p style="font-size:13px;color:var(--ink-mid);margin-top:6px;">${esc(n.body)}</p>
+        </div>
+      `).join("") : emptyState("لا توجد إشعارات حالياً")}
+    </div>
+  `;
+
+  $$("[data-nfilter]").forEach(b => b.addEventListener("click", () => {
+    State.notifFilter = b.dataset.nfilter;
+    renderNotifs(el);
   }));
+
+  $$(".notif-card-item").forEach(card => card.addEventListener("click", async () => {
+    const id = card.dataset.notifId;
+    const link = card.dataset.notifLink;
+    const item = State.notifs.find(n => n.id === id);
+    if(item && !item.read){
+      await S.markNotifRead(id).catch(()=>{});
+    }
+    if(link){
+      navigate(link);
+    }
+  }));
+
+  if($("#readAllNotifsBtn")){
+    $("#readAllNotifsBtn").addEventListener("click", async ()=>{
+      const unreadIds = State.notifs.filter(n=>!n.read).map(n=>n.id);
+      if(unreadIds.length){
+        await S.markAllNotifsRead(unreadIds).catch(()=>{});
+        toast("تم تحديد الإشعارات كمقروءة");
+        renderNotifs(el);
+      }
+    });
+  }
 }
 
-/* ════════ تحديث بعد التعديلات ════════ */
-async function refreshAfterMutation(){
-  State.files=await S.listFiles(State.user.perms.departments).catch(()=>State.files);
-  if(State.view==="files"){ renderCatFilters(); renderFilesArea(); }
-  if(State.view==="dash") renderDash($("#viewHost"));
+function renderNotifBadge(){
+  const count = State.notifs.filter(n => !n.read).length;
+  const dot = $("#tbDot");
+  if(dot){
+    if(count > 0){
+      dot.classList.add("show");
+      dot.textContent = count > 9 ? "9+" : count;
+    } else {
+      dot.classList.remove("show");
+      dot.textContent = "";
+    }
+  }
 }
 
-/* ════════ الشريط الجانبي للجوال ════════ */
-const sidebar=$("#sidebar"), scrim=$("#scrim");
-$("#menuToggle").addEventListener("click",()=>{ sidebar.classList.add("open"); scrim.classList.add("show"); });
-function closeSidebar(){ sidebar.classList.remove("open"); scrim.classList.remove("show"); }
-scrim.addEventListener("click",closeSidebar);
+
+
+/* ════════════════ 8. الإعدادات (Settings) ════════════════ */
+async function renderSettings(el){
+  if(!el) el = $("#viewHost");
+  const u = State.user;
+
+  // فحص بيئة آيفون ووضع الـ PWA
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || 
+                (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+  // فحص حالة أذونات الإشعارات الحالية
+  const perm = typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported";
+
+  // طباعة تشخيصية للكونسول لمساعدة الفحص عن بعد
+  console.log("%c[Portal Diagnostic] Device Detection Details:", "color:#2563eb;font-weight:bold", {
+    isIOS: isIOS,
+    standaloneInNavigator: window.navigator ? window.navigator.standalone : undefined,
+    displayModeStandalone: window.matchMedia?.("(display-mode: standalone)").matches,
+    isStandaloneCalculated: isStandalone,
+    permissionState: perm,
+    userAgent: navigator.userAgent,
+    maxTouchPoints: navigator.maxTouchPoints
+  });
+
+  let notifStatusBadge = "";
+  if(perm === "granted"){
+    notifStatusBadge = `<span class="status-badge" style="background:var(--success-bg);color:var(--success)"><i class="fa-solid fa-circle-check"></i> الإشعارات مفعّلة</span>`;
+  } else if(perm === "denied"){
+    notifStatusBadge = `<span class="status-badge" style="background:var(--danger-bg);color:var(--danger)"><i class="fa-solid fa-circle-xmark"></i> الإشعارات محظورة</span>`;
+  } else if(isIOS && !isStandalone){
+    notifStatusBadge = `<span class="status-badge" style="background:rgba(217,119,6,0.12);color:var(--gold-deep)"><i class="fa-solid fa-circle-exclamation"></i> يتطلب تثبيت PWA</span>`;
+  } else if(perm === "unsupported"){
+    notifStatusBadge = `<span class="status-badge" style="background:var(--danger-bg);color:var(--danger)"><i class="fa-solid fa-triangle-exclamation"></i> غير مدعومة</span>`;
+  } else {
+    notifStatusBadge = `<span class="status-badge" style="background:rgba(217,119,6,0.12);color:var(--gold-deep)"><i class="fa-solid fa-clock"></i> بانتظار التفعيل</span>`;
+  }
+
+  // سنقوم ببناء الواجهة مباشرة مع حاوية فارغة (Skeleton) لقائمة الأجهزة لتفادي أي بطء في الانتقال
+  el.innerHTML = `
+    ${pageHead("Settings", "الإعدادات", "إعدادات", "الحساب والتطبيق", "تفضيلات الحساب والإشعارات والمظهر وتراخيص الأجهزة.")}
+
+    <!-- تنبيه خاص لأجهزة الآيفون في حال عدم التثبيت كـ PWA -->
+    ${(isIOS && !isStandalone) ? `
+      <div class="card" style="margin-top:16px;border-right:4px solid var(--info);background:rgba(30,64,175,0.04);padding:18px">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <i class="fa-solid fa-mobile-screen-button" style="font-size:26px;color:var(--info);margin-top:2px"></i>
+          <div>
+            <h4 style="margin:0 0 6px 0;font-size:15px;font-weight:800;color:var(--ink)">تنبيه هام لأجهزة آيفون (iPhone iOS)</h4>
+            <p style="font-size:13px;color:var(--ink-mid);line-height:1.6;margin:0 0 12px 0">
+              تتطلب أنظمة Apple iOS تثبيت البوابة كـ تطبيق (PWA) على الشاشة الرئيسية أولاً لتلقي الإشعارات في الخلفية وحالة إغلاق الشاشة.
+            </p>
+            <div style="font-size:12.5px;color:var(--ink);background:var(--bg-paper);padding:12px;border-radius:var(--r-md);border:1px solid var(--line-soft)">
+              <strong>خطوات التثبيت والتفعيل السريعة:</strong><br>
+              1. اضغط على زر المشاركة <i class="fa-solid fa-square-share-nodes" style="color:var(--info)"></i> أسفل متصفح Safari.<br>
+              2. اختر <strong>"إضافة إلى الشاشة الرئيسية" (Add to Home Screen)</strong>.<br>
+              3. افتح تطبيق البوابة الجديد من الشاشة الرئيسية واضغط زر "تفعيل الإشعارات الآن" أدناه.
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : ""}
+
+    <!-- بطاقة التحكم الرئيسية بالإشعارات -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-head">
+        <div>
+          <h3 style="margin:0">مركز تفعيل وإدارة الإشعارات</h3>
+          <p style="font-size:12.5px;color:var(--ink-muted);margin:4px 0 0 0">حالة التوصيل بالجهاز والتخزين السحابي للأذونات</p>
+        </div>
+        ${notifStatusBadge}
+      </div>
+
+      <div style="margin-top:16px;padding:16px;background:var(--bg-subtle);border-radius:var(--r-md);border:1px solid var(--line-soft)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--ink)">حالة إذن المتصفح والجهاز الحالي</div>
+            <div style="font-size:12.5px;color:var(--ink-muted);margin-top:2px">
+              ${perm === "granted" ? "الإشعارات مفعّلة ومسجلة في هذا الجهاز." : (perm === "denied" ? "تم رفض الإذن سابقاً. يرجى إلغاء الحظر من إعدادات المتصفح." : (isIOS && !isStandalone ? "التنبيهات غير مدعومة في متصفح Safari العادي. يرجى تثبيت البوابة كـ PWA أولاً." : "لم يتم طلب الإذن بعد. اضغط تفعيل لبدء الاستلام."))}
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${perm === "granted" ? `
+              <button class="btn btn-primary" id="sendTestNotifBtn"><i class="fa-solid fa-paper-plane"></i> إرسال إشعار تجريبي</button>
+              <button class="btn btn-secondary" id="disableNotifsBtn"><i class="fa-solid fa-bell-slash"></i> إيقاف الإشعارات</button>
+            ` : (perm === "denied" ? `
+              <button class="btn btn-secondary" disabled><i class="fa-solid fa-lock"></i> الإذن محظور</button>
+            ` : (isIOS && !isStandalone ? `
+              <!-- لا يتم عرض أي زر لتفعيل الإشعارات في متصفح Safari العادي على iOS لتجنب المحاولات الخاطئة -->
+            ` : `
+              <button class="btn btn-primary btn-lg" id="enableNotifsBtn"><i class="fa-solid fa-bell"></i> تفعيل الإشعارات الآن</button>
+            `))}
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line-soft); display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-secondary btn-sm" id="testIosPermBtn" style="background: #9c6e38; color: #fff; border: none; font-size: 12px; padding: 6px 12px;"><i class="fa-solid fa-shield-halved"></i> TEST iOS PERMISSION</button>
+          <button class="btn btn-secondary btn-sm" id="showNotifDebugBtn" style="font-size: 12px; padding: 6px 12px;"><i class="fa-solid fa-terminal"></i> لوحة التشخيص (Debug Panel)</button>
+        </div>
+
+        ${perm === "denied" ? `
+          <div style="margin-top:14px;padding:12px;background:rgba(220,38,38,0.06);border-radius:var(--r-sm);border:1px solid rgba(220,38,38,0.2);font-size:12.5px;color:var(--danger)">
+            <i class="fa-solid fa-circle-exclamation"></i> <strong>طريقة إلغاء الحظر:</strong> 
+            ${isIOS ? `
+              تم حظر الإشعارات لهذا التطبيق على آيفون. لإلغاء الحظر: اذهب إلى إعدادات الآيفون (Settings) ➔ الإشعارات (Notifications) ➔ اختر "بوابة إرث" ➔ قم بتفعيل "السماح بالإشعارات" (Allow Notifications). أو قم بحذف التطبيق من الشاشة الرئيسية وإعادة تثبيته.
+            ` : `
+              اضغط على أيقونة الإعدادات أو القفل <i class="fa-solid fa-sliders"></i> في شريط عنوان المتصفح ➔ اختر "إعدادات الموقع" (Site Settings) ➔ غيّر إذن الإشعارات إلى "سماح" (Allow) ثم أعد تحميل الصفحة.
+            `}
+          </div>
+        ` : ""}
+      </div>
+
+      <!-- قائمة الأجهزة - سيتم تعبئتها لاحقاً بشكل غير متزامن لتفادي بطء الواجهة -->
+      <div id="userDevicesContainer" style="margin-top:18px">
+        <h4 style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:10px">الأجهزة المسجلة لتلقي الإشعارات</h4>
+        <div style="font-size:12.5px;color:var(--ink-muted)">
+          <i class="fa-solid fa-spinner fa-spin" style="margin-left:6px;color:var(--gold-deep)"></i> جاري تحميل قائمة الأجهزة المسجلة…
+        </div>
+      </div>
+    </div>
+
+    <!-- تفضيلات الإشعارات حسب النوع -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-head"><h3>تفضيلات أنواع التنبيهات</h3></div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+        ${Object.entries(NOTIF_PREFS).map(([k,v])=>`
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:14px;color:var(--ink)">
+            <span><i class="fa-solid ${v.icon}" style="margin-left:8px;color:var(--gold-deep)"></i> ${v.label}</span>
+            <input type="checkbox" data-npref="${k}" ${State.notifPrefs[k]!==false?'checked':''}>
+          </label>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  // نداء غير متزامن لجلب الأجهزة من Firestore دون تعطيل المعاينة الفورية
+  S.listUserTokens(u.uid).then((userTokens) => {
+    const container = $("#userDevicesContainer");
+    if(!container) return;
+    container.innerHTML = `
+      <h4 style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:10px">الأجهزة المسجلة لتلقي الإشعارات (${userTokens.length})</h4>
+      ${userTokens.length ? `
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${userTokens.map(t => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-paper);border-radius:var(--r-sm);border:1px solid var(--line-soft);font-size:13px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <i class="fa-solid fa-display" style="color:var(--gold-deep)"></i>
+                <div>
+                  <div style="font-weight:700;color:var(--ink)">${esc(t.device || "جهاز غير محدد")}</div>
+                  <div style="font-size:11px;color:var(--ink-faint)">آخر تواجد: ${esc(t.lastSeen ? new Date(t.lastSeen.seconds * 1000).toLocaleString("ar-SA") : "—")}</div>
+                </div>
+              </div>
+              <span class="status-badge" style="font-size:11px;background:var(--bg-subtle)">مُوثّق في Firestore</span>
+            </div>
+          `).join("")}
+        </div>
+      ` : `<div style="font-size:12.5px;color:var(--ink-muted)">لا توجد أجهزة مسجلة حالياً. قم بتفعيل الإشعارات أعلاه لتسجيل هذا الجهاز.</div>`}
+    `;
+  }).catch((err) => {
+    console.warn("[Portal] listUserTokens async load failed:", err);
+    const container = $("#userDevicesContainer");
+    if(container) {
+      container.innerHTML = `
+        <h4 style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:10px">الأجهزة المسجلة لتلقي الإشعارات</h4>
+        <div style="font-size:12.5px;color:var(--danger)">تعذّر تحميل قائمة الأجهزة المسجلة.</div>
+      `;
+    }
+  });
+
+  // ربط أحداث الإعدادات
+  if($("#enableNotifsBtn")){
+    $("#enableNotifsBtn").addEventListener("click", () => {
+      console.log("[iOS Push Debug] Button clicked, starting permission flow");
+      console.log("[iOS Push Debug] navigator.standalone value:", window.navigator ? window.navigator.standalone : "undefined");
+      console.log("[iOS Push Debug] display-mode standalone matches:", window.matchMedia?.("(display-mode: standalone)").matches);
+      console.log("[iOS Push Debug] Notification.permission BEFORE request:", typeof Notification !== "undefined" ? Notification.permission : "undefined");
+
+      const btn = $("#enableNotifsBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري التفعيل...`;
+
+      // 1. طلب إذن الإشعارات بشكل متزامن تماماً دون أي await
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        console.log("[iOS Push Debug] Requesting permission synchronously in user gesture context");
+        Notification.requestPermission().then((perm) => {
+          console.log("[iOS Push Debug] Notification.requestPermission resolved to:", perm);
+          proceedWithActivation(perm);
+        }).catch((err) => {
+          console.error("[iOS Push Debug] requestPermission failed synchronously:", err);
+          proceedWithActivation("denied");
+        });
+      } else {
+        const currentPerm = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+        console.log("[iOS Push Debug] Notification.permission is not 'default', proceeding directly with:", currentPerm);
+        proceedWithActivation(currentPerm);
+      }
+
+      // 2. معالجة باقي العمليات غير المتزامنة بعد حسم الحصول على الإذن
+      async function proceedWithActivation(perm) {
+        if(perm === "denied"){
+          toast("تم رفض إذن الإشعارات من المتصفح", "err");
+          renderSettings(el);
+          return;
+        }
+        if(perm !== "granted"){
+          toast("تعذّر تفعيل الإشعارات في هذا المتصفح", "err");
+          renderSettings(el);
+          return;
+        }
+
+        try {
+          console.log("[iOS Push Debug] Permission is granted. Calling S.initMessaging...");
+          const res = await S.initMessaging(u.uid);
+          console.log("[iOS Push Debug] S.initMessaging response:", res);
+
+          if(res.ok){
+            showSuccessAnimation("تم تفعيل الإشعارات بنجاح!", "تم تسجيل جهازك في الخدمة وحفظ رمز التوصيل في Firestore بنجاح.", () => {
+              renderSettings(el);
+            });
+          } else {
+            toast("تعذّر تفعيل الإشعارات في هذا المتصفح", "err");
+            renderSettings(el);
+          }
+        } catch (error) {
+          console.error("[iOS Push Debug] Error caught during post-permission setup:", error);
+          console.error("[iOS Push Debug] Error details - message:", error.message, "stack:", error.stack);
+          toast("تعذّر تفعيل الإشعارات بسبب خطأ داخلي", "err");
+          renderSettings(el);
+        }
+      }
+    });
+  }
+
+  if($("#testIosPermBtn")){
+    $("#testIosPermBtn").addEventListener("click", () => {
+      console.log("[TEST iOS PERMISSION] Clicked!");
+      if (!("Notification" in window)) {
+        alert("Notification API غير مدعومة");
+        return;
+      }
+
+      console.log("permission before:", Notification.permission);
+      alert("Permission before: " + Notification.permission);
+
+      Notification.requestPermission()
+        .then(permission => {
+          console.log("permission result:", permission);
+          alert("Permission: " + permission);
+        })
+        .catch(error => {
+          console.error("permission error:", error);
+          alert("Error: " + error);
+        });
+    });
+  }
+
+  if($("#showNotifDebugBtn")){
+    $("#showNotifDebugBtn").addEventListener("click", async () => {
+      const btn = $("#showNotifDebugBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري التشخيص...`;
+      try {
+        const d = await getNotifDebugData();
+        openNotifDebugModal(d);
+      } catch(e) {
+        alert("Error gathering debug data: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-terminal"></i> لوحة التشخيص (Debug Panel)`;
+      }
+    });
+  }
+
+  if($("#disableNotifsBtn")){
+    $("#disableNotifsBtn").addEventListener("click", async () => {
+      await S.disableMessaging(u.uid);
+      toast("تم إيقاف الإشعارات لهذا الجهاز");
+      renderSettings(el);
+    });
+  }
+
+  if($("#sendTestNotifBtn")){
+    $("#sendTestNotifBtn").addEventListener("click", async () => {
+      const btn = $("#sendTestNotifBtn");
+      btn.disabled = true;
+      try{
+        await S.pushNotification({
+          userId: u.uid,
+          type: "system",
+          title: "إشعار تجريبي من البوابة 🔔",
+          body: `مرحباً ${u.name}، هذا إشعار تجريبي لتأكيد كفاءة وتوصيل الإشعارات على جهازك.`,
+          link: "notifs"
+        });
+        S.showLocalNotification("إشعار تجريبي من البوابة 🔔", `مرحباً ${u.name}، هذا إشعار تجريبي لتأكيد كفاءة التوصيل.`);
+        showSuccessAnimation("تم إرسال الإشعار التجريبي!", "وصل الإشعار التجريبي لمركز الإشعارات والجهاز بنجاح.");
+      }catch(e){
+        toast("تعذّر إرسال الإشعار التجريبي", "err");
+      }finally{
+        btn.disabled = false;
+      }
+    });
+  }
+
+  $$("[data-npref]", el).forEach(chk => {
+    chk.addEventListener("change", async ()=>{
+      State.notifPrefs[chk.dataset.npref] = chk.checked;
+      await S.setNotifPrefs(u.uid, State.notifPrefs);
+      toast("تم حفظ تفضيلات الإشعارات");
+    });
+  });
+}
+
+/* ════════════════ 9. الملفات (Files) ════════════════ */
+
+/* ════════ مساعدة النافذة والشريط ════════ */
+function closeSidebar(){
+  const sb = $("#sidebar");
+  if(sb) sb.classList.remove("open");
+  const sc = $("#scrim");
+  if(sc) sc.classList.remove("show");
+}
+
+$("#menuToggle").addEventListener("click", ()=>{
+  $("#sidebar").classList.add("open");
+  $("#scrim").classList.add("show");
+});
+
+if($("#bellBtn")){
+  $("#bellBtn").addEventListener("click", () => navigate("notifs"));
+}
+
+function renderNotifPanel(){}
+function handleDeepLinkHash(){}
+
+/* ════════════════ أدوات عامة (General Tools Hub) ════════════════ */
+const GENERAL_TOOLS = [
+  {
+    id: "pdf_compress",
+    title: "ضغط ملفات PDF",
+    desc: "قلل حجم ملفات PDF بجودة ممتازة مباشرة من متصفحك بشكل آمن وسريع دون رفعها لأي خادم.",
+    icon: "fa-solid fa-file-pdf",
+    color: "var(--danger)"
+  },
+  {
+    id: "img_to_pdf",
+    title: "دمج الصور إلى PDF",
+    desc: "حوّل عدة صور إلى ملف PDF واحد مرتب بترتيبك الخاص مباشرة في متصفحك بشكل آمن.",
+    icon: "fa-solid fa-images",
+    color: "var(--success)"
+  },
+  {
+    id: "qr_generator",
+    title: "مولّد الباركود",
+    desc: "حوّل أي رابط أو نص إلى باركود (QR Code) جاهز للتحميل محلياً بجودة عالية.",
+    icon: "fa-solid fa-qrcode",
+    color: "var(--info)"
+  }
+];
+
+function renderTools(el) {
+  if(!el) el = $("#viewHost");
+  
+  const toolsHtml = GENERAL_TOOLS.map(t => `
+    <div class="card tool-card" data-tool-id="${t.id}" style="padding: 24px; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid var(--line-soft); position: relative; overflow: hidden; background: var(--bg-paper);">
+      <div class="tool-icon-wrapper" style="width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bg-subtle); margin-bottom: 16px; transition: all 0.2s ease; border: 1px solid var(--line-soft);">
+        <i class="${t.icon}" style="font-size: 28px; color: ${t.color || 'var(--gold-deep)'};"></i>
+      </div>
+      <h3 style="font-size: 16px; font-weight: 800; color: var(--ink); margin: 0 0 8px 0;">${t.title}</h3>
+      <p style="font-size: 12.5px; color: var(--ink-muted); margin: 0; line-height: 1.6; flex-grow: 1;">${t.desc}</p>
+    </div>
+  `).join("");
+
+  el.innerHTML = `
+    ${pageHead("Tools", "أدوات عامة", "حقيبة الأدوات العامة للموظفين", "المحليّة", "أدوات مساعدة لضغط الملفات ومعالجتها بالكامل داخل متصفحك بسرية وسرعة فائقة.")}
+    
+    <div class="tools-grid-container" style="margin-top: 24px;">
+      <div class="tools-grid">
+        ${toolsHtml}
+      </div>
+    </div>
+  `;
+
+  // ربط أحداث النقر للبطاقات للانتقال للأداة المعنية
+  $$(".tool-card", el).forEach(card => {
+    card.addEventListener("click", () => {
+      const toolId = card.dataset.toolId;
+      navigate(toolId);
+    });
+  });
+}
+
+/* ════════ دمج الصور إلى PDF (Image to PDF Merge) ════════ */
+let selectedImages = [];
+let generatedPdfBytes = null;
+
+function renderImgToPdf(el) {
+  if(!el) el = $("#viewHost");
+  selectedImages = [];
+  generatedPdfBytes = null;
+
+  el.innerHTML = `
+    ${pageHead("Tools", "دمج الصور إلى PDF", "أداة دمج وتحويل الصور إلى PDF", "محلياً", "قم بتحويل وتجميع عدة صور إلى ملف PDF واحد مرتب بالترتيب الذي تفضله بالكامل داخل متصفحك.")}
+    
+    <div class="card" style="max-width: 800px; margin: 0 auto; padding: 24px;">
+      <div id="imgToPdfApp">
+        <!-- منطقة الرفع (Double-Bezel) -->
+        <div class="double-bezel" style="margin-bottom: 20px;">
+          <div class="card" id="imgDropZone" style="padding: 48px 24px; text-align: center; border: 2px dashed var(--line); border-radius: var(--r-md); background: var(--bg-paper); cursor: pointer; transition: all 0.22s var(--ease);">
+            <div style="font-size: 56px; color: var(--success); margin-bottom: 16px;"><i class="fa-solid fa-images"></i></div>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">اسحب وأفلت الصور هنا</h3>
+            <p style="font-size: 12.5px; color: var(--ink-muted); margin-bottom: 16px;">تقبل صيغ JPG, PNG, WEBP (يمكنك اختيار صور متعددة)</p>
+            <input type="file" id="imgFileInput" accept="image/*" multiple style="display: none;">
+            <span class="btn btn-secondary btn-sm" style="pointer-events: none;"><i class="fa-solid fa-folder-open"></i> اختيار الصور</span>
+          </div>
+        </div>
+
+        <!-- قسم المعاينة والترتيب -->
+        <div id="imgPreviewSection" style="display: none; margin-bottom: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--ink); margin: 0;">الصور المحددة (<span id="imgCount">0</span>)</h4>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAddMoreImgs" style="padding: 6px 14px; font-size: 12px;"><i class="fa-solid fa-plus"></i> إضافة المزيد</button>
+          </div>
+          <div id="imgThumbnailsGrid" class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; background: var(--bg-subtle); padding: 16px; border-radius: var(--r-md); border: 1px solid var(--line-soft);">
+            <!-- ستضاف الصور هنا ديناميكياً -->
+          </div>
+        </div>
+
+        <!-- زر الإجراء الرئيسي -->
+        <div id="imgMergeAction" style="display: none; text-align: center; margin-top: 24px;">
+          <button type="button" class="btn btn-primary btn-lg" id="btnMergeImages" style="padding: 12px 40px; border-radius: var(--r-pill); font-size: 15px;"><i class="fa-solid fa-file-pdf"></i> دمج وتحويل الصور إلى PDF</button>
+        </div>
+
+        <!-- حالة معالجة الدمج -->
+        <div id="imgMergeProgress" style="display: none; text-align: center; padding: 32px 0;">
+          <div style="font-size: 48px; color: var(--gold-deep); margin-bottom: 16px;"><i class="fa-solid fa-spinner fa-spin"></i></div>
+          <h3 style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">جاري دمج ومعالجة الصور…</h3>
+          <p style="font-size: 13px; color: var(--ink-muted);">يرجى الانتظار، تتم المعالجة بالكامل محلياً داخل متصفحك.</p>
+        </div>
+
+        <!-- حالة النجاح والتحميل -->
+        <div id="imgMergeSuccess" style="display: none; text-align: center; padding: 32px 0;">
+          <div style="font-size: 64px; color: var(--success); margin-bottom: 20px;"><i class="fa-solid fa-circle-check"></i></div>
+          <h3 style="font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 8px;">تم دمج الصور بنجاح!</h3>
+          <p style="font-size: 13px; color: var(--ink-muted); margin-bottom: 24px;">تم تحويل وتجميع كافة الصور في ملف PDF واحد بنجاح.</p>
+          <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary" id="btnMergeAnother" style="padding: 10px 24px; border-radius: var(--r-pill);"><i class="fa-solid fa-rotate-left"></i> دمج صور أخرى</button>
+            <button type="button" class="btn btn-primary" id="btnDownloadMerged" style="padding: 10px 32px; border-radius: var(--r-pill);"><i class="fa-solid fa-download"></i> تحميل ملف PDF الناتج</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  const dropZone = $("#imgDropZone", el);
+  const fileInput = $("#imgFileInput", el);
+  const btnAddMore = $("#btnAddMoreImgs", el);
+  const btnMerge = $("#btnMergeImages", el);
+  const btnMergeAnother = $("#btnMergeAnother", el);
+  const btnDownload = $("#btnDownloadMerged", el);
+
+  // إعداد مستمعات الأحداث لمنطقة الرفع
+  dropZone.addEventListener("click", () => fileInput.click());
+  btnAddMore.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", (e) => {
+    handleFilesSelected(e.target.files);
+    fileInput.value = ""; // تفريغ القيمة للسماح بإعادة اختيار نفس الملف
+  });
+
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = "var(--success)";
+    dropZone.style.background = "var(--bg-subtle)";
+  });
+
+  dropZone.addEventListener("dragleave", () => {
+    dropZone.style.borderColor = "var(--line)";
+    dropZone.style.background = "var(--bg-paper)";
+  });
+
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = "var(--line)";
+    dropZone.style.background = "var(--bg-paper)";
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  });
+
+  btnMerge.addEventListener("click", mergeSelectedImagesToPdf);
+  
+  // لإلغاء الارتباطات وعمل تنظيف عند مغادرة الصفحة أو الضغط على دمج آخر
+  function resetMergeApp() {
+    selectedImages.forEach(img => {
+      if(img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+    });
+    selectedImages = [];
+    generatedPdfBytes = null;
+    
+    $("#imgPreviewSection", el).style.display = "none";
+    $("#imgMergeAction", el).style.display = "none";
+    $("#imgMergeSuccess", el).style.display = "none";
+    $("#imgMergeProgress", el).style.display = "none";
+    $("#imgToPdfApp > .double-bezel", el).style.display = "block";
+  }
+
+  btnMergeAnother.addEventListener("click", resetMergeApp);
+  btnDownload.addEventListener("click", downloadMergedPdf);
+}
+
+function handleFilesSelected(fileList) {
+  for (let i = 0; i < fileList.length; i++) {
+    const file = fileList[i];
+    const extension = file.name.split('.').pop().toLowerCase();
+    const isAllowedExt = ["jpg", "jpeg", "png", "webp", "gif"].includes(extension);
+
+    if (file.type.startsWith("image/") || isAllowedExt) {
+      selectedImages.push({
+        id: "img-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
+        file: file,
+        previewUrl: null
+      });
+    } else {
+      toast(`الملف "${file.name}" ليس صورة صالحة.`, "err");
+    }
+  }
+  
+  if (selectedImages.length > 0) {
+    const appContainer = document.querySelector("#imgToPdfApp");
+    if(appContainer) {
+      const bezel = appContainer.querySelector(".double-bezel");
+      if(bezel) bezel.style.display = "none";
+    }
+  }
+  renderThumbnailsList();
+}
+
+function renderThumbnailsList() {
+  const container = document.querySelector("#imgThumbnailsGrid");
+  const countSpan = document.querySelector("#imgCount");
+  const appContainer = document.querySelector("#imgToPdfApp");
+  
+  if (!container) return;
+  
+  if (selectedImages.length === 0) {
+    document.querySelector("#imgPreviewSection").style.display = "none";
+    document.querySelector("#imgMergeAction").style.display = "none";
+    if(appContainer) {
+      const bezel = appContainer.querySelector(".double-bezel");
+      if(bezel) bezel.style.display = "block";
+    }
+    return;
+  }
+  
+  document.querySelector("#imgPreviewSection").style.display = "block";
+  document.querySelector("#imgMergeAction").style.display = "block";
+  countSpan.textContent = selectedImages.length;
+  
+  container.innerHTML = selectedImages.map((img, idx) => {
+    if (!img.previewUrl) {
+      img.previewUrl = URL.createObjectURL(img.file);
+    }
+    const isFirst = idx === 0;
+    const isLast = idx === selectedImages.length - 1;
+    
+    return `
+      <div class="img-thumbnail-item" draggable="true" data-index="${idx}" style="background: var(--bg-paper); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 8px; display: flex; flex-direction: column; gap: 8px; position: relative; cursor: move; transition: border-color 0.15s ease;">
+        <!-- شارة الترتيب -->
+        <span style="position: absolute; top: 6px; right: 6px; background: var(--ink); color: #fff; font-size: 10.5px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 10; border: 1.5px solid var(--bg-paper); box-shadow: 0 2px 4px rgba(0,0,0,0.1);">${idx + 1}</span>
+        
+        <!-- معاينة الصورة -->
+        <div style="width: 100%; aspect-ratio: 1; border-radius: var(--r-xs); overflow: hidden; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid var(--line-soft);">
+          <img src="${img.previewUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+        
+        <!-- بيانات الملف -->
+        <div style="overflow: hidden;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--ink); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;" title="${esc(img.file.name)}">${esc(img.file.name)}</div>
+          <div style="font-size: 10px; color: var(--ink-muted);">${(img.file.size / 1024).toFixed(1)} KB</div>
+        </div>
+        
+        <!-- التحكم بالترتيب والحذف -->
+        <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line-soft); padding-top: 6px; margin-top: auto; gap: 4px;">
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn-thumbnail-move-prev" data-index="${idx}" ${isFirst ? 'disabled' : ''} style="border: none; background: none; color: ${isFirst ? 'var(--ink-faint)' : 'var(--ink-soft)'}; cursor: ${isFirst ? 'default' : 'pointer'}; padding: 4px; font-size: 11px;"><i class="fa-solid fa-chevron-right"></i></button>
+            <button type="button" class="btn-thumbnail-move-next" data-index="${idx}" ${isLast ? 'disabled' : ''} style="border: none; background: none; color: ${isLast ? 'var(--ink-faint)' : 'var(--ink-soft)'}; cursor: ${isLast ? 'default' : 'pointer'}; padding: 4px; font-size: 11px;"><i class="fa-solid fa-chevron-left"></i></button>
+          </div>
+          <button type="button" class="btn-thumbnail-delete" data-index="${idx}" style="border: none; background: none; color: var(--danger); cursor: pointer; padding: 4px; font-size: 11px;" title="حذف الصورة"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+      </div>
+    `;
+  }).join("");
+  
+  // ربط السحب والإفلات لترتيب الصور
+  document.querySelectorAll(".img-thumbnail-item", container).forEach(item => {
+    item.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", e.target.dataset.index);
+      e.target.style.opacity = "0.4";
+    });
+    item.addEventListener("dragover", (e) => e.preventDefault());
+    item.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const srcIdx = parseInt(e.dataTransfer.getData("text/plain"), 10);
+      const target = e.target.closest(".img-thumbnail-item");
+      if (!target) return;
+      const targetIdx = parseInt(target.dataset.index, 10);
+      
+      if (srcIdx !== targetIdx && !isNaN(srcIdx)) {
+        const moved = selectedImages.splice(srcIdx, 1)[0];
+        selectedImages.splice(targetIdx, 0, moved);
+        renderThumbnailsList();
+      }
+    });
+    item.addEventListener("dragend", (e) => {
+      e.target.style.opacity = "1";
+    });
+  });
+  
+  // ربط أزرار التحكم بالنقر
+  document.querySelectorAll(".btn-thumbnail-move-prev", container).forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (idx > 0) {
+        const moved = selectedImages.splice(idx, 1)[0];
+        selectedImages.splice(idx - 1, 0, moved);
+        renderThumbnailsList();
+      }
+    });
+  });
+  
+  document.querySelectorAll(".btn-thumbnail-move-next", container).forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (idx < selectedImages.length - 1) {
+        const moved = selectedImages.splice(idx, 1)[0];
+        selectedImages.splice(idx + 1, 0, moved);
+        renderThumbnailsList();
+      }
+    });
+  });
+  
+  document.querySelectorAll(".btn-thumbnail-delete", container).forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (selectedImages[idx].previewUrl) {
+        URL.revokeObjectURL(selectedImages[idx].previewUrl);
+      }
+      selectedImages.splice(idx, 1);
+      renderThumbnailsList();
+    });
+  });
+}
+
+// تحويل أي صورة إلى JPG bytes باستخدام Canvas
+async function imageToJpgBytes(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            blob.arrayBuffer().then(resolve).catch(reject);
+          } else {
+            reject(new Error("تصدير Canvas كـ Blob فشل."));
+          }
+        }, "image/jpeg", 0.92);
+      };
+      img.onerror = () => reject(new Error("تحميل كائن الصورة فشل."));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("قراءة الصورة فشلت."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function mergeSelectedImagesToPdf() {
+  if (selectedImages.length === 0) return;
+  
+  document.querySelector("#imgPreviewSection").style.display = "none";
+  document.querySelector("#imgMergeAction").style.display = "none";
+  document.querySelector("#imgMergeProgress").style.display = "block";
+  
+  try {
+    const pdfDoc = await window.PDFLib.PDFDocument.create();
+    
+    for (let i = 0; i < selectedImages.length; i++) {
+      const imgItem = selectedImages[i];
+      const file = imgItem.file;
+      const extension = file.name.split('.').pop().toLowerCase();
+      const isJpg = file.type === "image/jpeg" || file.type === "image/jpg" || extension === "jpg" || extension === "jpeg";
+      const isPng = file.type === "image/png" || extension === "png";
+      
+      let pdfImg;
+      if (isJpg) {
+        const imgBytes = await file.arrayBuffer();
+        pdfImg = await pdfDoc.embedJpg(imgBytes);
+      } else if (isPng) {
+        const imgBytes = await file.arrayBuffer();
+        pdfImg = await pdfDoc.embedPng(imgBytes);
+      } else {
+        const imgBytes = await imageToJpgBytes(file);
+        pdfImg = await pdfDoc.embedJpg(imgBytes);
+      }
+      
+      const page = pdfDoc.addPage([pdfImg.width, pdfImg.height]);
+      page.drawImage(pdfImg, {
+        x: 0,
+        y: 0,
+        width: pdfImg.width,
+        height: pdfImg.height
+      });
+    }
+    
+    generatedPdfBytes = await pdfDoc.save();
+    
+    document.querySelector("#imgMergeProgress").style.display = "none";
+    document.querySelector("#imgMergeSuccess").style.display = "block";
+    toast("تم إنشاء ملف PDF بنجاح!");
+  } catch (err) {
+    console.error("[Portal] merge images error:", err);
+    document.querySelector("#imgMergeProgress").style.display = "none";
+    document.querySelector("#imgPreviewSection").style.display = "block";
+    document.querySelector("#imgMergeAction").style.display = "block";
+    toast("فشل دمج الصور: " + (err.message || err), "err");
+  }
+}
+
+function downloadMergedPdf() {
+  if (!generatedPdfBytes) return;
+  const blob = new Blob([generatedPdfBytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `دمج-صور-${Date.now()}.pdf`;
+  a.click();
+  
+  URL.revokeObjectURL(url);
+  toast("تم تحميل ملف PDF المدمج");
+}
+
+/* ════════ مولّد الباركود (QR Code Generator) ════════ */
+function renderQrGenerator(el) {
+  if(!el) el = $("#viewHost");
+
+  el.innerHTML = `
+    ${pageHead("Tools", "مولّد الباركود", "أداة توليد الباركود (QR Code)", "محلياً", "قم بتحويل أي روابط أو نصوص إلى رمز استجابة سريعة (QR Code) بخلفية شفافة وتنزيله فوراً.")}
+    
+    <div class="card" style="max-width: 650px; margin: 0 auto; padding: 24px;">
+      <div id="qrGeneratorApp">
+        <!-- قسم الإدخال -->
+        <div id="qrInputForm">
+          <div style="margin-bottom: 20px;">
+            <label style="font-size: 13.5px; font-weight: 700; color: var(--ink); display: block; margin-bottom: 8px;">الرابط أو النص المطلوب تحويله:</label>
+            <textarea id="qrTextVal" class="form-control" style="width: 100%; height: 110px; padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--line); font-size: 14px; resize: none; background: var(--bg-app); color: var(--ink);" placeholder="اكتب الرابط (مثال: https://example.com) أو أي نص تريد تحويله لرمز باركود..."></textarea>
+            <div id="qrLengthCounter" style="text-align: left; font-size: 11.5px; color: var(--ink-muted); margin-top: 4px;">0 حرف</div>
+          </div>
+
+          <!-- تحذيرات المدخلات -->
+          <div id="qrWarningComplex" style="display: none; background: #fffcf0; border: 1px solid #e6c229; padding: 12px; border-radius: var(--r-sm); margin-bottom: 20px; color: #856404; font-size: 12.5px; line-height: 1.5; text-align: right;">
+            <i class="fa-solid fa-triangle-exclamation"></i> النص المُدخل طويل جداً. الباركود الناتج سيكون مكثفاً ومكتظاً، مما قد يجعل مسحه صعباً ببعض كاميرات الهواتف.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+            <!-- الحجم -->
+            <div>
+              <label style="font-size: 13px; font-weight: 700; color: var(--ink); display: block; margin-bottom: 6px;">حجم الباركود (الدقة):</label>
+              <select id="qrSizeSelect" class="form-control" style="width: 100%; padding: 8px; border-radius: var(--r-sm); border: 1px solid var(--line); font-size: 13px; background: var(--bg-app); color: var(--ink);">
+                <option value="300" selected>صغير (300 × 300 بكسل)</option>
+                <option value="600">متوسط (600 × 600 بكسل)</option>
+                <option value="1000">كبير (1000 × 1000 بكسل)</option>
+              </select>
+            </div>
+            
+            <!-- اللون -->
+            <div>
+              <label style="font-size: 13px; font-weight: 700; color: var(--ink); display: block; margin-bottom: 6px;">لون خطوط الباركود:</label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="color" id="qrColorPicker" value="#000000" style="width: 40px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: var(--r-xs); cursor: pointer; background: none;">
+                <span id="qrColorHex" style="font-family: monospace; font-size: 13.5px; color: var(--ink-soft);">#000000</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- تحذير لون ضعيف التباين -->
+          <div id="qrWarningColor" style="display: none; background: #fffcf0; border: 1px solid #e6c229; padding: 12px; border-radius: var(--r-sm); margin-bottom: 20px; color: #856404; font-size: 12.5px; line-height: 1.5; text-align: right;">
+            <i class="fa-solid fa-circle-exclamation"></i> اللون المختار فاتح جداً! التباين الضعيف قد يعطل مسح الرمز. ننصحك باختيار ألوان داكنة.
+          </div>
+
+          <div style="text-align: center;">
+            <button type="button" class="btn btn-primary btn-lg" id="btnGenQr" style="padding: 12px 40px; border-radius: var(--r-pill); font-size: 15px;"><i class="fa-solid fa-qrcode"></i> توليد الباركود الآن</button>
+          </div>
+        </div>
+
+        <!-- قسم المعاينة والتحميل -->
+        <div id="qrPreviewSection" style="display: none; text-align: center; padding: 20px 0;">
+          <h4 style="font-size: 14.5px; font-weight: 700; color: var(--ink); margin-bottom: 16px;">معاينة الباركود (خلفية شفافة)</h4>
+          
+          <div class="double-bezel" style="display: inline-block; margin-bottom: 24px; padding: 8px; background: repeating-conic-gradient(var(--bg-subtle) 0% 25%, var(--bg-paper) 0% 50%) 50% / 16px 16px; border-radius: var(--r-md);">
+            <!-- canvas لعرض الرمز مخفياً وحفظه، وصورة image للمعاينة -->
+            <canvas id="qrCanvas" style="display: none;"></canvas>
+            <div class="card" style="padding: 16px; border: 1px solid var(--line-soft); background: transparent; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+              <img id="qrPreviewImg" style="max-width: 250px; height: auto; display: block;" alt="الباركود المولد">
+            </div>
+          </div>
+          
+          <p style="font-size: 12.5px; color: var(--ink-muted); margin-bottom: 24px;">تم توليد الرمز محلياً بخلفية شفافة تماماً.</p>
+
+          <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary" id="btnGenAnotherQr" style="padding: 10px 24px; border-radius: var(--r-pill);"><i class="fa-solid fa-rotate-left"></i> توليد باركود آخر</button>
+            <button type="button" class="btn btn-primary" id="btnDownloadQr" style="padding: 10px 32px; border-radius: var(--r-pill);"><i class="fa-solid fa-download"></i> تحميل الباركود (PNG)</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  const inputForm = $("#qrInputForm", el);
+  const previewSection = $("#qrPreviewSection", el);
+  const textarea = $("#qrTextVal", el);
+  const sizeSelect = $("#qrSizeSelect", el);
+  const colorPicker = $("#qrColorPicker", el);
+  const colorHex = $("#qrColorHex", el);
+  const lenCounter = $("#qrLengthCounter", el);
+  const warnComplex = $("#qrWarningComplex", el);
+  const warnColor = $("#qrWarningColor", el);
+  const btnGen = $("#btnGenQr", el);
+  const btnGenAnother = $("#btnGenAnotherQr", el);
+  const btnDownload = $("#btnDownloadQr", el);
+  const qrCanvas = $("#qrCanvas", el);
+  const previewImg = $("#qrPreviewImg", el);
+
+  let qrDownloadUrl = "";
+  let qrFileName = "qr-code.png";
+
+  // مراقبة طول المدخلات
+  textarea.addEventListener("input", () => {
+    const len = textarea.value.length;
+    lenCounter.textContent = `${len} حرف`;
+    warnComplex.style.display = len > 150 ? "block" : "none";
+  });
+
+  // مراقبة اختيار الألوان وحساب التباين
+  colorPicker.addEventListener("input", (e) => {
+    const hex = e.target.value;
+    colorHex.textContent = hex.toUpperCase();
+    
+    // حساب السطوع النسبي للون
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    
+    // إذا كان السطوع عالياً (فاتح) ننبه الموظف
+    warnColor.style.display = luminance > 0.65 ? "block" : "none";
+  });
+
+  btnGen.addEventListener("click", () => {
+    const textVal = textarea.value.trim();
+    if (!textVal) {
+      toast("الرجاء إدخال نص أو رابط أولاً لتوليد الباركود.", "err");
+      return;
+    }
+
+    if (typeof window.QRCode === "undefined" && typeof QRCode === "undefined") {
+      toast("عذراً، مكتبة توليد الباركود لم تكتمل عملية تحميلها بعد. الرجاء الانتظار ثوانٍ والمحاولة مرة أخرى.", "err");
+      return;
+    }
+
+    const qrLib = window.QRCode || QRCode;
+    const size = parseInt(sizeSelect.value, 10);
+    const darkColor = colorPicker.value;
+
+    try {
+      // استخدام المكتبة المحلية لتصيير الرمز على الـ Canvas مباشرة بخلفية شفافة
+      qrLib.toCanvas(qrCanvas, textVal, {
+        width: size,
+        margin: 2,
+        color: {
+          dark: darkColor,
+          light: "#00000000" // شفاف بالكامل
+        }
+      }, (error) => {
+        if (error) {
+          console.error("[Portal] QRCode generation failed:", error);
+          toast("فشل توليد الباركود: " + error.message, "err");
+          return;
+        }
+
+        // تحويل محتويات الـ Canvas لصورة للعرض في المعاينة وحفظها للتنزيل
+        qrDownloadUrl = qrCanvas.toDataURL("image/png");
+        previewImg.src = qrDownloadUrl;
+
+        // توليد اسم ملف معبر من النص المدخل
+        let clean = textVal
+          .replace(/https?:\/\/(www\.)?/, "") // إزالة الرابط البروتوكول
+          .replace(/[^a-zA-Z0-9أ-ي]/g, "-")  // تعويض الرموز الفاصلة بـ -
+          .substring(0, 20);
+        qrFileName = clean ? `qr-${clean}.png` : "qr-code.png";
+
+        inputForm.style.display = "none";
+        previewSection.style.display = "block";
+        toast("تم توليد الباركود بنجاح!");
+      });
+    } catch (err) {
+      console.error("[Portal] QR Code execution exception:", err);
+      toast("حدث خطأ أثناء معالجة الباركود: " + err.message, "err");
+    }
+  });
+
+  btnGenAnother.addEventListener("click", () => {
+    textarea.value = "";
+    lenCounter.textContent = "0 حرف";
+    warnComplex.style.display = "none";
+    warnColor.style.display = "none";
+    colorPicker.value = "#000000";
+    colorHex.textContent = "#000000";
+    qrDownloadUrl = "";
+    previewImg.src = "";
+    
+    previewSection.style.display = "none";
+    inputForm.style.display = "block";
+  });
+
+  btnDownload.addEventListener("click", () => {
+    if (!qrDownloadUrl) return;
+    const a = document.createElement("a");
+    a.href = qrDownloadUrl;
+    a.download = qrFileName;
+    a.click();
+    toast("تم تنزيل صورة الباركود الشفافة");
+  });
+}
+
+/* ════════════════ 10. ضغط الملفات (PDF Compression) ════════════════ */
+function renderPdfCompress(el) {
+  el.innerHTML = `
+    ${pageHead("PDF Compress", "ضغط الملفات", "أداة ضغط مستندات PDF", "محلياً", "قم بضغط ملفات PDF الخاصة بك بالكامل داخل متصفحك بشكل آمن وسريع دون رفعها لأي خوادم.")}
+    
+    <div class="card" style="max-width: 700px; margin: 0 auto; padding: 24px;">
+      <div id="pdfCompressApp">
+        <!-- منطقة الرفع -->
+        <div class="double-bezel" style="margin-bottom: 20px;">
+          <div class="card" id="pdfDropZone" style="padding: 48px 24px; text-align: center; border: 2px dashed var(--line); border-radius: var(--r-md); background: var(--bg-paper); cursor: pointer; transition: all 0.22s var(--ease);">
+            <div style="font-size: 56px; color: var(--gold); margin-bottom: 16px;"><i class="fa-solid fa-file-pdf"></i></div>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">اسحب وأفلت ملف PDF هنا</h3>
+            <p style="font-size: 12.5px; color: var(--ink-muted); margin-bottom: 16px;">أو اضغط لتصفح الملفات من جهازك</p>
+            <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;">
+            <span class="btn btn-secondary btn-sm" style="pointer-events: none;"><i class="fa-solid fa-folder-open"></i> اختيار ملف</span>
+          </div>
+        </div>
+
+        <div id="pdfFileInfo" style="display: none; margin-bottom: 20px; background: var(--bg-subtle); padding: 12px 16px; border-radius: var(--r-sm); border: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 10px; width: 85%;">
+            <i class="fa-solid fa-file-pdf" style="font-size: 24px; color: var(--danger); flex-shrink: 0;"></i>
+            <div style="overflow: hidden;">
+              <div id="pdfFileName" style="font-size: 13.5px; font-weight: 700; color: var(--ink); word-break: break-all; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;"></div>
+              <div id="pdfFileSizeOriginal" style="font-size: 11.5px; color: var(--ink-muted);"></div>
+            </div>
+          </div>
+          <button type="button" id="btnRemovePdf" style="color: var(--danger); font-weight: 700; border: none; background: none; cursor: pointer; padding: 8px;"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+
+        <!-- خيارات مستوى الضغط -->
+        <div id="pdfCompressConfig" style="display: none;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--ink-soft); display: block; margin-bottom: 8px; text-align: center;">اختر مستوى الضغط المطلوب:</label>
+          <div class="segmented-control" style="max-width: 450px; margin: 0 auto 24px;">
+            <button type="button" class="seg-btn active" data-level="balanced"><i class="fa-solid fa-scale-balanced"></i> ضغط متوازن</button>
+            <button type="button" class="seg-btn" data-level="max"><i class="fa-solid fa-bolt"></i> ضغط قوي</button>
+          </div>
+          
+          <div style="display: flex; justify-content: center; margin-top: 16px;">
+            <button type="button" class="btn btn-primary" id="btnStartCompress" style="padding: 10px 32px; border-radius: var(--r-pill); width: 100%; max-width: 250px;"><i class="fa-solid fa-compress"></i> ضغط الملف الآن</button>
+          </div>
+        </div>
+
+        <!-- مشهد معالجة الضغط -->
+        <div id="pdfCompressingState" style="display: none; padding: 48px 24px; text-align: center;">
+          <div style="position: relative; display: inline-block; margin-bottom: 24px;">
+            <div style="font-size: 64px; color: var(--gold);"><i class="fa-solid fa-file-pdf"></i></div>
+            <div style="position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-paper); border: 3px solid var(--gold); border-top-color: transparent; animation: spin 1s linear infinite;"></div>
+          </div>
+          <h3 id="pdfProgressTxt" style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">0%</h3>
+          <p id="pdfStatusTxt" style="font-size: 12.5px; color: var(--ink-muted);">جاري تهيئة الملف المصدري للتصغير...</p>
+        </div>
+
+        <!-- مشهد بعد انتهاء الضغط -->
+        <div id="pdfResultState" style="display: none; text-align: center; padding: 16px 0;">
+        </div>
+      </div>
+    </div>
+  `;
+
+  let selectedFile = null;
+  let compressionLevel = "balanced";
+  let compressedPdfBytes = null;
+
+  const dropZone = $("#pdfDropZone", el);
+  const fileInput = $("#pdfFileInput", el);
+  const fileInfo = $("#pdfFileInfo", el);
+  const configArea = $("#pdfCompressConfig", el);
+  const compressingState = $("#pdfCompressingState", el);
+  const resultState = $("#pdfResultState", el);
+
+  const fileNameEl = $("#pdfFileName", el);
+  const fileSizeOriginalEl = $("#pdfFileSizeOriginal", el);
+  const progressTxt = $("#pdfProgressTxt", el);
+  const statusTxt = $("#pdfStatusTxt", el);
+
+  // Drag & drop handlers
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = "var(--gold)";
+    dropZone.style.background = "var(--gold-pale)";
+  });
+  dropZone.addEventListener("dragleave", () => {
+    dropZone.style.borderColor = "var(--line)";
+    dropZone.style.background = "var(--bg-paper)";
+  });
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = "var(--line)";
+    dropZone.style.background = "var(--bg-paper)";
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelected(file);
+  });
+  dropZone.addEventListener("click", () => {
+    fileInput.click();
+  });
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) handleFileSelected(file);
+  });
+
+  $("#btnRemovePdf", el).addEventListener("click", resetCompressor);
+
+  // Toggle presets
+  const segBtns = $$(".seg-btn", el);
+  segBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      segBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      compressionLevel = btn.dataset.level;
+    });
+  });
+
+  // Action listeners
+  $("#btnStartCompress", el).addEventListener("click", startCompressionProcess);
+
+  function handleFileSelected(file) {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast("الملف المختار ليس بصيغة PDF. يرجى اختيار ملف PDF فقط.", "err");
+      return;
+    }
+    selectedFile = file;
+    
+    dropZone.parentElement.style.display = "none";
+    fileInfo.style.display = "flex";
+    configArea.style.display = "block";
+    resultState.style.display = "none";
+    
+    fileNameEl.textContent = file.name;
+    fileSizeOriginalEl.textContent = fmtSize(file.size);
+  }
+
+  function resetCompressor() {
+    selectedFile = null;
+    compressedPdfBytes = null;
+    
+    dropZone.parentElement.style.display = "block";
+    fileInfo.style.display = "none";
+    configArea.style.display = "none";
+    compressingState.style.display = "none";
+    resultState.style.display = "none";
+    fileInput.value = "";
+  }
+
+  async function startCompressionProcess() {
+    if (!selectedFile) return;
+
+    fileInfo.style.display = "none";
+    configArea.style.display = "none";
+    compressingState.style.display = "block";
+    progressTxt.textContent = "0%";
+    statusTxt.textContent = "جاري تحميل المكتبة وتحضير الملف...";
+
+    try {
+      // Dynamic import of the local compression library
+      const { compress } = await import("./pdf-compress.js");
+      
+      statusTxt.textContent = "جاري قراءة الملف وتجزئة الكائنات...";
+      const buffer = await selectedFile.arrayBuffer();
+      
+      const result = await compress(buffer, {
+        preset: compressionLevel === "max" ? "max" : "balanced",
+        onProgress: (event) => {
+          progressTxt.textContent = `${event.progress || 0}%`;
+          if (event.message) {
+            statusTxt.textContent = translateProgressMessage(event.message);
+          }
+        }
+      });
+
+      if (!result || !result.pdf) {
+        throw new Error("فشلت المعالجة، لم يتم إرجاع ملف مضغوط.");
+      }
+
+      compressedPdfBytes = result.pdf;
+
+      const originalSize = result.stats.originalSize || selectedFile.size;
+      const compressedSize = result.stats.compressedSize || compressedPdfBytes.length;
+      const savedPercentage = result.stats.percentageSaved || ((originalSize - compressedSize) / originalSize * 100);
+
+      if (compressedSize >= originalSize) {
+        showAlreadyCompressedResult(originalSize, compressedSize);
+      } else {
+        showSuccessResult(originalSize, compressedSize, savedPercentage);
+      }
+
+    } catch (err) {
+      console.error("[PDF Compress Failure Details]:", err);
+      if (err.stack) {
+        console.error("[PDF Compress Stack Trace]:", err.stack);
+      }
+      showErrorResult(err.message || "فشلت عملية الضغط. يرجى التأكد من أن ملف الـ PDF غير محمي بكلمة مرور وغير تالف.");
+    }
+  }
+
+  function translateProgressMessage(msg) {
+    if (!msg) return "جاري معالجة الملف...";
+    const m = msg.toLowerCase();
+    if (m.includes("loading") || m.includes("load")) return "جاري تحميل كائنات المستند...";
+    if (m.includes("parsing") || m.includes("parse")) return "جاري قراءة هيكل الـ PDF وتحليله...";
+    if (m.includes("image") || m.includes("compressing")) return "جاري ضغط وإعادة ترميز الصور المضمنة...";
+    if (m.includes("optimizing") || m.includes("optimize")) return "جاري ترتيب الجداول وبناء الهيكل الجديد...";
+    if (m.includes("writing") || m.includes("save")) return "جاري كتابة الملف الجديد وتصديره...";
+    return "جاري معالجة وتصغير حجم الملف...";
+  }
+
+  function showSuccessResult(orig, comp, pct) {
+    compressingState.style.display = "none";
+    resultState.style.display = "block";
+    
+    resultState.innerHTML = `
+      <div style="font-size: 64px; color: var(--success); margin-bottom: 20px;"><i class="fa-solid fa-circle-check"></i></div>
+      <h3 style="font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 12px;">تمت عملية الضغط بنجاح!</h3>
+      
+      <div style="background: var(--bg-subtle); padding: 20px; border-radius: var(--r-md); border: 1px solid var(--line-soft); max-width: 480px; margin: 0 auto 24px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; border-bottom: 1px dashed var(--line-soft); padding-bottom: 16px;">
+          <div>
+            <div style="font-size: 12px; color: var(--ink-muted); margin-bottom: 4px;">الحجم الأصلي</div>
+            <div style="font-size: 18px; font-weight: 800; color: var(--ink-soft);">${fmtSize(orig)}</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: var(--ink-muted); margin-bottom: 4px;">الحجم بعد الضغط</div>
+            <div style="font-size: 18px; font-weight: 800; color: var(--gold-deep);">${fmtSize(comp)}</div>
+          </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div style="font-size: 13px; color: var(--ink-muted); margin-bottom: 6px;">نسبة تقليل الحجم</div>
+          <div style="font-size: 28px; font-weight: 800; color: var(--success);">${pct.toFixed(0)}% أقل</div>
+          <div style="width: 100%; background: var(--bg-hover); height: 8px; border-radius: var(--r-full); margin-top: 10px; overflow: hidden;">
+            <div id="resProgressBar" style="background: var(--success); height: 100%; width: 0%; transition: width 0.6s ease;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary" id="btnCompressAnother" style="padding: 10px 24px; border-radius: var(--r-pill);"><i class="fa-solid fa-rotate-left"></i> ضغط ملف آخر</button>
+        <button type="button" class="btn btn-primary" id="btnDownloadCompressed" style="padding: 10px 32px; border-radius: var(--r-pill);"><i class="fa-solid fa-download"></i> تحميل الملف المضغوط</button>
+      </div>
+    `;
+    
+    setTimeout(() => {
+      const bar = $("#resProgressBar", el);
+      if (bar) bar.style.width = `${pct}%`;
+    }, 100);
+    
+    $("#btnCompressAnother", el).addEventListener("click", resetCompressor);
+    $("#btnDownloadCompressed", el).addEventListener("click", downloadCompressedFile);
+  }
+
+  function showAlreadyCompressedResult(orig, comp) {
+    compressingState.style.display = "none";
+    resultState.style.display = "block";
+    
+    resultState.innerHTML = `
+      <div style="font-size: 64px; color: var(--gold); margin-bottom: 20px;"><i class="fa-solid fa-circle-exclamation"></i></div>
+      <h3 style="font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 12px;">الملف مضغوط بالفعل!</h3>
+      
+      <div style="background: var(--bg-subtle); padding: 20px; border-radius: var(--r-md); border: 1px solid var(--line-soft); max-width: 480px; margin: 0 auto 24px; text-align: center;">
+        <p style="font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; margin-bottom: 14px;">
+          هذا المستند مضغوط ومحسن بالفعل ولا يحتاج إلى ضغط إضافي. حجمه الحالي <strong>${fmtSize(orig)}</strong>. لن يؤدي الضغط إلى توفير مساحة مفيدة.
+        </p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; border-top: 1px dashed var(--line-soft); padding-top: 14px;">
+          <div>
+            <div style="font-size: 11px; color: var(--ink-muted); margin-bottom: 2px;">الحجم الأصلي</div>
+            <div style="font-size: 15px; font-weight: 700; color: var(--ink-soft);">${fmtSize(orig)}</div>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--ink-muted); margin-bottom: 2px;">الحجم بعد المحاولة</div>
+            <div style="font-size: 15px; font-weight: 700; color: var(--ink-soft);">${fmtSize(comp)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary" id="btnCompressAnother" style="padding: 10px 24px; border-radius: var(--r-pill);"><i class="fa-solid fa-rotate-left"></i> ضغط ملف آخر</button>
+        <button type="button" class="btn btn-primary" id="btnDownloadCompressed" style="padding: 10px 32px; border-radius: var(--r-pill);"><i class="fa-solid fa-download"></i> تحميل الملف على أي حال</button>
+      </div>
+    `;
+    
+    $("#btnCompressAnother", el).addEventListener("click", resetCompressor);
+    $("#btnDownloadCompressed", el).addEventListener("click", downloadCompressedFile);
+  }
+
+  function showErrorResult(errorMsg) {
+    compressingState.style.display = "none";
+    resultState.style.display = "block";
+    
+    resultState.innerHTML = `
+      <div style="font-size: 64px; color: var(--danger); margin-bottom: 20px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <h3 style="font-size: 18px; font-weight: 800; color: var(--danger); margin-bottom: 12px;">فشل ضغط الملف</h3>
+      
+      <div style="background: var(--danger-bg); padding: 20px; border-radius: var(--r-md); border: 1px solid rgba(168, 42, 42, 0.15); max-width: 480px; margin: 0 auto 24px; text-align: center; color: var(--danger); font-size: 13.5px; line-height: 1.6;">
+        ${esc(errorMsg)}
+      </div>
+
+      <div style="display: flex; justify-content: center;">
+        <button type="button" class="btn btn-secondary" id="btnCompressAnother" style="padding: 10px 24px; border-radius: var(--r-pill);"><i class="fa-solid fa-rotate-left"></i> محاولة مرة أخرى</button>
+      </div>
+    `;
+    
+    $("#btnCompressAnother", el).addEventListener("click", resetCompressor);
+  }
+
+  function downloadCompressedFile() {
+    if (!compressedPdfBytes) return;
+    const blob = new Blob([compressedPdfBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    
+    const origName = selectedFile.name;
+    const extIdx = origName.lastIndexOf(".");
+    const baseName = extIdx !== -1 ? origName.substring(0, extIdx) : origName;
+    const newName = `${baseName}-مضغوط.pdf`;
+    
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = newName;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    toast("تم بدء تحميل الملف المضغوط");
+  }
+}
+
+/* ════════════════ 8. قسم الاقتراحات والشكاوى (Suggestions & Complaints) ════════════════ */
+function renderSuggestions(el) {
+  const u = State.user;
+  if (!u) return;
+
+  if (!State.suggestionTab) State.suggestionTab = "received";
+  if (!State.suggestionFilter) State.suggestionFilter = "all";
+
+  el.innerHTML = `
+    ${pageHead("Suggestions & Complaints", "الاقتراحات والشكاوى", "صندوق الاقتراحات والشكاوى", "", "صندوق مخصص لإرسال واستقبال الاقتراحات والشكاوى الإدارية والتنظيمية.")}
+
+    <!-- شريط التحكم والتبويبات والفلترة -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;gap:10px;background:var(--bg-subtle);padding:4px;border-radius:var(--r-full);border:1px solid var(--line-soft)">
+        <button class="btn btn-sm ${State.suggestionTab==='received'?'btn-primary':'btn-secondary'}" id="tabSugRec" style="border-radius:var(--r-full);padding:6px 16px"><i class="fa-solid fa-inbox"></i> المستقبلة</button>
+        <button class="btn btn-sm ${State.suggestionTab==='sent'?'btn-primary':'btn-secondary'}" id="tabSugSent" style="border-radius:var(--r-full);padding:6px 16px"><i class="fa-solid fa-paper-plane"></i> المرسلة</button>
+      </div>
+      
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="sugFilterSelect" class="input" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-md);height:36px">
+          <option value="all" ${State.suggestionFilter==='all'?'selected':''}>عرض الكل</option>
+          <option value="suggestion" ${State.suggestionFilter==='suggestion'?'selected':''}>اقتراحات فقط</option>
+          <option value="complaint" ${State.suggestionFilter==='complaint'?'selected':''}>شكاوى فقط</option>
+        </select>
+        <button class="btn btn-primary" id="btnNewSuggestion" style="padding:8px 16px;border-radius:var(--r-md);height:36px;display:flex;align-items:center;gap:6px"><i class="fa-solid fa-circle-plus"></i> جديد</button>
+      </div>
+    </div>
+
+    <!-- شبكة الرسائل -->
+    <div class="emp-grid" id="sugGridArea"></div>
+  `;
+
+  renderSuggestionsGrid();
+
+  $("#tabSugRec").addEventListener("click", () => {
+    State.suggestionTab = "received";
+    $("#tabSugRec").className = "btn btn-primary btn-sm";
+    $("#tabSugSent").className = "btn btn-secondary btn-sm";
+    renderSuggestionsGrid();
+  });
+
+  $("#tabSugSent").addEventListener("click", () => {
+    State.suggestionTab = "sent";
+    $("#tabSugRec").className = "btn btn-secondary btn-sm";
+    $("#tabSugSent").className = "btn btn-primary btn-sm";
+    renderSuggestionsGrid();
+  });
+
+  $("#sugFilterSelect").addEventListener("change", (e) => {
+    State.suggestionFilter = e.target.value;
+    renderSuggestionsGrid();
+  });
+
+  $("#btnNewSuggestion").addEventListener("click", openNewSuggestionModal);
+}
+
+function renderSuggestionsGrid() {
+  const area = $("#sugGridArea");
+  if (!area) return;
+
+  const items = State.suggestions || [];
+  const tab = State.suggestionTab;
+  const filter = State.suggestionFilter;
+
+  // Filter based on tab (Received vs Sent)
+  let filtered = items.filter(x => {
+    if (tab === "received") {
+      return x.recipientId === State.user.uid;
+    } else {
+      return x.senderId === State.user.uid;
+    }
+  });
+
+  // Filter based on type (All, Suggestion, Complaint)
+  if (filter !== "all") {
+    filtered = filtered.filter(x => x.type === filter);
+  }
+
+  if (!filtered.length) {
+    area.innerHTML = emptyState("لا توجد رسائل اقتراحات أو شكاوى حالياً.");
+    return;
+  }
+
+  area.innerHTML = filtered.map(item => {
+    const isSug = item.type === "suggestion";
+    const badge = isSug 
+      ? `<span class="status-badge" style="background:rgba(30,136,229,0.08);color:#1565c0;border:1px solid rgba(30,136,229,0.2);margin-left:0"><i class="fa-solid fa-lightbulb"></i> اقتراح</span>`
+      : `<span class="status-badge" style="background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,83,80,0.2);margin-left:0"><i class="fa-solid fa-triangle-exclamation"></i> شكوى</span>`;
+
+    const senderDisplay = item.isAnonymous && tab === "received" ? "مجهول" : item.senderName;
+    const oppositeParty = tab === "received" ? `المرسل: ${senderDisplay}` : `المستلم: ${item.recipientName}`;
+    
+    const unreadDot = (!item.isRead && item.recipientId === State.user.uid && tab === "received")
+      ? `<span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;margin-left:6px;" title="غير مقروء"></span>`
+      : "";
+
+    const dateStr = item.createdAt ? formatTimelineDate(item.createdAt) : "قيد الإرسال…";
+    const attachmentIcon = item.attachment ? `<i class="fa-solid fa-paperclip" style="color:var(--ink-muted);font-size:12.5px" title="يحتوي على مرفق"></i>` : "";
+
+    const bodySnippet = item.content.length > 85 ? item.content.slice(0, 85) + "..." : item.content;
+
+    return `
+      <div class="card" data-sug-id="${item.id}" style="cursor:pointer;padding:18px;display:flex;flex-direction:column;gap:10px;position:relative;border:1px solid ${!item.isRead && tab === "received" ? "var(--gold-soft)" : "var(--line)"}">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+          <div style="display:flex;align-items:center;gap:6px">
+            ${unreadDot}
+            <h4 style="margin:0;font-size:14.5px;font-weight:800;color:var(--ink)">${esc(item.title || "بدون عنوان")}</h4>
+          </div>
+          ${badge}
+        </div>
+        
+        <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0">${esc(bodySnippet)}</p>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--ink-muted);margin-top:6px;border-top:1px dashed var(--line-soft);padding-top:8px">
+          <span><i class="fa-solid fa-user" style="font-size:10px"></i> ${esc(oppositeParty)}</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            ${attachmentIcon}
+            <span><i class="fa-regular fa-clock" style="font-size:10px"></i> ${esc(dateStr)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  $$("[data-sug-id]", area).forEach(card => {
+    card.addEventListener("click", () => {
+      const item = filtered.find(x => x.id === card.dataset.sugId);
+      if (item) {
+        openSuggestionDetail(item, tab);
+      }
+    });
+  });
+}
+
+function openSuggestionDetail(item, activeTab) {
+  if (activeTab === "received" && !item.isRead) {
+    S.markSuggestionAsRead(item.id).catch(err => console.error("Error marking read:", err));
+    item.isRead = true;
+    renderSuggestionsGrid();
+  }
+
+  const isAnonymous = item.isAnonymous;
+  const displayName = isAnonymous && activeTab === "received" ? "مجهول" : item.senderName;
+  const typeBadge = item.type === "suggestion" 
+    ? `<span class="status-badge" style="background:rgba(30,136,229,0.08);color:#1565c0;border:1px solid rgba(30,136,229,0.2)"><i class="fa-solid fa-lightbulb"></i> اقتراح</span>`
+    : `<span class="status-badge" style="background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,83,80,0.2)"><i class="fa-solid fa-triangle-exclamation"></i> شكوى</span>`;
+
+  let attachmentHtml = "";
+  if (item.attachment) {
+    const isImg = item.attachment.fileType?.startsWith("image/");
+    const previewUrl = item.attachment.url;
+    attachmentHtml = `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-soft)">
+        <div style="font-weight:700;font-size:13px;color:var(--ink);margin-bottom:8px"><i class="fa-solid fa-paperclip"></i> المرفق: ${esc(item.attachment.fileName)}</div>
+        ${isImg ? `
+          <div style="margin-bottom:12px;max-height:200px;overflow:hidden;border-radius:var(--r-md);border:1px solid var(--line-soft);text-align:center;background:var(--bg-subtle)">
+            <img src="${esc(previewUrl)}" style="max-width:100%;object-fit:contain;max-height:200px">
+          </div>
+        ` : ""}
+        <div style="display:flex;gap:10px">
+          <a href="${esc(previewUrl)}" target="_blank" class="btn btn-secondary btn-sm" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px"><i class="fa-solid fa-eye"></i> معاينة</a>
+          <a href="${esc(previewUrl)}" download="${esc(item.attachment.fileName)}" class="btn btn-secondary btn-sm" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px"><i class="fa-solid fa-download"></i> تحميل</a>
+        </div>
+      </div>
+    `;
+  }
+
+  const dateStr = item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleString("ar-SA") : "قيد الإرسال…";
+
+  openModal(`
+    <div class="modal-head">
+      <h2>تفاصيل الرسالة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        ${typeBadge}
+        <span style="font-size:11.5px;color:var(--ink-muted)"><i class="fa-regular fa-clock"></i> ${esc(dateStr)}</span>
+      </div>
+      <div>
+        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:2px">من:</div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink)">${esc(displayName)} ${isAnonymous && activeTab === "received" ? ' <span style="font-size:11px;color:var(--danger);font-weight:normal;">(مجهول الهوية للمستلم)</span>' : ''}</div>
+      </div>
+      <div>
+        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:2px">إلى:</div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink)">${esc(item.recipientName)}</div>
+      </div>
+      <div>
+        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:2px">الموضوع:</div>
+        <div style="font-size:15px;font-weight:800;color:var(--ink);margin-top:2px">${esc(item.title || "بدون عنوان")}</div>
+      </div>
+      <div>
+        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:4px">المحتوى التفصيلي:</div>
+        <div style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;background:var(--bg-subtle);padding:14px;border-radius:var(--r-md);border:1px solid var(--line-soft);white-space:pre-wrap;margin-top:4px">${esc(item.content)}</div>
+      </div>
+      ${attachmentHtml}
+    </div>
+  `);
+}
+
+function openNewSuggestionModal() {
+  State.tempSuggestionAttachment = null;
+  const exec = State.users.find(u => u.role === "executive") || { uid: "exec_uid", name: "المدير التنفيذي" };
+
+  openModal(`
+    <div class="modal-head">
+      <h2>إنشاء وإرسال رسالة جديدة</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="newSugForm">
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:700">نوع الرسالة</label>
+        <div style="display:flex;gap:20px;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
+            <input type="radio" name="sugType" value="suggestion" checked style="width:16px;height:16px">
+            <span>اقتراح</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
+            <input type="radio" name="sugType" value="complaint" style="width:16px;height:16px">
+            <span>شكوى</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group" id="sugRecipientWrap" style="margin-bottom:14px">
+        <label style="font-weight:700">المستلم</label>
+        <select id="sugRecipient" class="input">
+          <option value="${exec.uid}">${esc(exec.name)} (المدير التنفيذي)</option>
+          ${State.users.filter(u => u.uid !== State.user.uid && u.role !== "executive").map(u => `
+            <option value="${u.uid}">${esc(u.name)} (${esc(u.jobTitle || "موظف")})</option>
+          `).join("")}
+        </select>
+      </div>
+
+      <div class="form-group" id="sugAnonymousWrap" style="margin-bottom:14px;display:none;flex-direction:row;align-items:center;gap:10px">
+        <input type="checkbox" id="sugIsAnonymous" style="width:18px;height:18px;cursor:pointer">
+        <label for="sugIsAnonymous" style="cursor:pointer;font-weight:700;font-size:13px;color:var(--ink-soft);user-select:none">إرسال هذه الشكوى بشكل مجهول (إخفاء اسمي عن المدير)</label>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:700">الموضوع</label>
+        <input type="text" id="sugTitle" required class="input" placeholder="اكتب موضوعًا مختصرًا للرسالة...">
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:700">المحتوى بالتفصيل</label>
+        <textarea id="sugContent" rows="4" required class="input" placeholder="اكتب التفاصيل والمقترحات هنا بوضوح..."></textarea>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px">
+        <label style="font-weight:700">إرفاق ملف (اختياري)</label>
+        <div id="sugAttachmentStatus" style="margin-bottom:8px;font-size:12px;color:var(--ink-soft)">
+          <span style="color:var(--ink-faint)">لم يتم إرفاق ملف.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="file" id="sugFileInput" style="display:none">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnTriggerSugFile" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:6px"><i class="fa-solid fa-file-import"></i> اختيار ملف</button>
+          <div id="sugUploadProgress" style="font-size:12px;color:var(--ink-muted);font-weight:700"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="sugSubmitBtn"><i class="fa-solid fa-paper-plane"></i> إرسال</button>
+      </div>
+    </form>
+  `);
+
+  const fileInput = $("#sugFileInput");
+  const triggerBtn = $("#btnTriggerSugFile");
+  const progressTxt = $("#sugUploadProgress");
+  const attachStatus = $("#sugAttachmentStatus");
+
+  triggerBtn.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    triggerBtn.disabled = true;
+    triggerBtn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+    progressTxt.textContent = "0%";
+
+    try {
+      const res = await S.uploadToCloudinary(
+        file,
+        (pct) => {
+          progressTxt.textContent = `${pct}%`;
+        },
+        (status) => {
+          if (status === "compressing") {
+            progressTxt.textContent = "جاري الضغط…";
+          } else {
+            progressTxt.textContent = "جاري الرفع…";
+          }
+        }
+      );
+
+      State.tempSuggestionAttachment = {
+        url: res,
+        fileName: file.name,
+        fileType: file.type
+      };
+
+      attachStatus.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
+          <span style="font-weight:700;font-size:12.5px;"><i class="fa-solid fa-file-circle-check" style="color:var(--success)"></i> ${esc(file.name)}</span>
+          <button type="button" id="btnRemoveSugFile" style="color:var(--danger);font-weight:700;border:none;background:none;cursor:pointer"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `;
+
+      $("#btnRemoveSugFile").addEventListener("click", () => {
+        State.tempSuggestionAttachment = null;
+        attachStatus.innerHTML = `<span style="color:var(--ink-faint)">لم يتم إرفاق ملف.</span>`;
+      });
+
+      toast("تم رفع المرفق بنجاح");
+    } catch (err) {
+      toast(err.message || "فشل رفع الملف", "err");
+    } finally {
+      triggerBtn.disabled = false;
+      triggerBtn.innerHTML = `<i class="fa-solid fa-file-import"></i> اختيار ملف`;
+      progressTxt.textContent = "";
+    }
+  });
+
+  const typeRadios = document.querySelectorAll('input[name="sugType"]');
+  const recipientWrap = $("#sugRecipientWrap");
+  const anonymousWrap = $("#sugAnonymousWrap");
+  const recipientSelect = $("#sugRecipient");
+
+  typeRadios.forEach(radio => {
+    radio.addEventListener("change", (e) => {
+      const val = e.target.value;
+      if (val === "complaint") {
+        recipientSelect.value = exec.uid;
+        recipientWrap.style.display = "none";
+        anonymousWrap.style.display = "flex";
+      } else {
+        recipientWrap.style.display = "block";
+        anonymousWrap.style.display = "none";
+        $("#sugIsAnonymous").checked = false;
+      }
+    });
+  });
+
+  $("#newSugForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("#sugSubmitBtn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الإرسال…`;
+
+    const type = document.querySelector('input[name="sugType"]:checked').value;
+    const isAnonymous = type === "complaint" && $("#sugIsAnonymous").checked;
+    
+    let recId = recipientSelect.value;
+    let recName = exec.name;
+
+    if (type === "suggestion") {
+      const targetUser = State.users.find(x => x.uid === recId);
+      if (targetUser) {
+        recName = targetUser.name;
+      }
+    } else {
+      recId = exec.uid;
+      recName = exec.name;
+    }
+
+    try {
+      const senderNameDisplay = isAnonymous ? "مجهول" : State.user.name;
+
+      const resId = await S.createSuggestion({
+        type,
+        senderId: State.user.uid,
+        senderName: senderNameDisplay,
+        realSenderName: State.user.name,
+        recipientId: recId,
+        recipientName: recName,
+        title: $("#sugTitle").value.trim(),
+        content: $("#sugContent").value.trim(),
+        attachment: State.tempSuggestionAttachment,
+        isAnonymous
+      });
+
+      // إشعار فوري
+      await S.pushNotification({
+        userId: recId,
+        type: type === "complaint" ? "complaint" : "suggestion",
+        title: type === "complaint" ? "وصلك شكوى جديدة ⚠️" : "وصلك اقتراح جديد 💡",
+        body: type === "complaint" 
+          ? `لديك شكوى جديدة موجهة إليك` 
+          : `وصلك اقتراح جديد من ${senderNameDisplay}`
+      }).catch(err => console.warn("Error sending notification:", err));
+
+      toast(type === "complaint" ? "تم إرسال الشكوى بنجاح" : "تم إرسال الاقتراح بنجاح");
+      closeModal();
+    } catch (err) {
+      toast("تعذر إرسال الرسالة", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> إرسال`;
+    }
+  });
+}
+
+async function getNotifDebugData() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+  const data = {};
+  data.userAgent = navigator.userAgent;
+  data.platform = navigator.platform;
+  data.matchMediaStandalone = window.matchMedia?.("(display-mode: standalone)").matches;
+  data.navigatorStandalone = window.navigator ? window.navigator.standalone : undefined;
+  data.isStandaloneCalculated = isStandalone;
+  data.isHttps = window.location.protocol === "https:";
+  data.notificationExists = "Notification" in window;
+  data.notificationPermission = data.notificationExists ? Notification.permission : "N/A";
+  data.serviceWorkerSupported = "serviceWorker" in navigator;
+  data.pushManagerSupported = "PushManager" in window;
+  data.pushManagerPresentInProto = typeof ServiceWorkerRegistration !== "undefined" && "pushManager" in ServiceWorkerRegistration.prototype;
+
+  data.swCount = 0;
+  data.swScopes = [];
+  data.swActiveUrls = [];
+  
+  if (data.serviceWorkerSupported) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      data.swCount = regs.length;
+      regs.forEach(reg => {
+        data.swScopes.push(reg.scope);
+        if (reg.active) {
+          data.swActiveUrls.push(reg.active.scriptURL);
+        }
+      });
+    } catch(e) {
+      data.swError = e.message;
+    }
+  }
+
+  try {
+    data.fcmSupported = await S.fcmSupported();
+  } catch(e) {
+    data.fcmSupportedError = e.message;
+  }
+
+  return data;
+}
+
+function openNotifDebugModal(d) {
+  const content = `
+    <div class="modal-head">
+      <h2>لوحة تشخيص الإشعارات (Debug Panel)</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="font-size:12px; direction:ltr; text-align:left; background:var(--bg-subtle); padding:12px; border-radius:var(--r-md); border:1px solid var(--line-soft); max-height:400px; overflow-y:auto; font-family:monospace; line-height:1.5; color:var(--ink)">
+      <strong>--- USER AGENT ---</strong><br>
+      ${esc(d.userAgent)}<br><br>
+      
+      <strong>--- PLATFORM ---</strong><br>
+      ${esc(d.platform)}<br><br>
+      
+      <strong>--- PWA DETECTION ---</strong><br>
+      standalone (matchMedia): ${d.matchMediaStandalone}<br>
+      standalone (navigator): ${d.navigatorStandalone}<br>
+      isStandalone PWA: ${d.isStandaloneCalculated}<br>
+      HTTPS: ${d.isHttps}<br><br>
+      
+      <strong>--- NOTIFICATION API ---</strong><br>
+      Notification in window: ${d.notificationExists}<br>
+      Notification.permission: ${d.notificationPermission}<br><br>
+      
+      <strong>--- SERVICE WORKER ---</strong><br>
+      serviceWorker in navigator: ${d.serviceWorkerSupported}<br>
+      PushManager in window: ${d.pushManagerSupported}<br>
+      pushManager in prototype: ${d.pushManagerPresentInProto}<br>
+      SW Count: ${d.swCount}<br>
+      ${d.swScopes.map((s, idx) => `SW #${idx+1} Scope: ${esc(s)}<br>Active URL: ${esc(d.swActiveUrls[idx] || "N/A")}`).join("<br>")}<br><br>
+      
+      <strong>--- FIREBASE MESSAGING ---</strong><br>
+      FCM Supported: ${d.fcmSupported}<br>
+      ${d.fcmSupportedError ? `FCM Check Error: ${esc(d.fcmSupportedError)}<br>` : ""}<br>
+      
+      <strong>--- ACTIVATION DETAIL ---</strong><br>
+      activationResult: ${d.activationResult ? JSON.stringify(d.activationResult) : "none"}<br>
+      exception: ${d.exception ? JSON.stringify(d.exception) : "none"}<br>
+    </div>
+    <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px">
+      <button class="btn btn-secondary" data-close>إغلاق</button>
+    </div>
+  `;
+  openModal(content);
+}

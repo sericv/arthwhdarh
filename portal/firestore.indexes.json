@@ -23,6 +23,22 @@
         { "fieldPath": "uid", "order": "ASCENDING" },
         { "fieldPath": "lastSeen", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "portal_personal_tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "portal_tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

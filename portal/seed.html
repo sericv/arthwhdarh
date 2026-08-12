@@ -3,27 +3,28 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>تهيئة موظفي البوابة — إرث وحضارة</title>
-<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet"/>
+<title>تهيئة وتأسيس أول حساب — بوابة إرث وحضارة</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:#faf6ed;color:#1e1610;font-family:"Almarai",sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .wrap{width:100%;max-width:560px;}
+  body{background:#faf6ed;color:#1e1610;font-family:"Baloo Bhaijaan 2",sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .wrap{width:100%;max-width:580px;}
   .card{background:#f7f2e6;border:1px solid rgba(60,40,20,.1);border-radius:18px;padding:34px 34px 30px;position:relative;box-shadow:0 30px 70px -28px rgba(30,22,10,.28);}
-  .card::before{content:"";position:absolute;top:0;right:0;width:3px;height:48px;background:linear-gradient(180deg,#c09a62,transparent);border-radius:0 18px 0 0;}
-  h1{font-size:22px;font-weight:800;margin-bottom:5px;}
-  .sub{font-family:"Montserrat";font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#6b4f35;margin-bottom:22px;}
-  .warn{background:rgba(192,154,98,.1);border:1px solid rgba(192,154,98,.3);border-radius:10px;padding:13px 15px;font-size:12.5px;color:#4f3822;line-height:1.7;margin-bottom:22px;}
+  .card::before{content:"";position:absolute;top:0;right:0;width:4px;height:54px;background:linear-gradient(180deg,#c09a62,transparent);border-radius:0 18px 0 0;}
+  h1{font-size:22px;font-weight:800;margin-bottom:4px;}
+  .sub{font-family:"Montserrat";font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#6b4f35;margin-bottom:20px;}
+  .warn{background:rgba(192,154,98,.12);border:1px solid rgba(192,154,98,.35);border-radius:10px;padding:13px 15px;font-size:13px;color:#4f3822;line-height:1.7;margin-bottom:20px;}
   .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
-  label{font-size:12.5px;font-weight:700;color:#4f3822;}
-  input,select{padding:11px 13px;background:#faf6ed;border:1px solid rgba(60,40,20,.12);border-radius:8px;font-size:14px;font-family:inherit;outline:none;}
-  input:focus,select:focus{border-color:#c09a62;}
-  .btn{width:100%;padding:13px;background:#1e1610;color:#faf6ed;border:0;border-radius:8px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:6px;}
+  label{font-size:13px;font-weight:700;color:#4f3822;}
+  input,select{padding:11px 13px;background:#faf6ed;border:1px solid rgba(60,40,20,.15);border-radius:8px;font-size:14px;font-family:inherit;outline:none;}
+  input:focus,select:focus{border-color:#c09a62;box-shadow:0 0 0 3px rgba(192,154,98,.2);}
+  .btn{width:100%;padding:13px;background:#1e1610;color:#faf6ed;border:0;border-radius:8px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:8px;}
   .btn:hover{background:#3a2a1c;}
-  .btn:disabled{opacity:.5;}
-  .msg{font-size:12.5px;margin-top:14px;min-height:18px;line-height:1.6;}
-  .msg.ok{color:#3a5e2e;}.msg.err{color:#7a2518;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .msg{font-size:13px;margin-top:14px;min-height:18px;line-height:1.6;padding:12px;border-radius:8px;}
+  .msg.ok{background:rgba(58,94,46,.1);color:#3a5e2e;border:1px solid rgba(58,94,46,.2);}
+  .msg.err{background:rgba(122,37,24,.1);color:#7a2518;border:1px solid rgba(122,37,24,.2);}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin .9s linear infinite;display:inline-block;}
   code{background:#ede3cf;padding:2px 6px;border-radius:4px;font-family:Montserrat;font-size:11px;}
@@ -32,62 +33,145 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>تهيئة موظف جديد</h1>
-    <div class="sub">Seed Employee · Internal Portal</div>
+    <h1>تأسيس أول حساب ( المسؤول التقني )</h1>
+    <div class="sub">Bootstrap Initial Portal Account</div>
+    
     <div class="warn">
-      <i class="fa-solid fa-circle-info"></i>
-      هذه الأداة تُنشئ حساب موظف في Firebase Authentication وتضيف ملفه في مجموعة <code>portal_users</code> دفعةً واحدة.
-      استخدمها مرة لإنشاء الحسابات ثم احذف الملف أو امنع الوصول إليه.
+      <i class="fa-solid fa-shield-halved"></i>
+      تُنشئ هذه الأداة أول حساب <b>Tech Admin</b> وتُثبت مستنده بالـ <b>UID الصحيح</b> تلقائياً بدون أي أخطاء في الصلاحيات.
     </div>
 
-    <div class="field"><label>الاسم الكامل</label><input id="name" placeholder="محمد أحمد"></div>
-    <div class="row">
-      <div class="field"><label>البريد الإلكتروني</label><input id="email" type="email" placeholder="name@erth.sa"></div>
-      <div class="field"><label>كلمة المرور</label><input id="pass" type="password" placeholder="6 أحرف على الأقل"></div>
+    <div class="field">
+      <label>الاسم الكامل للمسؤول التقني</label>
+      <input id="name" placeholder="محمد أحمد القحطاني" value="المسؤول التقني" required>
     </div>
-    <div class="field"><label>الدور / الإدارة</label>
+
+    <div class="row">
+      <div class="field">
+        <label>البريد الإلكتروني</label>
+        <input id="email" type="email" placeholder="admin@erth.sa" required>
+      </div>
+      <div class="field">
+        <label>كلمة المرور</label>
+        <input id="pass" type="password" placeholder="6 أحرف على الأقل" required>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>المسمى الوظيفي</label>
+      <input id="jobTitle" placeholder="مثال: مسؤول تقنية المعلومات" value="مسؤول تقنية المعلومات">
+    </div>
+
+    <div class="field">
+      <label>الصلاحية النظامية</label>
       <select id="role">
-        <option value="executive">الإدارة التنفيذية (وصول كامل)</option>
-        <option value="finance">الإدارة المالية</option>
-        <option value="projects">إدارة المشاريع</option>
-        <option value="media">الإعلام والعلاقات العامة</option>
+        <option value="executive" selected>مدير تنفيذي (صلاحيات كاملة)</option>
+        <option value="hr">موارد بشرية</option>
+        <option value="employee">موظف</option>
       </select>
     </div>
-    <button class="btn" id="seedBtn"><i class="fa-solid fa-user-plus"></i> إنشاء الحساب</button>
-    <div class="msg" id="msg"></div>
+
+    <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin:8px 0 16px;">
+      <input type="checkbox" id="isTechAdmin" checked style="width:auto;height:18px;width:18px;">
+      <label for="isTechAdmin" style="margin:0;cursor:pointer">تفعيل دور <b>"المسؤول التقني (Tech Admin)"</b> لتأسيس النظام</label>
+    </div>
+
+    <button class="btn" id="seedBtn"><i class="fa-solid fa-user-plus"></i> إنشاء وتأسيس الحساب الأول</button>
+    
+    <div class="msg" id="msg" style="display:none"></div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { FIREBASE_CONFIG, COL } from "./config.js";
 
-const app=initializeApp(FIREBASE_CONFIG);
-const auth=getAuth(app), db=getFirestore(app);
-const $=s=>document.querySelector(s);
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const $ = s => document.querySelector(s);
 
-$("#seedBtn").addEventListener("click",async()=>{
-  const name=$("#name").value.trim(), email=$("#email").value.trim(),
-        pass=$("#pass").value, role=$("#role").value;
-  const msg=$("#msg"); msg.className="msg"; msg.textContent="";
-  if(!name||!email||pass.length<6){ msg.className="msg err"; msg.textContent="أكمل الحقول (كلمة المرور 6 أحرف على الأقل)"; return; }
-  const btn=$("#seedBtn"); btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner spin"></i> جارٍ الإنشاء…';
-  try{
-    const cred=await createUserWithEmailAndPassword(auth,email,pass);
-    await setDoc(doc(db,COL.users,cred.user.uid),{
-      name, email, role, createdAt:serverTimestamp()
-    });
-    msg.className="msg ok";
-    msg.innerHTML=`✓ تم إنشاء حساب <b>${name}</b> بدور <b>${role}</b>. يمكنه الآن الدخول من البوابة.`;
-    $("#name").value="";$("#email").value="";$("#pass").value="";
-  }catch(e){
-    msg.className="msg err";
-    const map={"auth/email-already-in-use":"البريد مستخدم مسبقاً","auth/invalid-email":"صيغة البريد غير صحيحة","auth/weak-password":"كلمة المرور ضعيفة"};
-    msg.textContent=map[e.code]||("خطأ: "+e.message);
+$("#seedBtn").addEventListener("click", async () => {
+  const name = $("#name").value.trim();
+  const email = $("#email").value.trim();
+  const pass = $("#pass").value;
+  const role = $("#role").value;
+  const jobTitle = $("#jobTitle").value.trim();
+  const isTechAdmin = $("#isTechAdmin").checked;
+
+  const msg = $("#msg");
+  msg.style.display = "none";
+  msg.className = "msg";
+  msg.textContent = "";
+
+  if(!name || !email || !pass || pass.length < 6){
+    msg.style.display = "block";
+    msg.className = "msg err";
+    msg.textContent = "يرجى إكمال جميع الحقول (كلمة المرور 6 أحرف على الأقل).";
+    return;
   }
-  btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-user-plus"></i> إنشاء الحساب';
+
+  const btn = $("#seedBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner spin"></i> جارٍ المصادقة وإنشاء المستند…';
+
+  let userUid = null;
+
+  try {
+    // 1. محاولة إنشاء حساب Auth جديد
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      userUid = cred.user.uid;
+    } catch(authErr) {
+      if(authErr.code === "auth/email-already-in-use"){
+        // الحساب موجود مسبقاً في Firebase Auth — نقوم بتسجيل الدخول به للحصول على UID والمصادقة
+        const loginCred = await signInWithEmailAndPassword(auth, email, pass);
+        userUid = loginCred.user.uid;
+      } else {
+        throw authErr;
+      }
+    }
+
+    if(!userUid){
+      throw new Error("تعذّر الحصول على مُعرّف المستخدم (UID).");
+    }
+
+    // 2. إنشاء/تثبيت المستند في portal_users بالـ UID المصادق عليه رسمياً
+    await setDoc(doc(db, COL.users, userUid), {
+      name,
+      email,
+      role,
+      jobTitle: jobTitle || "مسؤول تقنية المعلومات",
+      isTechAdmin: Boolean(isTechAdmin),
+      status: "active",
+      phone: "",
+      hireDate: new Date().toISOString().split('T')[0],
+      bio: "حساب المسؤول التقني الأول",
+      qualifications: [],
+      courses: [],
+      skills: [],
+      personalFiles: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    msg.style.display = "block";
+    msg.className = "msg ok";
+    msg.innerHTML = `✓ تم تأسيس حساب المسؤول التقني <b>${name}</b> بنجاح بالـ UID الرسمي:<br><code>${userUid}</code><br>يمكنك الآن الذهاب للبوابة وتعيين تسجيل الدخول بشكل مباشر.`;
+
+    $("#name").value = "";
+    $("#email").value = "";
+    $("#pass").value = "";
+  } catch(e) {
+    msg.style.display = "block";
+    msg.className = "msg err";
+    msg.textContent = "خطأ: " + (e.message || e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> إنشاء وتأسيس الحساب الأول';
+  }
 });
 </script>
 </body>

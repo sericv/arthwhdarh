@@ -130,13 +130,42 @@ async function resolveUids(pid, accessToken, userId) {
   if (!userId) return [];
   if (userId.startsWith("dept:")) {
     const dept = userId.slice(5);
-    const roles = dept === "executive" ? ["executive"] : [dept, "executive"];
-    const docs = await fsQuery(pid, accessToken, COL.users, {
-      fieldFilter: { field: "role", op: "IN", values: roles.map(stringValue) }
-    });
-    return docs.map(d => d.__name);
+    const users = await fsListDocuments(pid, accessToken, COL.users);
+    if (dept === "all") {
+      return users.map(u => u.__name);
+    }
+    return users.filter(u => {
+      if (dept === "hr") {
+        return u.role === "hr" || u.department === "hr" || (u.perms && u.perms.canReviewLeave);
+      }
+      if (dept === "executive") {
+        return u.role === "executive";
+      }
+      return u.department === dept || u.role === dept;
+    }).map(u => u.__name);
   }
   return [userId];
+}
+
+async function fsListDocuments(pid, accessToken, collection) {
+  const r = await fetch(
+    `${fsBase(pid)}/${collection}?pageSize=100`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!r.ok) {
+    const errText = await r.text();
+    console.error(`fsListDocuments failed: ${r.status}`, errText);
+    return [];
+  }
+  const data = await r.json();
+  const docs = data.documents || [];
+  const out = [];
+  for (const doc of docs) {
+    const obj = decodeFields(doc.fields) || {};
+    obj.__name = doc.name.split("/").pop();
+    out.push(obj);
+  }
+  return out;
 }
 
 async function prefAllows(pid, accessToken, uid, pref) {

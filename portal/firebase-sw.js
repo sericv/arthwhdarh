@@ -28,6 +28,46 @@ self.addEventListener('activate', (e) => { SWLOG("activate"); e.waitUntil(self.c
 const LOGO = new URL('../assets/الشعار/الشعار.png', self.location).href;
 /* عنوان البوابة (جذر مجلد الـ SW) */
 const PORTAL_URL = new URL('./', self.location).href;
+/* معالج الدفع المخصص (يقمع أخطاء آيفون ويضمن عرض الإشعار فوراً دون تأخر التحميل) */
+self.addEventListener('push', (e) => {
+  SWLOG("Push event received directly", e);
+  if (!e.data) return;
+
+  try {
+    const rawData = e.data.json();
+    SWLOG("Parsed push payload:", rawData);
+
+    const n = rawData.notification || {};
+    const d = rawData.data || {};
+
+    const title = n.title || d.title || 'إرث وحضارة';
+    const body = n.body || d.body || 'لديك إشعار جديد';
+
+    const promise = self.registration.showNotification(title, {
+      body: body,
+      icon: LOGO,
+      badge: LOGO,
+      dir: 'rtl',
+      lang: 'ar',
+      tag: d.tag || ('erth-' + (d.refId || Date.now())),
+      renotify: true,
+      requireInteraction: false,
+      data: {
+        link: d.link || 'notifs',
+        refId: d.refId || '',
+        notifId: d.notifId || '',
+        url: PORTAL_URL
+      }
+    });
+
+    e.waitUntil(promise);
+
+    // منع انتشار الحدث إلى مكتبة Firebase Messaging لتفادي التكرار أو فشل المهلة
+    e.stopImmediatePropagation();
+  } catch (err) {
+    SWLOG("Error parsing push payload, letting Firebase SDK handle it:", err);
+  }
+});
 
 const messaging = firebase.messaging();
 

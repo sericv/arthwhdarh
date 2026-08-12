@@ -1,112 +1,188 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════
-// قواعد أمان Firestore — البوابة الداخلية
-// جمعية إرث وحضارة بالقريات
+// قواعد أمان Firestore الشاملة — جمعية إرث وحضارة بالقريات
+// (الموقع العام + بوابة الموظفين والإجازات)
 // انشرها عبر: Firebase Console → Firestore → Rules
 // ══════════════════════════════════════════════════════════
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
+    // ── دوال التحقق المساعدة ──
+    function signedIn() {
+      return request.auth != null;
+    }
 
     function userDoc() {
       return get(/databases/$(database)/documents/portal_users/$(request.auth.uid)).data;
     }
-    function role() { return userDoc().role; }
-    function isExec() { return signedIn() && role() == 'executive'; }
-    function myDept() { return role(); } // الدور = رمز الإدارة لغير التنفيذي
 
-    // ── المستخدمون ──
+    function role() {
+      return userDoc().role;
+    }
+
+    function isTechAdmin() {
+      return signedIn() && (userDoc().isTechAdmin == true || userDoc().role == 'tech_admin');
+    }
+
+    function isExec() {
+      return signedIn() && (role() == 'executive' || isTechAdmin());
+    }
+
+    function isHR() {
+      return signedIn() && (role() == 'hr' || isTechAdmin());
+    }
+
+    function myDept() {
+      return userDoc().department;
+    }
+
+    // ════════════════ بوابة الموظفين ════════════════
+
+    // ── حسابات الموظفين (portal_users) ──
+    // آليات التأسيس الآمنة (Bootstrap):
+    // 1) المسؤول التقني ينشئ أي حساب للموظفين.
+    // 2) يتاح إنشاء الحساب الأول للمستخدم المصادق حديثاً لتأسيس مستنده إذا لم يكن موجوداً من قبل.
     match /portal_users/{uid} {
-      allow read:  if signedIn();
-      allow write: if isExec();                 // الإدارة التنفيذية فقط تدير الحسابات
-      allow update: if request.auth.uid == uid  // المستخدم يحدّث fcmToken فقط
-                    && request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['fcmToken']);
+      allow read: if signedIn();
+      allow create: if isTechAdmin()
+                    || (signedIn() && request.auth.uid == uid && !exists(/databases/$(database)/documents/portal_users/$(uid)));
+      allow delete: if isTechAdmin();
+      allow update: if isTechAdmin()
+                    || (signedIn() && request.auth.uid == uid
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isTechAdmin', 'status']));
     }
 
-    // ── الملفات ──
-    match /portal_files/{id} {
-      allow read:   if isExec() || (signedIn() && resource.data.department == myDept());
-      allow create: if signedIn()
-                    && (isExec() || request.resource.data.department == myDept());
-      // الاعتماد للتنفيذي؛ صاحب الملف يمكنه حذف ملفه
-      allow update: if isExec()
-                    || (signedIn() && resource.data.uploadedBy == request.auth.uid);
-      allow delete: if isExec()
-                    || (signedIn() && resource.data.uploadedBy == request.auth.uid);
+    // ── طلبات الإجازات (portal_leaves) ──
+    match /portal_leaves/{id} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isHR() ||
+        isExec()
+      );
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn() && (
+        isHR() ||
+        (isExec() && resource.data.status == 'hr_approved') ||
+        resource.data.userId == request.auth.uid
+      );
+      allow delete: if isTechAdmin() || (signedIn() && resource.data.userId == request.auth.uid && resource.data.status == 'submitted');
     }
 
-    // ── المهام ──
+    // ── المهام (portal_tasks) ──
     match /portal_tasks/{id} {
-      allow read:   if signedIn();              // التصفية تتم في الواجهة
-      allow create: if isExec();                // الإدارة التنفيذية تنشئ المهام
-      allow update: if isExec()
-                    || (signedIn()
-                        && resource.data.assignType == 'user'
-                        && resource.data.assignTo == request.auth.uid)
-                    || (signedIn()
-                        && resource.data.assignType == 'department'
-                        && resource.data.assignTo == myDept());
+      allow read: if signedIn() && (resource.data.employeeId == request.auth.uid || isExec());
+      allow create: if isExec();
       allow delete: if isExec();
+      allow update: if signedIn() && (
+        (isExec() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'rejectionReason']))
+        ||
+        (resource.data.employeeId == request.auth.uid &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['title', 'description', 'dueDate', 'priority', 'adminId', 'employeeId', 'attachmentRequired']))
+      );
     }
 
-    // ── الإشعارات ──
-    match /portal_notifications/{id} {
-      allow read:   if signedIn();
+    // ── المهام الشخصية والملاحظات (portal_personal_tasks) ──
+    match /portal_personal_tasks/{id} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isExec());
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn() && (resource.data.userId == request.auth.uid || isExec());
+      allow delete: if signedIn() && (resource.data.userId == request.auth.uid || isExec());
+    }
+
+    // ── الملفات العامة والإدارية (portal_files) ──
+    match /portal_files/{id} {
+      allow read: if signedIn();
       allow create: if signedIn();
-      allow update: if signedIn();              // تعليم كمقروء
-      allow delete: if isExec();
+      allow update: if isExec() || (signedIn() && resource.data.uploadedBy == request.auth.uid);
+      allow delete: if isExec() || (signedIn() && resource.data.uploadedBy == request.auth.uid);
     }
 
-    // ── طلبات الموقع العام (زوار بلا مصادقة يرسلون نماذج) ──
+    // ── الاقتراحات والشكاوى (portal_suggestions_complaints) ──
+    match /portal_suggestions_complaints/{id} {
+      allow create: if signedIn() && request.resource.data.senderId == request.auth.uid;
+      allow read: if signedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid
+      );
+      allow update: if signedIn() && (
+        resource.data.recipientId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // ── الإشعارات (portal_notifications) ──
+    match /portal_notifications/{id} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userId == 'dept:all' ||
+        ('department' in userDoc() && resource.data.userId == ('dept:' + userDoc().department)) ||
+        (isHR() && resource.data.userId == 'dept:hr') ||
+        (isExec() && resource.data.userId == 'dept:executive') ||
+        isTechAdmin()
+      );
+      allow create: if signedIn();
+      allow update: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userId == 'dept:all' ||
+        ('department' in userDoc() && resource.data.userId == ('dept:' + userDoc().department)) ||
+        (isHR() && resource.data.userId == 'dept:hr') ||
+        (isExec() && resource.data.userId == 'dept:executive') ||
+        isTechAdmin()
+      );
+      allow delete: if isExec() || isTechAdmin();
+    }
+
+
+    // ── رموز FCM (portal_fcm_tokens) ──
+    match /portal_fcm_tokens/{token} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isExec());
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isExec());
+    }
+
+    // ════════════════ الموقع العام (زوار بلا مصادقة) ════════════════
+
     match /volunteers/{id} {
       allow create: if true;
       allow read, update, delete: if signedIn();
     }
+
     match /crafts/{id} {
       allow create: if true;
       allow read, update, delete: if signedIn();
     }
+
     match /workshops/{id} {
       allow read: if true;
       allow create, update, delete: if signedIn();
     }
+
+    match /volunteerOpportunities/{id} {
+      allow read: if true;
+      allow create, update, delete: if signedIn();
+    }
+
     match /workshop_registrations/{id} {
       allow create: if true;
       allow read, update, delete: if signedIn();
     }
+
     match /news/{id} {
       allow read: if true;
       allow create, update, delete: if signedIn();
     }
+
     match /settings/{id} {
       allow read: if true;
       allow write: if signedIn();
     }
 
-    // ── إشعارات الأدمن (طلبات التسجيل من الموقع العام) ──
-    // الكتابة مفتوحة بلا مصادقة (زوار الموقع)؛ القراءة للمصادقين فقط
+    // ── إشعارات الأدمن (طلب تسجيل زوار الموقع العام) ──
     match /admin_notifications/{id} {
       allow create: if true;
       allow read, update: if signedIn();
       allow delete: if signedIn();
-    }
-
-    // ── سجل النشاط (إلحاق فقط) ──
-    match /portal_activity/{id} {
-      allow read:   if signedIn();
-      allow create: if signedIn();
-      allow update, delete: if false;           // غير قابل للتعديل
-    }
-
-    // ── رموز FCM (متعددة الأجهزة) ──
-    // مُعرّف المستند = التوكن. كل مستخدم يدير رموزه فقط.
-    match /portal_fcm_tokens/{token} {
-      allow read:   if signedIn() && (resource.data.uid == request.auth.uid || isExec());
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if signedIn() && resource.data.uid == request.auth.uid;
-      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isExec());
     }
   }
 }

@@ -1,24 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════
-// قواعد أمان Firebase Storage — البوابة الداخلية
-// انشرها عبر: Firebase Console → Storage → Rules
+// قواعد أمان Firebase Storage — بوابة الموظفين
 // ══════════════════════════════════════════════════════════
 service firebase.storage {
   match /b/{bucket}/o {
 
     function signedIn() { return request.auth != null; }
-    function role() {
-      return firestore.get(/databases/(default)/documents/portal_users/$(request.auth.uid)).data.role;
-    }
-    function isExec() { return signedIn() && role() == 'executive'; }
 
-    // ملفات البوابة: portal/{department}/{category}/{file}
-    match /portal/{department}/{allPaths=**} {
-      allow read:  if isExec() || (signedIn() && role() == department);
-      allow write: if isExec() || (signedIn() && role() == department);
-      // حد أقصى للحجم 25 ميجابايت للرفع
-      allow create: if (isExec() || (signedIn() && role() == department))
-                    && request.resource.size < 25 * 1024 * 1024;
+    // جميع مرفقات البوابة والملفات الشخصية والإجازات
+    match /portal/{allPaths=**} {
+      allow read:  if signedIn();
+      allow write: if signedIn() && request.resource.size < 35 * 1024 * 1024;
+      allow delete: if signedIn();
     }
   }
 }
