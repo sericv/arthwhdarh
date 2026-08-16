@@ -69,31 +69,35 @@ self.addEventListener('push', (e) => {
   }
 });
 
-const messaging = firebase.messaging();
+try {
+  const messaging = firebase.messaging();
 
-/* رسائل الدفع في الخلفية (التبويب مغلق/خلفي/التطبيق مُثبّت) */
-messaging.onBackgroundMessage((p) => {
-  SWLOG("background message", p);
-  const n = p.notification || {};
-  const d = p.data || {};
-  const title = n.title || d.title || 'إرث وحضارة';
-  return self.registration.showNotification(title, {
-    body:  n.body || d.body || 'لديك إشعار جديد',
-    icon:  LOGO,
-    badge: LOGO,
-    dir:   'rtl',
-    lang:  'ar',
-    tag:   d.tag || ('erth-' + (d.refId || Date.now())),
-    renotify: true,
-    requireInteraction: false,
-    data: {
-      link:  d.link  || 'notifs',   // وجهة التنقّل
-      refId: d.refId || '',         // مُعرّف العنصر
-      notifId: d.notifId || '',
-      url:   PORTAL_URL
-    }
+  /* رسائل الدفع في الخلفية (التبويب مغلق/خلفي/التطبيق مُثبّت) */
+  messaging.onBackgroundMessage((p) => {
+    SWLOG("background message", p);
+    const n = p.notification || {};
+    const d = p.data || {};
+    const title = n.title || d.title || 'إرث وحضارة';
+    return self.registration.showNotification(title, {
+      body:  n.body || d.body || 'لديك إشعار جديد',
+      icon:  LOGO,
+      badge: LOGO,
+      dir:   'rtl',
+      lang:  'ar',
+      tag:   d.tag || ('erth-' + (d.refId || Date.now())),
+      renotify: true,
+      requireInteraction: false,
+      data: {
+        link:  d.link  || 'notifs',   // وجهة التنقّل
+        refId: d.refId || '',         // مُعرّف العنصر
+        notifId: d.notifId || '',
+        url:   PORTAL_URL
+      }
+    });
   });
-});
+} catch(err) {
+  SWLOG("Firebase Messaging initialization bypassed/failed in Service Worker:", err);
+}
 
 /* النقر على الإشعار: افتح/ركّز البوابة + انتقل للوجهة */
 self.addEventListener('notificationclick', (e) => {

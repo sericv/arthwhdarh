@@ -21,7 +21,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
 <link rel="stylesheet" href="portal.css?v=8"/>
 </head>
@@ -29,17 +29,20 @@
 
 <div class="grain"></div>
 
-<!-- ════════ شاشة التحميل ════════ -->
+<!-- ════════ شاشة التحميل (Circle Reveal Splash) ════════ -->
 <div id="bootScreen">
-  <img class="boot-logo" src="../assets/الشعار/الشعار.png" alt="شعار الجمعية">
-  <div class="boot-orn"><span class="l"></span><span class="d"></span><span class="l r"></span></div>
-  <div class="boot-txt">جارٍ تحميل البوابة…</div>
+  <div class="boot-center-motif">
+    <div class="boot-logo-circle">
+      <img class="boot-logo" src="logo.png" alt="جمعية إرث وحضارة">
+    </div>
+  </div>
+  <div class="boot-aperture-ring"></div>
 </div>
 
 <!-- ════════ شاشة الدخول ════════ -->
 <div id="loginScreen" class="hidden">
   <div class="login-box">
-    <img class="login-logo" src="../assets/الشعار/الشعار.png" alt="شعار الجمعية">
+    <img class="login-logo" src="logo.png" alt="شعار الجمعية">
     <div class="login-brand">جمعية إرث وحضارة بالقريات</div>
     <div class="login-sub">Internal Employee Portal</div>
     <div class="login-orn"><span class="l"></span><span class="d"></span><span class="l r"></span></div>
@@ -82,7 +85,7 @@
   <!-- الشريط الجانبي -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <img class="brand-logo" src="../assets/الشعار/الشعار.png" alt="شعار">
+      <img class="brand-logo" src="logo.png" alt="شعار">
       <div class="brand-text">
         <span class="ar">إرث وحضارة</span>
         <span class="la">Employee Portal</span>
@@ -129,9 +132,10 @@
 <!-- سكرين الجوال -->
 <div class="scrim" id="scrim"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="pdf-lib.min.js"></script>
 <script src="qrcode.min.js"></script>
-<script src="emailJS.min.js"></script>
-<script type="module" src="app.js?v=22"></script>
+<script src="html2pdf.bundle.min.js"></script>
+<script type="module" src="app.js?v=35"></script>
 </body>
 </html>

@@ -70,15 +70,23 @@ service cloud.firestore {
 
     // ── المهام (portal_tasks) ──
     match /portal_tasks/{id} {
-      allow read: if signedIn() && (resource.data.employeeId == request.auth.uid || isExec());
+      allow read: if signedIn() && (resource.data.employeeId == request.auth.uid || resource.data.isGroup == true || isExec());
       allow create: if isExec();
-      allow delete: if isExec();
+      allow delete: if false;
       allow update: if signedIn() && (
         (isExec() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'rejectionReason']))
         ||
         (resource.data.employeeId == request.auth.uid &&
          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['title', 'description', 'dueDate', 'priority', 'adminId', 'employeeId', 'attachmentRequired']))
       );
+
+      // Sub‑collection for per‑employee executions of a group task
+      match /executions/{uid} {
+        // Executives can read/write any execution
+        allow read, write: if isExec();
+        // Individual employee can read/write only their own execution
+        allow read, write: if signedIn() && request.auth.uid == uid;
+      }
     }
 
     // ── المهام الشخصية والملاحظات (portal_personal_tasks) ──

@@ -8,6 +8,8 @@ import {
   COL
 } from "./config.js?v=5";
 import * as S from "./services.js?v=5";
+import { renderPdfEditor, checkUnsavedAndLeave } from "./pdf-editor.js";
+import { renderFinancialCalc } from "./financial-calc.js";
 
 /* ════════ الحالة العامة (State) ════════ */
 const State = {
@@ -54,16 +56,161 @@ const esc = s => (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").r
 const initials = n => (n||"؟").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("");
 function fmtSize(b){ if(!b) return "—"; const u=["B","KB","MB","GB"]; let i=0; while(b>=1024&&i<3){b/=1024;i++;} return `${b.toFixed(b<10&&i>0?1:0)} ${u[i]}`; }
 function tsToDate(ts){ if(!ts) return null; if(ts.toDate) return ts.toDate(); if(ts.seconds) return new Date(ts.seconds*1000); return new Date(ts); }
-function timeAgo(ts){
-  const d=tsToDate(ts); if(!d) return "—";
-  const s=Math.floor((Date.now()-d.getTime())/1000);
-  if(s<60) return "الآن";
-  if(s<3600) return `قبل ${Math.floor(s/60)} دقيقة`;
-  if(s<86400) return `قبل ${Math.floor(s/3600)} ساعة`;
-  if(s<604800) return `قبل ${Math.floor(s/86400)} يوم`;
-  return d.toLocaleDateString("ar-SA",{day:"numeric",month:"short"});
+function timeAgo(ts) {
+  const dateObj = tsToDate(ts);
+  if (!dateObj) return "الآن";
+  const seconds = Math.floor((Date.now() - dateObj.getTime()) / 1000);
+  if (seconds < 60) return "الآن";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    if (minutes === 1) return "منذ دقيقة";
+    if (minutes === 2) return "منذ دقيقتين";
+    if (minutes <= 10) return `منذ ${minutes} دقائق`;
+    return `منذ ${minutes} دقيقة`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    if (hours === 1) return "منذ ساعة";
+    if (hours === 2) return "منذ ساعتين";
+    if (hours <= 10) return `منذ ${hours} ساعات`;
+    return `منذ ${hours} ساعة`;
+  }
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "أمس";
+  if (days === 2) return "منذ يومين";
+  if (days <= 10) return `منذ ${days} أيام`;
+  return dateObj.toLocaleDateString("ar-SA");
 }
 function fmtDate(ts){ const d=tsToDate(ts); return d?d.toLocaleDateString("ar-SA",{day:"numeric",month:"long",year:"numeric"}):"—"; }
+
+function getHijriDate(ts) {
+  const d = tsToDate(ts);
+  if (!d) return "—";
+  return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(d).replace("هـ", "").trim();
+}
+
+function getGregorianDate(ts) {
+  const d = tsToDate(ts);
+  if (!d) return "—";
+  return new Intl.DateTimeFormat('ar-SA', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(d);
+}
+
+async function generateLeavePdf(leaveId, btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.originalHtml = btn.innerHTML;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز الخطاب...`;
+  }
+  
+  try {
+    const leaves = [...(State.empLeaves || []), ...(State.execLeaves || []), ...(State.archiveLeaves || [])];
+    let leave = leaves.find(l => l.id === leaveId);
+    
+    if (!leave) {
+      const docRef = S.doc(S.db, S.COL.leaves, leaveId);
+      const snap = await S.getDoc(docRef);
+      if (snap.exists()) {
+        leave = { id: snap.id, ...snap.data() };
+      }
+    }
+    
+    if (!leave) {
+      throw new Error("لم يتم العثور على سجل الإجازة.");
+    }
+    
+    const typeLabel = LEAVE_TYPES[leave.type]?.label || leave.type;
+    const startDateM = getGregorianDate(leave.startDate);
+    const startDateH = getHijriDate(leave.startDate);
+    const endDateM = getGregorianDate(leave.endDate);
+    const endDateH = getHijriDate(leave.endDate);
+    const todayM = getGregorianDate(new Date());
+    const todayH = getHijriDate(new Date());
+    
+    let execName = "المدير التنفيذي";
+    if (leave.approvedBy) {
+      execName = leave.approvedBy;
+    } else if (leave.statusHistory) {
+      const appStep = leave.statusHistory.find(h => h.status === "approved" || h.action === "approve");
+      if (appStep && appStep.by) execName = appStep.by;
+    }
+
+    // Fetch the template file
+    const response = await fetch("leave-template.html?v=35");
+    if (!response.ok) {
+      throw new Error("تعذّر تحميل قالب الخطاب (leave-template.html).");
+    }
+    let templateHtml = await response.text();
+
+    // Replace the placeholders with the actual values
+    templateHtml = templateHtml
+      .replace(/\{\{رقم_الطلب\}\}/g, leave.refNo || "—")
+      .replace(/\{\{تاريخ_اليوم_ميلادي\}\}/g, todayM)
+      .replace(/\{\{تاريخ_اليوم_هجري\}\}/g, todayH)
+      .replace(/\{\{اسم_الموظف\}\}/g, leave.userName || "—")
+      .replace(/\{\{المسمى_الوظيفي\}\}/g, leave.userJobTitle || "—")
+      .replace(/\{\{نوع_الإجازة\}\}/g, typeLabel)
+      .replace(/\{\{تاريخ_البداية_ميلادي\}\}/g, startDateM)
+      .replace(/\{\{تاريخ_البداية_هجري\}\}/g, startDateH)
+      .replace(/\{\{تاريخ_النهاية_ميلادي\}\}/g, endDateM)
+      .replace(/\{\{تاريخ_النهاية_هجري\}\}/g, endDateH)
+      .replace(/\{\{عدد_الأيام\}\}/g, leave.daysCount || "—")
+      .replace(/\{\{اسم_المدير_التنفيذي\}\}/g, execName);
+
+    // Create a temporary container styled as a hidden viewport wrapper
+    const wrapper = document.createElement("div");
+    wrapper.id = "docx-render-wrapper";
+    wrapper.style.position = "absolute";
+    wrapper.style.top = "0";
+    wrapper.style.left = "0";
+    wrapper.style.zIndex = "-9999";
+    wrapper.style.width = "100%";
+    wrapper.style.height = "100%";
+    wrapper.style.pointerEvents = "none";
+    wrapper.style.overflow = "hidden";
+
+    wrapper.innerHTML = templateHtml;
+    const pageEl = wrapper.firstElementChild;
+    document.body.appendChild(wrapper);
+
+    // Give the browser 300ms to render layout & resolve fonts
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Log diagnostic metrics to verify render content is greater than 0
+    console.log("[PDF Pre-flight] pageEl offsetHeight:", pageEl.offsetHeight);
+    console.log("[PDF Pre-flight] pageEl offsetWidth:", pageEl.offsetWidth);
+    console.log("[PDF Pre-flight] pageEl rect:", pageEl.getBoundingClientRect());
+
+    const opt = {
+      margin: 0,
+      filename: `خطاب-إجازة-${leave.refNo || leaveId}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    console.log("[PDF Debug] Converting rendered DOM to PDF via html2pdf...");
+    await html2pdf().from(pageEl).set(opt).save();
+    
+    document.body.removeChild(wrapper);
+    toast("تم تحميل الخطاب بصيغة PDF بنجاح.");
+  } catch (error) {
+    console.error(error);
+    toast("فشل توليد الخطاب: " + (error.message || error), "err");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = btn.originalHtml;
+    }
+  }
+}
 
 function isTechAdmin(u = State.user){
   return u && (u.isTechAdmin === true || u.role === "tech_admin");
@@ -114,23 +261,70 @@ function closeModal(){
 $("#modalShroud").addEventListener("click",e=>{ if(e.target.id==="modalShroud") closeModal(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && $("#modalShroud").classList.contains("open")) closeModal(); });
 
-/* Success SVG Checkmark Animation */
-function showSuccessAnimation(title, subtitle, onComplete){
-  const modal = $("#modal");
-  modal.innerHTML = `
-    <div class="success-anim-wrap">
-      <svg class="success-svg" viewBox="0 0 52 52">
-        <circle class="success-circle" cx="26" cy="26" r="23" fill="none"/>
-        <path class="success-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+/* ════════ Success Feedback System (Centralized Micro-interactions) ════════ */
+function showActionSuccess({ title = "تمت العملية بنجاح", message = "", inModal = true, duration = 850, onComplete } = {}) {
+  return new Promise((resolve) => {
+    const modalEl = $("#modal");
+    const isModalOpen = $("#modalShroud") && $("#modalShroud").classList.contains("open");
+
+    if (inModal && isModalOpen && modalEl) {
+      modalEl.innerHTML = `
+        <div class="action-success-card">
+          <div class="action-success-icon-wrap">
+            <svg class="action-success-svg" viewBox="0 0 52 52">
+              <circle class="action-success-circle" cx="26" cy="26" r="24" fill="none"/>
+              <path class="action-success-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+          </div>
+          <h3 class="action-success-title">${esc(title)}</h3>
+          ${message ? `<p class="action-success-sub">${esc(message)}</p>` : ''}
+        </div>
+      `;
+      setTimeout(() => {
+        closeModal();
+        if (onComplete) onComplete();
+        resolve();
+      }, duration);
+    } else {
+      showSuccessBadge(title, message, duration + 1400);
+      setTimeout(() => {
+        if (onComplete) onComplete();
+        resolve();
+      }, duration);
+    }
+  });
+}
+
+function showSuccessBadge(title, message = "", duration = 2600) {
+  let badge = $("#actionSuccessBadge");
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.id = "actionSuccessBadge";
+    badge.className = "action-success-badge";
+    document.body.appendChild(badge);
+  }
+  badge.innerHTML = `
+    <div class="badge-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6L9 17l-5-5"/>
       </svg>
-      <h3 style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:4px">${esc(title)}</h3>
-      <p style="font-size:13px;color:var(--ink-muted);font-weight:500">${esc(subtitle)}</p>
+    </div>
+    <div class="badge-text">
+      <span class="badge-title">${esc(title)}</span>
+      ${message ? `<span class="badge-sub">${esc(message)}</span>` : ''}
     </div>
   `;
-  setTimeout(() => {
-    closeModal();
-    if(onComplete) onComplete();
-  }, 1300);
+  badge.classList.remove("show");
+  void badge.offsetWidth; // Force reflow
+  badge.classList.add("show");
+  clearTimeout(badge._timer);
+  badge._timer = setTimeout(() => {
+    badge.classList.remove("show");
+  }, duration);
+}
+
+function showSuccessAnimation(title, subtitle, onComplete){
+  return showActionSuccess({ title, message: subtitle, inModal: true, duration: 850, onComplete });
 }
 
 /* Custom Professional Confirmation Modal */
@@ -217,18 +411,56 @@ S.onAuthStateChanged(S.auth, async (fbUser)=>{
     await S.logout().catch(()=>{});
     showLogin("حدث خطأ أثناء تحميل بيانات الملف الشخصي: " + (err.message || err));
   } finally {
-    $("#bootScreen").classList.add("hidden");
-    console.log("%c[Portal] Boot screen hidden", "color:#3a5e2e;font-weight:bold");
+    if (!isInitialRevealDone) {
+      revealPortal(State.user ? "app" : "login");
+    }
     resetLoginBtn();
   }
 });
 
+/* ════════ Circle Reveal Transition Manager ════════ */
+let isInitialRevealDone = false;
+
+function revealPortal(target = "app") {
+  const boot = $("#bootScreen");
+  if (!boot) return;
+
+  if (isInitialRevealDone) {
+    boot.classList.add("hidden");
+    return;
+  }
+  isInitialRevealDone = true;
+
+  const targetEl = target === "app" ? $("#appShell") : $("#loginScreen");
+
+  const prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersReducedMotion) {
+    boot.classList.add("hidden");
+    return;
+  }
+
+  // Trigger Circle Reveal Animation
+  boot.classList.add("revealing");
+  if (targetEl) {
+    targetEl.classList.add("portal-revealing");
+  }
+
+  setTimeout(() => {
+    boot.classList.add("hidden");
+    boot.classList.remove("revealing");
+    if (targetEl) {
+      targetEl.classList.remove("portal-revealing");
+    }
+    console.log("%c[Portal] Circle Reveal completed", "color:#3a5e2e;font-weight:bold");
+  }, 1180);
+}
+
 function showLogin(err=""){
-  $("#bootScreen").classList.add("hidden");
   $("#appShell").classList.remove("show");
   $("#loginScreen").classList.remove("hidden");
   resetLoginBtn();
   $("#loginErr").innerHTML = err ? `<i class="fa-solid fa-circle-exclamation"></i><span>${esc(err)}</span>` : "";
+  revealPortal("login");
 }
 
 function resetLoginBtn(){
@@ -284,8 +516,16 @@ function startLiveSync(){
 
   // 1. Watch Tasks
   try {
-    State.tasksUnsub = S.watchTasks(u, (list) => {
+    State.tasksUnsub = S.watchTasks(u, async (list) => {
       State.tasks = list || [];
+      if(!isExec(u)) {
+        if(!State.userExecutionsMap) State.userExecutionsMap = {};
+        const groupTasks = (list || []).filter(t => t.isGroup === true);
+        await Promise.all(groupTasks.map(async (t) => {
+          const exec = await S.getTaskExecution(t.id, u.uid);
+          State.userExecutionsMap[t.id] = exec?.status || "not_started";
+        }));
+      }
       triggerViewRefresh("tasks");
     });
   } catch(e){ console.warn("[Portal] watchTasks error:", e); }
@@ -355,14 +595,10 @@ function triggerViewRefresh(dataContext){
 /* ════════ دخول التطبيق (Enter Application) ════════ */
 async function enterApp(){
   try {
-    // Hide boot & login screens immediately
-    $("#bootScreen").classList.add("hidden");
     $("#loginScreen").classList.add("hidden");
-    // Show main app shell
     $("#appShell").classList.add("show");
 
     // Render core UI components that do not depend on async data
-    // Ensure notifications array exists
     State.notifs = [];
     renderSidebar();
     renderUserFooter();
@@ -405,7 +641,6 @@ async function enterApp(){
     } catch(e){ console.warn("[Portal] watchNotifications error:", e); }
 
     // Only init messaging automatically if permission is already granted.
-    // This prevents automatic popups on load that iOS Safari blocks/rejects.
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       S.initMessaging(State.user.uid).catch(e=>console.warn("[Portal] Messaging init error:", e));
     }
@@ -421,14 +656,16 @@ async function enterApp(){
       navigate("dash");
       console.log("%c[Portal] Dashboard rendered", "color:#3a5e2e;font-weight:bold");
     }
+
+    // Trigger Circle Reveal Transition
+    revealPortal("app");
   } catch(err) {
     console.error("[Portal] Fatal error in enterApp:", err);
-    // Fallback: show login again
     showLogin("حدث خطأ غير متوقع. يرجى إعادة تسجيل الدخول.");
   } finally {
-    // Ensure boot screen hidden no matter what
-    $("#bootScreen").classList.add("hidden");
-    console.log("%c[Portal] Boot screen hidden (final)", "color:#3a5e2e;font-weight:bold");
+    if (!isInitialRevealDone) {
+      revealPortal(State.user ? "app" : "login");
+    }
   }
 }
 
@@ -571,12 +808,24 @@ const VIEW_META = {
   notifs:               { la:"Alerts",           lbl:"الإشعارات",            fn:renderNotifs },
   settings:             { la:"Settings",         lbl:"الإعدادات",            fn:renderSettings },
   tools:                { la:"Tools",            lbl:"أدوات عامة",            fn:renderTools },
+  pdf_editor:           { la:"أدوات عامة",       lbl:"محرر PDF",             fn:renderPdfEditor },
+  financial_calc:       { la:"أدوات عامة",       lbl:"حاسبة النسب المالية",   fn:renderFinancialCalc },
   pdf_compress:         { la:"أدوات عامة",       lbl:"ضغط ملفات PDF",        fn:renderPdfCompress },
   img_to_pdf:           { la:"أدوات عامة",       lbl:"دمج الصور إلى PDF",    fn:renderImgToPdf },
   qr_generator:         { la:"أدوات عامة",       lbl:"مولد الباركود",        fn:renderQrGenerator }
 };
 
 function navigate(view){
+  if (State.view === "pdf_editor" && view !== "pdf_editor") {
+    checkUnsavedAndLeave(() => {
+      performNavigate(view);
+    });
+    return;
+  }
+  performNavigate(view);
+}
+
+function performNavigate(view){
   if(!VIEW_META[view]) view="dash";
   State.view=view;
   $$("[data-nav]").forEach(b=>b.classList.toggle("active", b.dataset.nav===view));
@@ -586,6 +835,15 @@ function navigate(view){
   const host=$("#viewHost");
   host.classList.remove("active");
   setTimeout(()=>{ m.fn(host); host.classList.add("active"); host.scrollTop=0; }, 60);
+}
+
+// تصدير دوال الواجهة الأساسية للاستخدام العام
+if (typeof window !== "undefined") {
+  window.navigate = navigate;
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+  window.toast = toast;
+  window.openConfirmModal = openConfirmModal;
 }
 
 // ربط النقر بمسار التنقل (Breadcrumbs) للرجوع للأدوات العامة
@@ -716,7 +974,12 @@ function renderDash(el){
     }
   } else {
     // موظف عادي
-    const pendingMyTasks = (State.tasks || []).filter(t => t.employeeId === u.uid && t.status === "pending").length;
+    const pendingMyTasks = (State.tasks || []).filter(t => {
+      if(t.isGroup === true){
+        return State.userExecutionsMap?.[t.id] !== "completed";
+      }
+      return t.employeeId === u.uid && t.status !== "completed";
+    }).length;
     const pendingMyLeaves = (State.myLeaves || []).filter(l => l.status === "submitted" || l.status === "hr_approved").length;
 
     totalPending = pendingMyTasks + pendingMyLeaves;
@@ -755,9 +1018,12 @@ function renderDash(el){
   // 2. تجميع المحتوى الإجمالي للمهام والإجازات الجارية
   const activeTasks = (State.tasks || []).filter(t => {
     if (isExecUser || isHRUser) {
-      return (t.adminId === u.uid || t.employeeId === u.uid) && t.status === "pending";
+      return (t.adminId === u.uid || t.employeeId === u.uid || t.isGroup === true) && t.status !== "completed";
     } else {
-      return t.employeeId === u.uid && t.status === "pending";
+      if(t.isGroup === true){
+        return State.userExecutionsMap?.[t.id] !== "completed";
+      }
+      return t.employeeId === u.uid && t.status !== "completed";
     }
   });
   const recentLeaves = (State.leaves || []).filter(l => l.status === "submitted" || l.status === "hr_approved").slice(0, 1);
@@ -1051,7 +1317,7 @@ function renderProfile(el){
         try {
           const url = await S.uploadAvatar(u.uid, file);
           u.avatar = url;
-          toast("تم تحديث الصورة الشخصية بنجاح");
+          showSuccessBadge("تم تحديث الصورة الشخصية", "تم حفظ وتحديث صورتك الشخصية بنجاح.");
           renderProfile(el);
         } catch (err) {
           toast("تعذّر رفع الصورة الشخصية", "err");
@@ -1103,8 +1369,8 @@ function renderProfileTabBody(){
               </div>
             </div>
             <div style="display:flex;gap:8px">
-              <a href="${esc(u.cv.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary"><i class="fa-solid fa-eye"></i> معاينة</a>
-              <a href="${esc(S.getCloudinaryDownloadUrl(u.cv.url))}" target="_blank" download class="btn btn-primary"><i class="fa-solid fa-download"></i> تحميل</a>
+              <a href="${esc(S.getCvPreviewUrl(u.cv))}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary"><i class="fa-solid fa-eye"></i> معاينة</a>
+              <a href="${esc(S.getCvDownloadUrl(u.cv))}" target="_blank" download class="btn btn-primary"><i class="fa-solid fa-download"></i> تحميل</a>
             </div>
           </div>
         ` : `
@@ -1310,9 +1576,10 @@ function openCvUploadModal(u){
     btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
     try{
       const cvObj = await S.uploadCV(u.uid, file);
-      u.cv = cvObj;
-      toast("تم رفع السيرة الذاتية بنجاح");
-      closeModal();
+      await showActionSuccess({
+        title: "تم رفع السيرة الذاتية",
+        message: "تم حفظ وتحديث ملف السيرة الذاتية في SharePoint بنجاح."
+      });
       renderProfileTabBody();
     }catch(err){
       toast("تعذّر رفع الملف", "err");
@@ -1363,8 +1630,10 @@ function openAddQualModal(u){
     list.push(item);
     await S.updateUserProfile(u.uid, { qualifications: list });
     u.qualifications = list;
-    toast("تمت إضافة المؤهل");
-    closeModal();
+    await showActionSuccess({
+      title: "تمت إضافة المؤهل العلمي",
+      message: "تم تحديث سجلك الأكاديمي بنجاح."
+    });
     renderProfileTabBody();
   });
 }
@@ -1418,8 +1687,10 @@ function openAddCourseModal(u){
     list.push(item);
     await S.updateUserProfile(u.uid, { courses: list });
     u.courses = list;
-    toast("تمت إضافة الدورة والشهادة");
-    closeModal();
+    await showActionSuccess({
+      title: "تمت إضافة الدورة التدريبية",
+      message: "تم حفظ الدورة والشهادة في سجلك التدريبي بنجاح."
+    });
     renderProfileTabBody();
   });
 }
@@ -1449,8 +1720,10 @@ function openAddSkillModal(u){
     list.push(val);
     await S.updateUserProfile(u.uid, { skills: list });
     u.skills = list;
-    toast("تمت إضافة المهارة");
-    closeModal();
+    await showActionSuccess({
+      title: "تمت إضافة المهارة",
+      message: "تم تحديث قائمة مهاراتك بنجاح."
+    });
     renderProfileTabBody();
   });
 }
@@ -1946,6 +2219,12 @@ function renderLeaveCard(l, mode){
           <button class="btn btn-primary btn-capsule" data-exec-approve="${l.id}"><i class="fa-solid fa-certificate"></i> اعتماد الطلب نهائياً</button>
         </div>
       ` : ""}
+
+      ${(l.status === "approved" && (mode === "hr" || mode === "exec")) ? `
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-soft);flex-wrap:wrap">
+          <button class="btn btn-secondary btn-capsule btn-pdf-download" data-download-pdf="${l.id}" style="background:#2d4a63;color:#fff;border:none"><i class="fa-solid fa-file-pdf" style="color:#ff8a80"></i> تحميل خطاب الاعتماد</button>
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -1965,26 +2244,6 @@ function bindLeaveEvents(el){
         body: `تمت موافقة الموارد البشرية على طلب إجازة الموظف ${leaveObj ? leaveObj.userName : ""}`
       }).catch(()=>{});
 
-      // إرسال إشعار بريد للمدير التنفيذي (أفضل جهد - غير معطل للواجهة)
-      (async () => {
-        try {
-          console.log("[Email Debug] Reached email dispatch block");
-          const execUsers = await S.getUsersByRole("executive");
-          console.log("[Email Debug] Executive users found:", execUsers);
-          const reviewLink = `${window.location.origin}${window.location.pathname}?view=exec_leaves_approval`;
-          for (const exec of execUsers) {
-            if (exec.email) {
-              console.log("[Email Debug] Calling sendLeaveRequestEmail for:", exec.email);
-              await S.sendLeaveRequestEmail(exec.email, exec.name || "المدير التنفيذي", leaveObj ? leaveObj.userName : "الموظف", reviewLink)
-                .then(() => console.log("[Email Debug] Email sent successfully"))
-                .catch(err => console.log("[Email Debug] Email failed:", err));
-            }
-          }
-        } catch (e) {
-          console.warn("[Email Debug] Executive email dispatch error:", e);
-        }
-      })();
-
       if (leaveObj) {
         await S.pushNotification({
           userId: leaveObj.userId,
@@ -1993,7 +2252,7 @@ function bindLeaveEvents(el){
           body: `تمت موافقة الموارد البشرية على طلب إجازتك رقم ${leaveObj.refNo} وتحويله للاعتماد النهائي`
         }).catch(()=>{});
       }
-      toast("تمت موافقة الموارد البشرية وتحويل الطلب للمدير التنفيذي بنجاح");
+      showSuccessBadge("تمت الموافقة المبدئية", "تمت موافقة الموارد البشرية وتحويل الطلب للمدير التنفيذي بنجاح");
       await loadAllData();
       renderEmpLeavesHR(el);
     } catch(err) {
@@ -2022,7 +2281,7 @@ function bindLeaveEvents(el){
           body: `تم الاعتماد النهائي لطلب إجازتك رقم ${leaveObj.refNo}`
         }).catch(()=>{});
       }
-      toast("تم اعتماد طلب الإجازة نهائياً بنجاح");
+      showSuccessBadge("تم الاعتماد النهائي", "تم اعتماد طلب الإجازة وإشعار الموظف بنجاح.");
       await loadAllData();
       renderExecLeavesApproval(el);
     } catch(err) {
@@ -2034,6 +2293,11 @@ function bindLeaveEvents(el){
   $$("[data-exec-reject]", el).forEach(b=>b.addEventListener("click", ()=>{
     const id = b.dataset.execReject;
     openRejectLeaveExecModal(id);
+  }));
+
+  $$("[data-download-pdf]", el).forEach(b=>b.addEventListener("click", ()=>{
+    const id = b.dataset.downloadPdf;
+    generateLeavePdf(id, b);
   }));
 }
 
@@ -2239,26 +2503,6 @@ function openNewLeaveModal(){
         title: "طلب إجازة جديد",
         body: `قام الموظف ${State.user.name} بتقديم طلب إجازة جديد برقم ${res.refNo}`
       });
-
-      // إرسال إشعار بريد للموارد البشرية (أفضل جهد - غير معطل للواجهة)
-      (async () => {
-        try {
-          console.log("[Email Debug] Reached email dispatch block");
-          const hrUsers = await S.getUsersByRole("hr");
-          console.log("[Email Debug] HR users found:", hrUsers);
-          const reviewLink = `${window.location.origin}${window.location.pathname}?view=emp_leaves`;
-          for (const hr of hrUsers) {
-            if (hr.email) {
-              console.log("[Email Debug] Calling sendLeaveRequestEmail for:", hr.email);
-              await S.sendLeaveRequestEmail(hr.email, hr.name || "مسؤول الموارد البشرية", State.user.name, reviewLink)
-                .then(() => console.log("[Email Debug] Email sent successfully"))
-                .catch(err => console.log("[Email Debug] Email failed:", err));
-            }
-          }
-        } catch (e) {
-          console.warn("[Email Debug] HR email dispatch error:", e);
-        }
-      })();
 
       showSuccessAnimation("تم تقديم طلب الإجازة بنجاح", `رقم المرجعي للطلب: ${res.refNo}`, async () => {
         await loadAllData();
@@ -2506,8 +2750,10 @@ function openCreateUserModalTechAdmin(){
         isTechAdmin: $("#neTechAdmin").checked
       });
 
-      toast("تم إنشاء وتثبيت مستند الموظف بالـ UID بنجاح");
-      closeModal();
+      await showActionSuccess({
+        title: "تم إنشاء حساب الموظف",
+        message: "تم تسجيل وتثبيت مستند الموظف في البوابة بنجاح."
+      });
       await loadAllData();
       navigate("members");
     }catch(err){
@@ -2567,9 +2813,10 @@ function openEditUserTechAdminModal(emp){
 
 /* ════════════════ 5. المهام (Tasks) ════════════════ */
 const OFFICIAL_TASK_STATUS = {
-  pending:   { label: "قيد الانتظار", color: "#b8651a", bg: "rgba(184,101,26,.10)" },
-  completed: { label: "مكتملة",      color: "#3a5e2e", bg: "rgba(58,94,46,.08)" },
-  rejected:  { label: "مرفوضة",      color: "#7a2518", bg: "rgba(122,37,24,.10)" }
+  pending:     { label: "لم تبدأ", color: "#6c757d", bg: "rgba(108,117,125,.10)" },
+  not_started: { label: "لم تبدأ", color: "#6c757d", bg: "rgba(108,117,125,.10)" },
+  completed:   { label: "مكتملة",  color: "#3a5e2e", bg: "rgba(58,94,46,.08)" },
+  rejected:    { label: "مرفوضة",  color: "#7a2518", bg: "rgba(122,37,24,.10)" }
 };
 
 function renderTasks(el){
@@ -2604,9 +2851,8 @@ function renderTasks(el){
           <label style="font-size:11px;font-weight:700;color:var(--ink-muted);display:block;margin-bottom:4px">حالة المهمة</label>
           <select class="input" id="taskFilterStatus" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-sm)">
             <option value="all" ${State.taskFilterStatus === "all" ? "selected" : ""}>الكل (${State.tasks.length})</option>
-            <option value="pending" ${State.taskFilterStatus === "pending" ? "selected" : ""}>قيد الانتظار</option>
+            <option value="pending" ${State.taskFilterStatus === "pending" ? "selected" : ""}>لم تبدأ</option>
             <option value="completed" ${State.taskFilterStatus === "completed" ? "selected" : ""}>مكتملة</option>
-            <option value="rejected" ${State.taskFilterStatus === "rejected" ? "selected" : ""}>مرفوضة</option>
           </select>
         </div>
 
@@ -2651,9 +2897,8 @@ function renderTasks(el){
           <label style="font-size:11px;font-weight:700;color:var(--ink-muted);display:block;margin-bottom:4px">تصفية حسب الحالة</label>
           <select class="input" id="taskFilterStatus" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-sm)">
             <option value="all" ${State.taskFilterStatus === "all" ? "selected" : ""}>الكل (${State.tasks.length})</option>
-            <option value="pending" ${State.taskFilterStatus === "pending" ? "selected" : ""}>قيد الانتظار</option>
+            <option value="pending" ${State.taskFilterStatus === "pending" ? "selected" : ""}>لم تبدأ</option>
             <option value="completed" ${State.taskFilterStatus === "completed" ? "selected" : ""}>مكتملة</option>
-            <option value="rejected" ${State.taskFilterStatus === "rejected" ? "selected" : ""}>مرفوضة</option>
           </select>
         </div>
       </div>
@@ -2669,10 +2914,24 @@ function renderTasks(el){
     });
   }
 
-  // مستمع نقر البطاقات لفتح تفاصيل المهمة
+  // مستمع نقر البطاقات لفتح تفاصيل المهمة الفردية
   $$("[data-task-detail-id]", el).forEach(card => {
     card.addEventListener("click", () => {
       openTaskDetailModal(card.dataset.taskDetailId);
+    });
+  });
+
+  // مستمع نقر بطاقات المهام الجماعية للمدير التنفيذي
+  $$("[data-group-task-id]", el).forEach(card => {
+    card.addEventListener("click", () => {
+      openGroupTaskDetailModal(card.dataset.groupTaskId);
+    });
+  });
+
+  // مستمع نقر بطاقات المهام الجماعية للموظف
+  $$("[data-group-emp-task-id]", el).forEach(card => {
+    card.addEventListener("click", () => {
+      openEmployeeGroupTaskModal(card.dataset.groupEmpTaskId);
     });
   });
 }
@@ -2691,9 +2950,50 @@ function renderAdminTasksList(list) {
       ${list.map(t => {
         const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
         const st = OFFICIAL_TASK_STATUS[t.status] || OFFICIAL_TASK_STATUS.pending;
+        const isGroup = t.isGroup === true;
+
+        if(isGroup){
+          return `
+            <div class="card note-task-card" data-group-task-id="${t.id}" style="border:1px solid rgba(192,154,98,0.3);background:linear-gradient(180deg, var(--bg-paper) 0%, rgba(192,154,98,0.03) 100%);cursor:pointer">
+              <div class="ntc-head">
+                <h4 class="ntc-title" style="display:flex;align-items:center;gap:6px">
+                  <i class="fa-solid fa-users" style="color:var(--gold-deep)"></i> ${esc(t.title)}
+                </h4>
+                <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
+                  <i class="fa-solid fa-flag"></i> ${pr.label}
+                </span>
+              </div>
+              <p class="ntc-desc" style="margin-bottom:12px">${t.description ? esc(t.description) : "بدون وصف تفصيلي"}</p>
+              
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px;color:var(--ink-soft);flex-wrap:wrap;gap:6px">
+                <span><strong>المستلمون:</strong> جميع الموظفين</span>
+                <span class="badge" style="background:rgba(192,154,98,0.15);color:var(--gold-deep);border:1px solid rgba(192,154,98,0.3);font-size:11px;padding:3px 8px;border-radius:var(--r-full);font-weight:700;">
+                  <i class="fa-solid fa-layer-group"></i> مهمة جماعية · ${t.targetCount || "عدة"} موظفين
+                </span>
+              </div>
+
+              <div class="ntc-meta" style="padding-top:10px;border-top:1px dashed rgba(192,154,98,0.2)">
+                <div class="ntc-meta-item">
+                  <i class="fa-regular fa-calendar-check" style="color:var(--gold-deep)"></i>
+                  <span>${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</span>
+                </div>
+                <div class="ntc-meta-item">
+                  <i class="fa-solid fa-paperclip" style="color:${t.attachmentRequired ? 'var(--danger)' : 'var(--ink-faint)'}"></i>
+                  <span>${t.attachmentRequired ? 'مرفق إلزامي' : 'مرفق اختياري'}</span>
+                </div>
+                ${t.adminAttachmentUrl ? `
+                  <div class="ntc-meta-item" style="color:var(--gold-deep)">
+                    <i class="fa-solid fa-paperclip"></i>
+                    <span>مرفق من المدير</span>
+                  </div>
+                ` : ""}
+              </div>
+            </div>
+          `;
+        }
 
         return `
-          <div class="card note-task-card" data-task-detail-id="${t.id}">
+          <div class="card note-task-card" data-task-detail-id="${t.id}" style="cursor:pointer">
             <div class="ntc-head">
               <h4 class="ntc-title">${esc(t.title)}</h4>
               <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
@@ -2746,9 +3046,50 @@ function renderEmployeeTasksList(list) {
       ${list.map(t => {
         const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
         const st = OFFICIAL_TASK_STATUS[t.status] || OFFICIAL_TASK_STATUS.pending;
+        const isGroup = t.isGroup === true;
+
+        if(isGroup){
+          return `
+            <div class="card note-task-card" data-group-emp-task-id="${t.id}" style="border:1px solid rgba(192,154,98,0.3);background:linear-gradient(180deg, var(--bg-paper) 0%, rgba(192,154,98,0.03) 100%);cursor:pointer">
+              <div class="ntc-head">
+                <h4 class="ntc-title" style="display:flex;align-items:center;gap:6px">
+                  <i class="fa-solid fa-users" style="color:var(--gold-deep)"></i> ${esc(t.title)}
+                </h4>
+                <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
+                  <i class="fa-solid fa-flag"></i> ${pr.label}
+                </span>
+              </div>
+              <p class="ntc-desc" style="margin-bottom:12px">${t.description ? esc(t.description) : "بدون وصف تفصيلي"}</p>
+              
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px;color:var(--ink-soft)">
+                <span><strong>المرسل:</strong> ${esc(t.adminName)}</span>
+                <span class="badge" style="background:rgba(192,154,98,0.15);color:var(--gold-deep);font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:var(--r-full);">
+                  <i class="fa-solid fa-users"></i> مهمة جماعية
+                </span>
+              </div>
+
+              <div class="ntc-meta" style="padding-top:10px;border-top:1px dashed rgba(192,154,98,0.2)">
+                <div class="ntc-meta-item">
+                  <i class="fa-regular fa-calendar-check" style="color:var(--gold-deep)"></i>
+                  <span>${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</span>
+                </div>
+                <div class="ntc-meta-item">
+                  <i class="fa-solid fa-paperclip" style="color:${t.attachmentRequired ? 'var(--danger)' : 'var(--ink-faint)'}"></i>
+                  <span>${t.attachmentRequired ? 'يتطلب مرفق' : 'مرفق اختياري'}</span>
+                </div>
+                ${t.adminAttachmentUrl ? `
+                  <div class="ntc-meta-item" style="color:var(--gold-deep)">
+                    <i class="fa-solid fa-paperclip"></i>
+                    <span>مرفق من المدير</span>
+                  </div>
+                ` : ""}
+              </div>
+            </div>
+          `;
+        }
 
         return `
-          <div class="card note-task-card" data-task-detail-id="${t.id}">
+          <div class="card note-task-card" data-task-detail-id="${t.id}" style="cursor:pointer">
             <div class="ntc-head">
               <h4 class="ntc-title">${esc(t.title)}</h4>
               <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
@@ -2883,7 +3224,10 @@ function openNewTaskModal(){
     progressTxt.textContent = "0%";
 
     try {
-      const res = await S.uploadToCloudinary(
+      const assignTypeVal = $("#tAssignType") ? $("#tAssignType").value : "single";
+      const isGroupTask = assignTypeVal === "all";
+      const res = await S.uploadTaskAttachment(
+        { taskType: isGroupTask ? "group" : "single", taskId: "draft", subFolder: "admin" },
         file,
         (pct) => {
           progressTxt.textContent = `${pct}%`;
@@ -2899,11 +3243,7 @@ function openNewTaskModal(){
         }
       );
       
-      State.tempAdminTaskFile = {
-        url: res,
-        fileName: file.name,
-        fileType: file.type
-      };
+      State.tempAdminTaskFile = res;
 
       $("#tAdminAttachmentStatus").innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
@@ -2947,8 +3287,12 @@ function openNewTaskModal(){
     const attachmentRequired = $("#tAttachmentRequired").checked;
 
     const adminAttachmentUrl = State.tempAdminTaskFile ? State.tempAdminTaskFile.url : null;
-    const adminAttachmentName = State.tempAdminTaskFile ? State.tempAdminTaskFile.fileName : null;
-    const adminAttachmentType = State.tempAdminTaskFile ? State.tempAdminTaskFile.fileType : null;
+    const adminAttachmentName = State.tempAdminTaskFile ? (State.tempAdminTaskFile.name || State.tempAdminTaskFile.fileName) : null;
+    const adminAttachmentType = State.tempAdminTaskFile ? (State.tempAdminTaskFile.mimeType || State.tempAdminTaskFile.fileType) : null;
+    const adminAttachmentProvider = State.tempAdminTaskFile ? State.tempAdminTaskFile.provider : null;
+    const adminAttachmentDriveItemId = State.tempAdminTaskFile ? State.tempAdminTaskFile.driveItemId || null : null;
+    const adminAttachmentDownloadUrl = State.tempAdminTaskFile ? State.tempAdminTaskFile.downloadUrl || null : null;
+    const adminAttachmentPath = State.tempAdminTaskFile ? State.tempAdminTaskFile.sharePointPath || null : null;
 
     try {
       if(assignType === "all"){
@@ -2957,53 +3301,43 @@ function openNewTaskModal(){
           throw new Error("لا يوجد موظفون نشطون لإسناد المهمة لهم حالياً");
         }
         
-        await Promise.all(targetUsers.map(u => 
-          S.createTask({
-            title,
-            description,
-            priority,
-            dueDate,
-            attachmentRequired,
-            adminId: State.user.uid,
-            adminName: State.user.name,
-            employeeId: u.uid,
-            employeeName: u.name,
-            adminAttachmentUrl,
-            adminAttachmentName,
-            adminAttachmentType
-          }).then(async (taskId) => {
-            // إرسال إشعار فوري لكل موظف مستهدف
-            await S.pushNotification({
-              userId: u.uid,
-              type: "task_new",
-              title: "مهمة رسمية جديدة مسندة إليك",
-              body: `تم إسناد مهمة جديدة لك: "${title}"`,
-              link: "tasks",
-              refId: taskId
-            }).catch(()=>{});
+        const taskId = await S.createTask({
+          title,
+          description,
+          priority,
+          dueDate,
+          attachmentRequired,
+          adminId: State.user.uid,
+          adminName: State.user.name,
+          recipientAll: true,
+          isGroup: true,
+          targetUsers,
+          adminAttachmentUrl,
+          adminAttachmentName,
+          adminAttachmentType,
+          adminAttachmentProvider,
+          adminAttachmentDriveItemId,
+          adminAttachmentDownloadUrl,
+          adminAttachmentPath,
+          adminAttachmentObj: State.tempAdminTaskFile || null
+        });
 
-            // إرسال إيميل إسناد المهمة (أفضل جهد - غير معطل للواجهة)
-            (async () => {
-              try {
-                if (u.email) {
-                  const reviewLink = `${window.location.origin}${window.location.pathname}?view=tasks`;
-                  const PRIORITY_MAP = { low: "منخفضة", medium: "متوسطة", high: "عالية", critical: "حرجة" };
-                  const arabPriority = PRIORITY_MAP[priority] || priority;
-                  
-                  console.log("[Email Debug] Reached email dispatch block");
-                  console.log("[Email Debug] Target user found:", u);
-                  console.log("[Email Debug] Task creation - about to send task email to:", u.email);
-                  
-                  await S.sendTaskAssignedEmail(u.email, u.name || "الموظف", State.user.name, title, arabPriority, reviewLink)
-                    .then(() => console.log("[Email Debug] Email sent successfully"))
-                    .catch(err => console.log("[Email Debug] Email failed:", err));
-                }
-              } catch (e) {
-                console.warn("[Email Debug] Task assignment email dispatch error:", e);
-              }
-            })();
-          })
-        ));
+        // إرسال إشعار فوري لكل موظف مستهدف
+        targetUsers.forEach(u => {
+          S.pushNotification({
+            userId: u.uid,
+            type: "task_new",
+            title: "مهمة رسمية جديدة مسندة إليك",
+            body: `تم إسناد مهمة جماعية جديدة لك: "${title}"`,
+            link: "tasks",
+            refId: taskId
+          }).catch(()=>{});
+        });
+
+        await showActionSuccess({
+          title: "تم إرسال المهمة الجماعية",
+          message: "تم إسناد المهمة إلى جميع الموظفين المستهدفين بنجاح."
+        });
       } else {
         const sel = $("#tAssignTarget");
         if(!sel || sel.selectedIndex === -1){
@@ -3024,7 +3358,12 @@ function openNewTaskModal(){
           employeeName: empName,
           adminAttachmentUrl,
           adminAttachmentName,
-          adminAttachmentType
+          adminAttachmentType,
+          adminAttachmentProvider,
+          adminAttachmentDriveItemId,
+          adminAttachmentDownloadUrl,
+          adminAttachmentPath,
+          adminAttachmentObj: State.tempAdminTaskFile || null
         });
 
         // إرسال إشعار فوري
@@ -3037,31 +3376,12 @@ function openNewTaskModal(){
           refId: taskId
         }).catch(()=>{});
 
-        // إرسال إيميل إسناد المهمة (أفضل جهد - غير معطل للواجهة)
-        (async () => {
-          try {
-            const targetUser = State.users.find(u => u.uid === empId);
-            if (targetUser && targetUser.email) {
-              const reviewLink = `${window.location.origin}${window.location.pathname}?view=tasks`;
-              const PRIORITY_MAP = { low: "منخفضة", medium: "متوسطة", high: "عالية", critical: "حرجة" };
-              const arabPriority = PRIORITY_MAP[priority] || priority;
-
-              console.log("[Email Debug] Reached email dispatch block");
-              console.log("[Email Debug] Target user found:", targetUser);
-              console.log("[Email Debug] Task creation - about to send task email to:", targetUser.email);
-
-              await S.sendTaskAssignedEmail(targetUser.email, targetUser.name || "الموظف", State.user.name, title, arabPriority, reviewLink)
-                .then(() => console.log("[Email Debug] Email sent successfully"))
-                .catch(err => console.log("[Email Debug] Email failed:", err));
-            }
-          } catch (e) {
-            console.warn("[Email Debug] Task assignment email dispatch error:", e);
-          }
-        })();
+        await showActionSuccess({
+          title: "تم إرسال المهمة",
+          message: `تم إسناد المهمة إلى "${empName}" بنجاح.`
+        });
       }
 
-      toast("تم إنشاء وإسناد المهام بنجاح");
-      closeModal();
       await loadAllData();
       renderTasks();
     } catch(err) {
@@ -3082,14 +3402,16 @@ function openTaskDetailModal(taskId){
 
   let adminAttachmentBlock = "";
   if(t.adminAttachmentUrl){
+    const previewUrl = S.getTaskAttachmentPreviewUrl(t.adminAttachmentUrl, t.adminAttachmentObj || t);
+    const downloadUrl = S.getTaskAttachmentDownloadUrl(t.adminAttachmentUrl, t.adminAttachmentObj || t);
     adminAttachmentBlock = `
       <div style="background:rgba(192,154,98,0.06);border:1px solid rgba(192,154,98,0.2);border-radius:var(--r-md);padding:14px;margin-bottom:16px">
         <span style="font-size:12.5px;color:var(--gold-deep);font-weight:700"><i class="fa-solid fa-paperclip"></i> مرفق من المدير:</span>
         <div style="margin-top:8px;font-size:13px;color:var(--ink-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
           <span style="font-weight:700"><i class="fa-regular fa-file" style="color:var(--gold-deep)"></i> ${esc(t.adminAttachmentName || "ملف مرفق")}</span>
           <div style="display:flex;gap:6px">
-            <a href="${esc(t.adminAttachmentUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-eye"></i> معاينة</a>
-            <a href="${esc(S.getCloudinaryDownloadUrl(t.adminAttachmentUrl))}" target="_blank" download class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-download"></i> تحميل</a>
+            <a href="${esc(previewUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-eye"></i> معاينة</a>
+            <a href="${esc(downloadUrl)}" target="_blank" download class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-download"></i> تحميل</a>
           </div>
         </div>
       </div>
@@ -3110,14 +3432,15 @@ function openTaskDetailModal(taskId){
       `;
     }
 
+    const taskAtt = t.attachment || (t.attachmentUrl ? { url: t.attachmentUrl, name: t.attachmentName, provider: t.attachmentProvider, downloadUrl: t.attachmentDownloadUrl } : null);
     let attachmentBlock = `
       <div style="background:var(--bg-subtle);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:16px">
         <span style="font-size:12.5px;color:var(--ink-muted);font-weight:700"><i class="fa-solid fa-paperclip"></i> المرفقات المستلمة من الموظف:</span>
         <div style="margin-top:8px;font-size:13px;color:var(--ink-soft)">
-          ${t.attachment ? `
+          ${taskAtt ? `
             <div style="display:flex;align-items:center;justify-content:space-between">
-              <span style="font-weight:700"><i class="fa-regular fa-file" style="color:var(--gold-deep)"></i> ${esc(t.attachment.fileName)}</span>
-              <a href="${esc(t.attachment.url)}" target="_blank" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px" download><i class="fa-solid fa-download"></i> تنزيل المرفق</a>
+              <span style="font-weight:700"><i class="fa-regular fa-file" style="color:var(--gold-deep)"></i> ${esc(taskAtt.name || taskAtt.fileName || "ملف مرفق")}</span>
+              <a href="${esc(S.getTaskAttachmentDownloadUrl(taskAtt.url, taskAtt))}" target="_blank" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px" download><i class="fa-solid fa-download"></i> تنزيل المرفق</a>
             </div>
           ` : `
             <span style="color:var(--ink-faint)"><i class="fa-solid fa-ban"></i> لم يتم رفع أي ملف مرفق حتى الآن.</span>
@@ -3148,8 +3471,7 @@ function openTaskDetailModal(taskId){
       ${rejectionBlock}
       ${attachmentBlock}
 
-      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--line-soft)">
-        <button type="button" class="btn btn-danger-soft" id="btnCancelTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-ban"></i> إلغاء وحذف المهمة</button>
+      <div style="display:flex;justify-content:flex-end;align-items:center;padding-top:14px;border-top:1px solid var(--line-soft)">
         <button type="button" class="btn btn-secondary" data-close>إغلاق</button>
       </div>
     `;
@@ -3158,7 +3480,7 @@ function openTaskDetailModal(taskId){
     let actionArea = "";
     let uploadArea = "";
 
-    if(t.status === "pending"){
+    if(t.status !== "completed"){
       uploadArea = `
         <div style="background:var(--bg-subtle);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:16px" id="empUploadBox">
           <label style="font-size:12.5px;color:var(--ink-soft);font-weight:700;display:block;margin-bottom:8px">
@@ -3184,21 +3506,11 @@ function openTaskDetailModal(taskId){
 
       actionArea = `
         <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:14px;border-top:1px solid var(--line-soft)">
-          <button type="button" class="btn btn-danger-soft" id="btnRejectTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-circle-xmark"></i> رفض المهمة</button>
-          <button type="button" class="btn btn-primary" id="btnCompleteTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-circle-check"></i> تم إنهاء المهمة</button>
+          <button type="button" class="btn btn-primary" id="btnCompleteTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-circle-check"></i> إنجاز المهمة</button>
+          <button type="button" class="btn btn-secondary" data-close>إغلاق</button>
         </div>
       `;
     } else {
-      let rejectionBlock = "";
-      if(t.status === "rejected"){
-        rejectionBlock = `
-          <div style="background:rgba(220,53,69,0.06);border:1px solid rgba(220,53,69,0.15);border-radius:var(--r-md);padding:14px;margin-bottom:16px;color:var(--danger)">
-            <h4 style="font-weight:800;margin-bottom:4px;font-size:13px"><i class="fa-solid fa-triangle-exclamation"></i> سبب الرفض المكتوب:</h4>
-            <p style="font-size:12.5px;line-height:1.5;white-space:pre-wrap;margin:0">${esc(t.rejectionReason || "لم يتم تدوين سبب")}</p>
-          </div>
-        `;
-      }
-
       let attachmentBlock = "";
       if(t.attachment){
         attachmentBlock = `
@@ -3213,7 +3525,6 @@ function openTaskDetailModal(taskId){
       }
 
       actionArea = `
-        ${rejectionBlock}
         ${attachmentBlock}
         <div style="display:flex;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--line-soft)">
           <button type="button" class="btn btn-secondary" data-close>إغلاق</button>
@@ -3251,23 +3562,7 @@ function openTaskDetailModal(taskId){
   openModal(detailsHtml, true);
 
   // ربط الأزرار والمستمعات
-  if(isAd){
-    $("#btnCancelTask").addEventListener("click", ()=>{
-      openConfirmModal({
-        title: "إلغاء وحذف المهمة الرسمية",
-        message: "هل أنت متأكد من رغبتك في إلغاء وحذف هذه المهمة نهائياً من سجل الموظف؟ لا يمكن التراجع عن هذا الإجراء.",
-        confirmText: "نعم، الغي المهمة",
-        confirmType: "danger",
-        onConfirm: async () => {
-          await S.deleteTask(taskId);
-          toast("تم إلغاء وحذف المهمة بنجاح");
-          closeModal();
-          await loadAllData();
-          renderTasks();
-        }
-      });
-    });
-  } else if(t.status === "pending") {
+  if(!isAd && t.status !== "completed") {
     const fileInput = $("#taskFileInput");
     const progressTxt = $("#uploadProgressText");
 
@@ -3283,9 +3578,9 @@ function openTaskDetailModal(taskId){
 
     bindRemoveTempFile();
 
-    $("#btnTriggerSelectFile").addEventListener("click", () => fileInput.click());
+    $("#btnTriggerSelectFile")?.addEventListener("click", () => fileInput.click());
 
-    fileInput.addEventListener("change", async (e) => {
+    fileInput?.addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if(!file) return;
 
@@ -3295,7 +3590,8 @@ function openTaskDetailModal(taskId){
       progressTxt.textContent = "0%";
 
       try {
-        const res = await S.uploadToCloudinary(
+        const res = await S.uploadTaskAttachment(
+          { taskType: "single", taskId: t.id, subFolder: "execution", employeeUid: State.user.uid },
           file,
           (pct) => {
             progressTxt.textContent = `${pct}%`;
@@ -3311,11 +3607,7 @@ function openTaskDetailModal(taskId){
           }
         );
         
-        State.tempTaskFile = {
-          url: res,
-          fileName: file.name,
-          fileType: file.type
-        };
+        State.tempTaskFile = res;
 
         $("#attachmentStatusWrap").innerHTML = `
           <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
@@ -3335,69 +3627,10 @@ function openTaskDetailModal(taskId){
       }
     });
 
-    // رفض المهمة
-    $("#btnRejectTask").addEventListener("click", () => {
-      openModal(`
-        <div class="modal-head">
-          <h2>رفض المهمة وإبداء السبب</h2>
-          <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <form id="rejectReasonForm">
-          <div class="form-group" style="margin-bottom:16px">
-            <label style="font-weight:700">سبب رفض المهمة (إلزامي)</label>
-            <textarea id="rejReason" rows="3" class="input" placeholder="اكتب مبررات رفض المهمة بالتفصيل لكي يراها المدير التنفيذي..." required></textarea>
-          </div>
-          <div style="display:flex;justify-content:flex-end;gap:10px">
-            <button type="button" class="btn btn-secondary" id="btnBackToDetail"><i class="fa-solid fa-arrow-right"></i> العودة</button>
-            <button type="submit" class="btn btn-danger" id="btnConfirmReject"><i class="fa-solid fa-ban"></i> تأكيد الرفض</button>
-          </div>
-        </form>
-      `);
-
-      $("#btnBackToDetail").addEventListener("click", () => {
-        openTaskDetailModal(taskId);
-      });
-
-      $("#rejectReasonForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const reason = $("#rejReason").value.trim();
-        if(!reason) return;
-
-        const btn = $("#btnConfirmReject");
-        btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفض…`;
-
-        try {
-          await S.updateTask(taskId, {
-            status: "rejected",
-            rejectionReason: reason
-          });
-
-          await S.pushNotification({
-            userId: t.adminId,
-            type: "task_updated",
-            title: "تم رفض مهمة رسمية",
-            body: `قام الموظف "${State.user.name}" برفض المهمة: "${t.title}"`,
-            link: "tasks",
-            refId: taskId
-          }).catch(()=>{});
-
-          toast("تم رفض المهمة بنجاح");
-          closeModal();
-          await loadAllData();
-          renderTasks();
-        } catch(err) {
-          toast("تعذّر إتمام عملية الرفض", "err");
-          btn.disabled = false;
-          btn.innerHTML = `<i class="fa-solid fa-ban"></i> تأكيد الرفض`;
-        }
-      });
-    });
-
     // إنهاء المهمة
-    $("#btnCompleteTask").addEventListener("click", async () => {
-      if(t.attachmentRequired && !State.tempTaskFile){
-        toast("خطأ: يجب رفع المرفق المطلوب أولاً لتتمكن من إنجاز المهمة!", "err");
+    $("#btnCompleteTask")?.addEventListener("click", async () => {
+      if(t.attachmentRequired && !State.tempTaskFile && !t.attachment){
+        toast("يجب إرفاق ملف التنفيذ قبل إنجاز المهمة.", "err");
         return;
       }
 
@@ -3408,7 +3641,14 @@ function openTaskDetailModal(taskId){
       try {
         await S.updateTask(taskId, {
           status: "completed",
-          attachment: State.tempTaskFile || null
+          attachment: State.tempTaskFile || t.attachment || null,
+          attachmentUrl: State.tempTaskFile ? State.tempTaskFile.url : (t.attachmentUrl || null),
+          attachmentName: State.tempTaskFile ? (State.tempTaskFile.name || State.tempTaskFile.fileName) : (t.attachmentName || null),
+          attachmentType: State.tempTaskFile ? (State.tempTaskFile.mimeType || State.tempTaskFile.fileType) : (t.attachmentType || null),
+          attachmentProvider: State.tempTaskFile ? State.tempTaskFile.provider : (t.attachmentProvider || null),
+          attachmentDriveItemId: State.tempTaskFile ? (State.tempTaskFile.driveItemId || null) : (t.attachmentDriveItemId || null),
+          attachmentDownloadUrl: State.tempTaskFile ? (State.tempTaskFile.downloadUrl || null) : (t.attachmentDownloadUrl || null),
+          attachmentPath: State.tempTaskFile ? (State.tempTaskFile.sharePointPath || null) : (t.attachmentPath || null)
         });
 
         await S.pushNotification({
@@ -3420,8 +3660,10 @@ function openTaskDetailModal(taskId){
           refId: taskId
         }).catch(()=>{});
 
-        toast("تم إنجاز المهمة بنجاح، شكراً لك!");
-        closeModal();
+        await showActionSuccess({
+          title: "تم إنجاز المهمة",
+          message: "أحسنت، تم تسجيل إنجاز المهمة بنجاح."
+        });
         await loadAllData();
         renderTasks();
       } catch(err) {
@@ -3431,6 +3673,343 @@ function openTaskDetailModal(taskId){
       }
     });
   }
+}
+
+/* ════════════════ متابعة المهام الجماعية (Executive & Employee Modals) ════════════════ */
+
+/* ════════════════ متابعة المهام الجماعية (Executive & Employee Modals) ════════════════ */
+
+async function openGroupTaskDetailModal(taskId){
+  const t = State.tasks.find(x => x.id === taskId);
+  if(!t) return;
+
+  const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
+
+  let adminAttachmentBlock = "";
+  if(t.adminAttachmentUrl){
+    const previewUrl = S.getTaskAttachmentPreviewUrl(t.adminAttachmentUrl, t.adminAttachmentObj || t);
+    const downloadUrl = S.getTaskAttachmentDownloadUrl(t.adminAttachmentUrl, t.adminAttachmentObj || t);
+    adminAttachmentBlock = `
+      <div style="margin-top:10px;padding:10px 14px;background:rgba(192,154,98,0.06);border:1px solid rgba(192,154,98,0.2);border-radius:var(--r-md);display:flex;align-items:center;justify-content:space-between;font-size:12.5px">
+        <span style="font-weight:700;color:var(--gold-deep)"><i class="fa-solid fa-paperclip"></i> مرفق المدير: ${esc(t.adminAttachmentName || "ملف مرفق")}</span>
+        <div style="display:flex;gap:6px">
+          <a href="${esc(previewUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="padding:3px 10px;font-size:11.5px"><i class="fa-solid fa-eye"></i> معاينة</a>
+          <a href="${esc(downloadUrl)}" target="_blank" download class="btn btn-primary btn-sm" style="padding:3px 10px;font-size:11.5px"><i class="fa-solid fa-download"></i> تحميل</a>
+        </div>
+      </div>
+    `;
+  }
+  
+  openModal(`
+    <div class="modal-head">
+      <h2><i class="fa-solid fa-users" style="color:var(--gold-deep)"></i> متابعة تنفيذ المهمة الجماعية</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div style="margin-bottom:16px;background:var(--bg-app);padding:14px;border-radius:var(--r-md);border:1px solid var(--line-soft)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+        <h3 style="font-size:16px;font-weight:800;color:var(--ink);margin:0">${esc(t.title)}</h3>
+        <span style="color:${pr.color};background:${pr.color}15;padding:2px 8px;border-radius:var(--r-full);font-weight:700;font-size:11.5px"><i class="fa-solid fa-flag"></i> ${pr.label}</span>
+      </div>
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6;margin:0 0 10px 0;white-space:pre-wrap">${esc(t.description || "بدون وصف تفصيلي")}</p>
+      
+      <div style="display:flex;gap:16px;font-size:12px;color:var(--ink-muted);flex-wrap:wrap">
+        <span><i class="fa-regular fa-calendar-check" style="color:var(--gold-deep)"></i> <strong>تاريخ الاستحقاق:</strong> ${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</span>
+        <span><i class="fa-solid fa-paperclip" style="color:${t.attachmentRequired ? 'var(--danger)' : 'var(--ink-faint)'}"></i> <strong>المرفق:</strong> ${t.attachmentRequired ? 'مرفق إلزامي' : 'اختياري'}</span>
+      </div>
+
+      ${adminAttachmentBlock}
+    </div>
+
+    <!-- شريط ملخص الحالات (حالتان فقط: مكتملة / لم تبدأ) -->
+    <div id="groupStatsContainer" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:20px;text-align:center">
+      <div style="background:var(--bg-paper);padding:10px;border-radius:var(--r-md);border:1px solid var(--line-soft)">
+        <div style="font-size:18px;font-weight:900;color:var(--ink)" id="statTotal">—</div>
+        <div style="font-size:11px;color:var(--ink-muted);font-weight:700">إجمالي الموظفين</div>
+      </div>
+      <div style="background:rgba(40,167,69,0.06);padding:10px;border-radius:var(--r-md);border:1px solid rgba(40,167,69,0.2)">
+        <div style="font-size:18px;font-weight:900;color:var(--success)" id="statCompleted">—</div>
+        <div style="font-size:11px;color:var(--success);font-weight:700">مكتملة</div>
+      </div>
+      <div style="background:rgba(108,117,125,0.06);padding:10px;border-radius:var(--r-md);border:1px solid rgba(108,117,125,0.2)">
+        <div style="font-size:18px;font-weight:900;color:var(--ink-muted)" id="statNotStarted">—</div>
+        <div style="font-size:11px;color:var(--ink-muted);font-weight:700">لم تبدأ</div>
+      </div>
+    </div>
+
+    <!-- قائمة الموظفين وحالة التنفيذ لكل منهم -->
+    <div style="margin-bottom:20px">
+      <h4 style="font-size:14px;font-weight:800;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+        <span><i class="fa-solid fa-list-check"></i> حالة تنفيذ الموظفين</span>
+        <span style="font-size:12px;color:var(--ink-muted);font-weight:normal" id="execsLoadingState"><i class="fa-solid fa-spinner spin"></i> جاري التحميل...</span>
+      </h4>
+
+      <div id="groupExecutionsList" style="display:flex;flex-direction:column;gap:10px;max-height:360px;overflow-y:auto;padding-left:4px">
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;align-items:center;padding-top:14px;border-top:1px solid var(--line-soft)">
+      <button type="button" class="btn btn-secondary" data-close>إغلاق</button>
+    </div>
+  `);
+
+  const listContainer = $("#groupExecutionsList");
+  const loadingState = $("#execsLoadingState");
+
+  const renderExecutionsList = (execs) => {
+    let completedCount = 0;
+    let notStartedCount = 0;
+
+    execs.forEach(x => {
+      if(x.status === "completed") completedCount++;
+      else notStartedCount++;
+    });
+
+    if($("#statTotal")) $("#statTotal").textContent = execs.length;
+    if($("#statCompleted")) $("#statCompleted").textContent = completedCount;
+    if($("#statNotStarted")) $("#statNotStarted").textContent = notStartedCount;
+    if(loadingState) loadingState.style.display = "none";
+
+    if(!execs.length){
+      if(listContainer) listContainer.innerHTML = `<div style="text-align:center;color:var(--ink-muted);padding:20px;font-size:13px">لم يتم العثور على سجلات تنفيذ لهذا الطلب.</div>`;
+      return;
+    }
+
+    if(listContainer) {
+      listContainer.innerHTML = execs.map(exec => {
+        let statusBadge = "";
+        if(exec.status === "completed"){
+          statusBadge = `<span style="background:rgba(40,167,69,0.12);color:var(--success);padding:4px 12px;border-radius:var(--r-full);font-weight:800;font-size:12px;"><i class="fa-solid fa-circle-check"></i> مكتملة</span>`;
+        } else {
+          statusBadge = `<span style="background:rgba(108,117,125,0.1);color:var(--ink-muted);padding:4px 12px;border-radius:var(--r-full);font-weight:800;font-size:12px;"><i class="fa-regular fa-clock"></i> لم تبدأ</span>`;
+        }
+
+        let dateStr = "—";
+        if(exec.completedAt){
+          dateStr = fmtDate(exec.completedAt);
+        } else if(exec.updatedAt){
+          dateStr = fmtDate(exec.updatedAt);
+        }
+
+        let fileBlock = `<span style="color:var(--ink-faint);font-size:12px"><i class="fa-solid fa-minus"></i> لا يوجد</span>`;
+        const attObj = exec.attachment || (exec.attachmentUrl ? { url: exec.attachmentUrl, name: exec.attachmentName, provider: exec.attachmentProvider, downloadUrl: exec.attachmentDownloadUrl } : null);
+        if(attObj && (attObj.url || attObj.downloadUrl)){
+          const downloadUrl = S.getTaskAttachmentDownloadUrl(attObj.url, attObj);
+          fileBlock = `
+            <a href="${esc(downloadUrl)}" target="_blank" download class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px;font-weight:700">
+              <i class="fa-solid fa-download" style="color:var(--gold-deep)"></i> تحميل الملف
+            </a>
+          `;
+        }
+
+        return `
+          <div style="background:var(--bg-paper);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-weight:800;font-size:13.5px;color:var(--ink)"><i class="fa-solid fa-user-tie" style="color:var(--gold-deep);margin-left:6px"></i>${esc(exec.employeeName || "موظف")}</div>
+              <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">${esc(exec.employeeJobTitle || "موظف")}</div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+              <div>${statusBadge}</div>
+              <div style="font-size:12px;color:var(--ink-soft)"><i class="fa-regular fa-calendar"></i> ${dateStr}</div>
+              <div>${fileBlock}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  };
+
+  const unsubExecs = S.watchTaskExecutions(taskId, (execs) => {
+    renderExecutionsList(execs);
+  });
+
+  const btnClose = $$("[data-close]");
+  btnClose.forEach(b => b.addEventListener("click", () => unsubExecs()));
+}
+
+async function openEmployeeGroupTaskModal(taskId){
+  const t = State.tasks.find(x => x.id === taskId);
+  if(!t) return;
+
+  State.tempTaskFile = null;
+  const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
+  const empExec = await S.getTaskExecution(taskId, State.user.uid) || { status: "not_started", attachment: null };
+
+  let currentStatusBadge = "";
+  if(empExec.status === "completed"){
+    currentStatusBadge = `<span style="background:rgba(40,167,69,0.12);color:var(--success);padding:4px 12px;border-radius:var(--r-full);font-weight:800;font-size:12px;"><i class="fa-solid fa-circle-check"></i> مكتملة</span>`;
+  } else {
+    currentStatusBadge = `<span style="background:rgba(108,117,125,0.1);color:var(--ink-muted);padding:4px 12px;border-radius:var(--r-full);font-weight:800;font-size:12px;"><i class="fa-regular fa-clock"></i> لم تبدأ</span>`;
+  }
+
+  let adminAttachmentBlock = "";
+  if(t.adminAttachmentUrl){
+    const previewUrl = S.getTaskAttachmentPreviewUrl(t.adminAttachmentUrl, t.adminAttachmentObj || t);
+    const downloadUrl = S.getTaskAttachmentDownloadUrl(t.adminAttachmentUrl, t.adminAttachmentObj || t);
+    adminAttachmentBlock = `
+      <div style="background:rgba(192,154,98,0.06);border:1px solid rgba(192,154,98,0.2);border-radius:var(--r-md);padding:14px;margin-bottom:16px">
+        <span style="font-size:12.5px;color:var(--gold-deep);font-weight:700"><i class="fa-solid fa-paperclip"></i> مرفق من المدير:</span>
+        <div style="margin-top:8px;font-size:13px;color:var(--ink-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <span style="font-weight:700"><i class="fa-regular fa-file" style="color:var(--gold-deep)"></i> ${esc(t.adminAttachmentName || "ملف مرفق")}</span>
+          <div style="display:flex;gap:6px">
+            <a href="${esc(previewUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-eye"></i> معاينة</a>
+            <a href="${esc(downloadUrl)}" target="_blank" download class="btn btn-primary btn-sm" style="padding:4px 10px;font-size:11.5px"><i class="fa-solid fa-download"></i> تحميل</a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  let fileUploadArea = `
+    <div style="background:var(--bg-subtle);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:16px" id="empGroupUploadBox">
+      <label style="font-size:12.5px;color:var(--ink-soft);font-weight:700;display:block;margin-bottom:8px">
+        <i class="fa-solid fa-upload"></i> ${t.attachmentRequired ? 'رفع مرفق التنفيذ (إلزامي)' : 'إرفاق ملف التنفيذ (اختياري)'}
+      </label>
+      <div id="groupAttachmentStatusWrap" style="margin-bottom:8px;font-size:12px;color:var(--ink-soft)">
+        ${empExec.attachment ? `
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
+            <span style="font-weight:700"><i class="fa-solid fa-file-circle-check" style="color:var(--success)"></i> ${esc(empExec.attachment.fileName || empExec.attachment.name || "ملف منفّذ")}</span>
+            <a href="${esc(empExec.attachment.url)}" target="_blank" download class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px"><i class="fa-solid fa-eye"></i> معاينة</a>
+          </div>
+        ` : `
+          <span style="color:var(--ink-faint)">لم يتم رفع أي ملف حتى الآن.</span>
+        `}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="file" id="groupTaskFileInput" style="display:none">
+        <button type="button" class="btn btn-secondary btn-sm" id="btnTriggerSelectGroupFile" style="padding:4px 10px;font-size:12px"><i class="fa-solid fa-file-import"></i> اختيار ملف جديد</button>
+        <div id="groupUploadProgressText" style="font-size:12px;color:var(--ink-muted);font-weight:700"></div>
+      </div>
+    </div>
+  `;
+
+  openModal(`
+    <div class="modal-head">
+      <h2><i class="fa-solid fa-users" style="color:var(--gold-deep)"></i> المهمة الرسمية الجماعية</h2>
+      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3 style="font-size:16px;font-weight:800;color:var(--ink);margin:0">${esc(t.title)}</h3>
+        <span style="color:${pr.color};background:${pr.color}15;padding:2px 8px;border-radius:var(--r-full);font-weight:700;font-size:11.5px"><i class="fa-solid fa-flag"></i> ${pr.label}</span>
+      </div>
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6;white-space:pre-wrap;background:var(--bg-app);padding:14px;border-radius:var(--r-md);border:1px solid var(--line-soft);margin:0">${esc(t.description || "بدون تفاصيل إضافية")}</p>
+    </div>
+
+    <div class="form-grid two" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px;color:var(--ink-soft)">
+      <div><strong>المرسل:</strong> ${esc(t.adminName)}</div>
+      <div><strong>تاريخ الاستحقاق:</strong> ${t.dueDate ? fmtDate(t.dueDate) : "بدون موعد"}</div>
+      <div><strong>حالتك في تنفيذ المهمة:</strong> ${currentStatusBadge}</div>
+    </div>
+
+    ${adminAttachmentBlock}
+    ${fileUploadArea}
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:14px;border-top:1px solid var(--line-soft)">
+      ${empExec.status !== "completed" ? `
+        <button type="button" class="btn btn-primary" id="btnCompleteGroupTask" style="padding:8px 16px;border-radius:var(--r-sm)"><i class="fa-solid fa-circle-check"></i> إنجاز المهمة</button>
+      ` : ''}
+      <button type="button" class="btn btn-secondary" data-close>إغلاق</button>
+    </div>
+  `);
+
+  $("#btnTriggerSelectGroupFile")?.addEventListener("click", () => $("#groupTaskFileInput").click());
+
+  $("#groupTaskFileInput")?.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    const btn = $("#btnTriggerSelectGroupFile");
+    const progressTxt = $("#groupUploadProgressText");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+    progressTxt.textContent = "0%";
+
+    try {
+      const res = await S.uploadTaskAttachment(
+        { taskType: "group", taskId: t.id, subFolder: "execution", employeeUid: State.user.uid },
+        file,
+        (pct) => progressTxt.textContent = `${pct}%`,
+        (status) => {
+          if (status === "compressing") {
+            btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles spin"></i> جاري التجهيز…`;
+            progressTxt.textContent = "";
+          } else if (status === "uploading") {
+            btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
+          }
+        }
+      );
+
+      State.tempTaskFile = res;
+
+      $("#groupAttachmentStatusWrap").innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-paper);padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-soft)">
+          <span style="font-weight:700"><i class="fa-solid fa-file-circle-check" style="color:var(--success)"></i> ${esc(file.name)}</span>
+          <span style="font-size:11px;color:var(--success);font-weight:700">تم الرفع ✓</span>
+        </div>
+      `;
+      toast("تم رفع المرفق بنجاح");
+    } catch(err) {
+      toast(err.message || "فشل رفع الملف", "err");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-file-import"></i> تغيير الملف`;
+      progressTxt.textContent = "";
+    }
+  });
+
+  $("#btnCompleteGroupTask")?.addEventListener("click", async () => {
+    if(t.attachmentRequired && !State.tempTaskFile && !empExec.attachment){
+      toast("يجب إرفاق ملف التنفيذ قبل إنجاز المهمة.", "err");
+      return;
+    }
+
+    const btn = $("#btnCompleteGroupTask");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ التسجيل…`;
+
+    try {
+      const updateData = {
+        status: "completed",
+        completedAt: new Date().toISOString()
+      };
+      if(State.tempTaskFile){
+        updateData.attachment = State.tempTaskFile;
+        updateData.attachmentUrl = State.tempTaskFile.url || null;
+        updateData.attachmentName = State.tempTaskFile.name || State.tempTaskFile.fileName || null;
+        updateData.attachmentType = State.tempTaskFile.mimeType || State.tempTaskFile.fileType || null;
+        updateData.attachmentProvider = State.tempTaskFile.provider || null;
+        updateData.attachmentDriveItemId = State.tempTaskFile.driveItemId || null;
+        updateData.attachmentDownloadUrl = State.tempTaskFile.downloadUrl || null;
+        updateData.attachmentPath = State.tempTaskFile.sharePointPath || null;
+      }
+      await S.updateTaskExecution(taskId, State.user.uid, updateData);
+      if(!State.userExecutionsMap) State.userExecutionsMap = {};
+      State.userExecutionsMap[taskId] = "completed";
+
+      await S.pushNotification({
+        userId: t.adminId,
+        type: "task_completed",
+        title: "اكتملت المهمة الجماعية من موظف",
+        body: `أنجز الموظف "${State.user.name}" المهمة الجماعية: "${t.title}"`,
+        link: "tasks",
+        refId: taskId
+      }).catch(()=>{});
+
+      await showActionSuccess({
+        title: "تم إنجاز المهمة الجماعية",
+        message: "أحسنت، تم تسجيل إنجازك للمهمة بنجاح."
+      });
+      await loadAllData();
+      renderTasks();
+    } catch(err) {
+      toast("فشل تسجيل إنجاز المهمة", "err");
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> إنجاز المهمة`;
+    }
+  });
 }
 
 /* ════════════════ 5.5. ملاحظاتي (Personal Notes & Tasks) ════════════════ */
@@ -3506,8 +4085,41 @@ function renderMyNotes(el) {
 
   // نقرات البطاقات لفتح المودال
   $$("[data-personal-task]").forEach(card => {
-    card.addEventListener("click", () => {
+    card.addEventListener("click", (e) => {
+      if(e.target.closest("[data-toggle-task]")) return;
       openPersonalTaskDetailModal(card.dataset.personalTask);
+    });
+  });
+
+  // تفاعل الإنجاز السريع المباشر للملاحظة الشخصية (Micro-interaction)
+  $$("[data-toggle-task]").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const taskId = btn.dataset.toggleTask;
+      const card = $(`#ptCard_${taskId}`);
+      const t = State.personalTasks.find(x => x.id === taskId);
+      if(!t) return;
+
+      const nextStatus = t.status === "completed" ? "in_progress" : "completed";
+      
+      if(card && nextStatus === "completed") {
+        card.classList.add("task-item-completing");
+        showSuccessBadge("أحسنت!", `تم إنجاز المهمة الشخصية: "${t.title}"`);
+      } else {
+        toast("تمت إعادة المهمة إلى قيد التنفيذ");
+      }
+
+      try {
+        await S.updatePersonalTask(taskId, { status: nextStatus });
+        t.status = nextStatus;
+        setTimeout(async () => {
+          await loadAllData();
+          renderMyNotes();
+        }, 450);
+      } catch(err) {
+        toast("تعذّر تحديث حالة المهمة", "err");
+        if(card) card.classList.remove("task-item-completing");
+      }
     });
   });
 }
@@ -3516,6 +4128,7 @@ function renderPersonalTaskCard(t) {
   const pr = TASK_PRIORITY[t.priority] || TASK_PRIORITY.medium;
   const desc = t.description ? esc(t.description) : "بدون وصف تفصيلي";
   const notesCount = t.notes ? t.notes.length : 0;
+  const isCompleted = t.status === "completed";
   
   const ownerHtml = isExec(State.user) ? `
     <div class="ntc-meta-item" style="color:var(--gold-deep)">
@@ -3525,9 +4138,14 @@ function renderPersonalTaskCard(t) {
   ` : "";
 
   return `
-    <div class="note-task-card" data-personal-task="${t.id}">
+    <div class="note-task-card ${isCompleted ? 'completed' : ''}" data-personal-task="${t.id}" id="ptCard_${t.id}">
       <div class="ntc-head">
-        <h4 class="ntc-title">${esc(t.title)}</h4>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button type="button" class="ntc-check-btn" data-toggle-task="${t.id}" title="${isCompleted ? 'مكتملة (اضغط للتراجع)' : 'تحديد كمكتملة'}">
+            <i class="fa-solid fa-check"></i>
+          </button>
+          <h4 class="ntc-title">${esc(t.title)}</h4>
+        </div>
         <span class="prio-badge" style="color:${pr.color};background:${pr.color}15;border-color:transparent;font-size:10px;padding:2px 6px;">
           <i class="fa-solid fa-flag"></i> ${pr.label}
         </span>
@@ -3651,8 +4269,10 @@ function openNewPersonalTaskModal() {
         notes: []
       });
       
-      toast("تمت إضافة المهمة الشخصية بنجاح");
-      closeModal();
+      await showActionSuccess({
+        title: "تمت إضافة المهمة الشخصية",
+        message: "تم حفظ المهمة بنجاح في سجلك الشخصي."
+      });
       await loadAllData();
       renderMyNotes();
     } catch (err) {
@@ -3794,8 +4414,10 @@ function openPersonalTaskDetailModal(taskId) {
         dueDate: $("#edDueDate").value || null
       });
 
-      toast("تم تعديل المهمة بنجاح");
-      closeModal();
+      await showActionSuccess({
+        title: "تم حفظ التعديلات",
+        message: "تم تحديث بيانات المهمة الشخصية بنجاح."
+      });
       await loadAllData();
       renderMyNotes();
     } catch (err) {
@@ -4265,6 +4887,20 @@ function handleDeepLinkHash(){}
 
 /* ════════════════ أدوات عامة (General Tools Hub) ════════════════ */
 const GENERAL_TOOLS = [
+  {
+    id: "pdf_editor",
+    title: "محرر PDF",
+    desc: "حرّر ملفات PDF مباشرة من المتصفح، أضف النصوص والصور والتوقيع، ورتّب الصفحات وادمجها وقسّمها بسهولة.",
+    icon: "fa-solid fa-file-pen",
+    color: "var(--gold-deep)"
+  },
+  {
+    id: "financial_calc",
+    title: "حاسبة النسب المالية",
+    desc: "احسب النسب والزيادات والخصومات والضريبة من أي مبلغ بسهولة.",
+    icon: "fa-solid fa-calculator",
+    color: "var(--gold-deep)"
+  },
   {
     id: "pdf_compress",
     title: "ضغط ملفات PDF",
@@ -5200,6 +5836,7 @@ function renderPdfCompress(el) {
 }
 
 /* ════════════════ 8. قسم الاقتراحات والشكاوى (Suggestions & Complaints) ════════════════ */
+
 function renderSuggestions(el) {
   const u = State.user;
   if (!u) return;
@@ -5208,6 +5845,50 @@ function renderSuggestions(el) {
   if (!State.suggestionFilter) State.suggestionFilter = "all";
 
   el.innerHTML = `
+    <style>
+      .sug-card {
+        transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+        border: 1px solid var(--line-soft);
+        background: var(--bg-paper);
+        cursor: pointer;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        position: relative;
+        border-radius: var(--r-md);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+      }
+      .sug-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 24px rgba(156, 110, 56, 0.08);
+        border-color: var(--gold-soft);
+      }
+      @media (max-width: 768px) {
+        .sug-fab {
+          position: fixed !important;
+          bottom: 24px !important;
+          left: 24px !important;
+          width: 56px !important;
+          height: 56px !important;
+          border-radius: 50% !important;
+          box-shadow: 0 6px 20px rgba(156, 110, 56, 0.3) !important;
+          z-index: 100 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          padding: 0 !important;
+        }
+        .sug-fab span {
+          display: none !important;
+        }
+        .sug-fab i {
+          font-size: 20px !important;
+          margin: 0 !important;
+        }
+      }
+    </style>
+
     ${pageHead("Suggestions & Complaints", "الاقتراحات والشكاوى", "صندوق الاقتراحات والشكاوى", "", "صندوق مخصص لإرسال واستقبال الاقتراحات والشكاوى الإدارية والتنظيمية.")}
 
     <!-- شريط التحكم والتبويبات والفلترة -->
@@ -5223,7 +5904,7 @@ function renderSuggestions(el) {
           <option value="suggestion" ${State.suggestionFilter==='suggestion'?'selected':''}>اقتراحات فقط</option>
           <option value="complaint" ${State.suggestionFilter==='complaint'?'selected':''}>شكاوى فقط</option>
         </select>
-        <button class="btn btn-primary" id="btnNewSuggestion" style="padding:8px 16px;border-radius:var(--r-md);height:36px;display:flex;align-items:center;gap:6px"><i class="fa-solid fa-circle-plus"></i> جديد</button>
+        <button class="btn btn-primary sug-fab" id="btnNewSuggestion" style="padding:8px 16px;border-radius:var(--r-md);height:36px;display:flex;align-items:center;gap:6px"><i class="fa-solid fa-circle-plus"></i> <span>جديد</span></button>
       </div>
     </div>
 
@@ -5278,45 +5959,56 @@ function renderSuggestionsGrid() {
   }
 
   if (!filtered.length) {
-    area.innerHTML = emptyState("لا توجد رسائل اقتراحات أو شكاوى حالياً.");
+    area.innerHTML = `
+      <div style="text-align:center;padding:48px 24px;color:var(--ink-muted);background:var(--bg-paper);border:1px dashed var(--line-soft);border-radius:var(--r-md);grid-column:1/-1">
+        <div style="font-size:56px;opacity:0.18;margin-bottom:16px;color:var(--gold-deep)"><i class="fa-solid fa-comments"></i></div>
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--ink-soft)">الصندوق خالٍ تماماً</h3>
+        <p style="font-size:12.5px;max-width:340px;margin:0 auto;color:var(--ink-muted);line-height:1.6">لا توجد أي اقتراحات أو شكاوى مسجلة في هذا التبويب حالياً.</p>
+      </div>
+    `;
     return;
   }
 
   area.innerHTML = filtered.map(item => {
     const isSug = item.type === "suggestion";
+    const accentColor = isSug ? "#2d5a88" : "#c95c3b";
+    
     const badge = isSug 
-      ? `<span class="status-badge" style="background:rgba(30,136,229,0.08);color:#1565c0;border:1px solid rgba(30,136,229,0.2);margin-left:0"><i class="fa-solid fa-lightbulb"></i> اقتراح</span>`
-      : `<span class="status-badge" style="background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,83,80,0.2);margin-left:0"><i class="fa-solid fa-triangle-exclamation"></i> شكوى</span>`;
+      ? `<span class="status-badge" style="background:rgba(45, 90, 136, 0.08);color:#2d5a88;border:1px solid rgba(45, 90, 136, 0.2);margin-left:0"><i class="fa-solid fa-lightbulb"></i> اقتراح</span>`
+      : `<span class="status-badge" style="background:rgba(201, 92, 59, 0.08);color:#c95c3b;border:1px solid rgba(201, 92, 59, 0.2);margin-left:0"><i class="fa-solid fa-triangle-exclamation"></i> شكوى</span>`;
 
-    const senderDisplay = item.isAnonymous && tab === "received" ? "مجهول" : item.senderName;
-    const oppositeParty = tab === "received" ? `المرسل: ${senderDisplay}` : `المستلم: ${item.recipientName}`;
+    const oppositeParty = tab === "received" ? `من: ${item.senderName}` : `إلى: ${item.recipientName}`;
     
     const unreadDot = (!item.isRead && item.recipientId === State.user.uid && tab === "received")
-      ? `<span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;margin-left:6px;" title="غير مقروء"></span>`
+      ? `<span style="background:var(--danger);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:8px">جديد</span>`
       : "";
 
-    const dateStr = item.createdAt ? formatTimelineDate(item.createdAt) : "قيد الإرسال…";
-    const attachmentIcon = item.attachment ? `<i class="fa-solid fa-paperclip" style="color:var(--ink-muted);font-size:12.5px" title="يحتوي على مرفق"></i>` : "";
+    const dateRelative = item.createdAt ? timeAgo(item.createdAt) : "قيد الإرسال…";
+    const dateFull = item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleString("ar-SA") : "";
+    const attachmentIcon = item.attachment ? `<span style="font-size:11px;color:#9c6e38;background:rgba(156,110,56,0.06);padding:3px 8px;border-radius:var(--r-full);display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(156,110,56,0.15)"><i class="fa-solid fa-paperclip"></i> مرفق</span>` : "";
 
-    const bodySnippet = item.content.length > 85 ? item.content.slice(0, 85) + "..." : item.content;
+    const bodySnippet = item.content.length > 110 ? item.content.slice(0, 110) + "..." : item.content;
 
     return `
-      <div class="card" data-sug-id="${item.id}" style="cursor:pointer;padding:18px;display:flex;flex-direction:column;gap:10px;position:relative;border:1px solid ${!item.isRead && tab === "received" ? "var(--gold-soft)" : "var(--line)"}">
+      <div class="sug-card" data-sug-id="${item.id}" title="${esc(dateFull)}" style="border-right: 4px solid ${accentColor}; ${!item.isRead && tab === "received" ? "border-color: var(--gold-soft) " + accentColor + " var(--gold-soft) var(--gold-soft);" : ""}">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
           <div style="display:flex;align-items:center;gap:6px">
-            ${unreadDot}
             <h4 style="margin:0;font-size:14.5px;font-weight:800;color:var(--ink)">${esc(item.title || "بدون عنوان")}</h4>
+            ${unreadDot}
           </div>
           ${badge}
         </div>
         
         <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:0">${esc(bodySnippet)}</p>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--ink-muted);margin-top:6px;border-top:1px dashed var(--line-soft);padding-top:8px">
-          <span><i class="fa-solid fa-user" style="font-size:10px"></i> ${esc(oppositeParty)}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--ink-muted);margin-top:6px;border-top:1px dashed var(--line-soft);padding-top:10px">
+          <span style="font-weight:700;color:var(--ink-soft);display:flex;align-items:center;gap:6px">
+            <i class="fa-solid ${tab === "received" ? "fa-user-circle" : "fa-user-tie"}" style="color:var(--gold-deep)"></i> 
+            ${esc(oppositeParty)}
+          </span>
           <div style="display:flex;align-items:center;gap:10px">
             ${attachmentIcon}
-            <span><i class="fa-regular fa-clock" style="font-size:10px"></i> ${esc(dateStr)}</span>
+            <span style="display:flex;align-items:center;gap:4px"><i class="fa-regular fa-clock"></i> ${esc(dateRelative)}</span>
           </div>
         </div>
       </div>
@@ -5340,11 +6032,10 @@ function openSuggestionDetail(item, activeTab) {
     renderSuggestionsGrid();
   }
 
-  const isAnonymous = item.isAnonymous;
-  const displayName = isAnonymous && activeTab === "received" ? "مجهول" : item.senderName;
-  const typeBadge = item.type === "suggestion" 
-    ? `<span class="status-badge" style="background:rgba(30,136,229,0.08);color:#1565c0;border:1px solid rgba(30,136,229,0.2)"><i class="fa-solid fa-lightbulb"></i> اقتراح</span>`
-    : `<span class="status-badge" style="background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,83,80,0.2)"><i class="fa-solid fa-triangle-exclamation"></i> شكوى</span>`;
+  const isSug = item.type === "suggestion";
+  const accentColor = isSug ? "#2d5a88" : "#c95c3b";
+  const typeText = isSug ? "تفاصيل الاقتراح" : "تفاصيل الشكوى";
+  const typeIcon = isSug ? "fa-lightbulb" : "fa-triangle-exclamation";
 
   let attachmentHtml = "";
   if (item.attachment) {
@@ -5352,15 +6043,26 @@ function openSuggestionDetail(item, activeTab) {
     const previewUrl = item.attachment.url;
     attachmentHtml = `
       <div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-soft)">
-        <div style="font-weight:700;font-size:13px;color:var(--ink);margin-bottom:8px"><i class="fa-solid fa-paperclip"></i> المرفق: ${esc(item.attachment.fileName)}</div>
+        <div style="font-weight:700;font-size:13px;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          <i class="fa-solid fa-paperclip" style="color:var(--gold-deep)"></i> 
+          <span>الملف المرفق: ${esc(item.attachment.fileName)}</span>
+        </div>
         ${isImg ? `
-          <div style="margin-bottom:12px;max-height:200px;overflow:hidden;border-radius:var(--r-md);border:1px solid var(--line-soft);text-align:center;background:var(--bg-subtle)">
-            <img src="${esc(previewUrl)}" style="max-width:100%;object-fit:contain;max-height:200px">
+          <div style="margin-bottom:12px;max-height:220px;overflow:hidden;border-radius:var(--r-md);border:1px solid var(--line-soft);text-align:center;background:var(--bg-subtle);display:flex;align-items:center;justify-content:center;padding:8px">
+            <img src="${esc(previewUrl)}" style="max-width:100%;object-fit:contain;max-height:200px;border-radius:var(--r-sm)">
           </div>
-        ` : ""}
+        ` : `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-subtle);border:1px solid var(--line-soft);border-radius:var(--r-md);margin-bottom:12px">
+            <div style="font-size:32px;color:${item.attachment.fileType?.includes("pdf") ? "#c62828" : "var(--gold-deep)"}"><i class="fa-solid ${item.attachment.fileType?.includes("pdf") ? "fa-file-pdf" : "fa-file-lines"}"></i></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:700;color:var(--ink);text-overflow:ellipsis;overflow:hidden;white-space:nowrap">${esc(item.attachment.fileName)}</div>
+              <div style="font-size:10.5px;color:var(--ink-muted)">${esc(item.attachment.fileType || "ملف مستند")}</div>
+            </div>
+          </div>
+        `}
         <div style="display:flex;gap:10px">
-          <a href="${esc(previewUrl)}" target="_blank" class="btn btn-secondary btn-sm" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px"><i class="fa-solid fa-eye"></i> معاينة</a>
-          <a href="${esc(previewUrl)}" download="${esc(item.attachment.fileName)}" class="btn btn-secondary btn-sm" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px"><i class="fa-solid fa-download"></i> تحميل</a>
+          <a href="${esc(previewUrl)}" target="_blank" class="btn btn-secondary btn-sm" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px"><i class="fa-solid fa-eye"></i> معاينة</a>
+          <a href="${esc(previewUrl)}" download="${esc(item.attachment.fileName)}" class="btn btn-secondary btn-sm" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px"><i class="fa-solid fa-download"></i> تحميل</a>
         </div>
       </div>
     `;
@@ -5368,35 +6070,45 @@ function openSuggestionDetail(item, activeTab) {
 
   const dateStr = item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleString("ar-SA") : "قيد الإرسال…";
 
-  openModal(`
-    <div class="modal-head">
-      <h2>تفاصيل الرسالة</h2>
-      <button class="modal-close" data-close><i class="fa-solid fa-xmark"></i></button>
+  const modalHtml = `
+    <div style="margin:-18px -18px 0 -18px;background:rgba(${isSug ? '45,90,136' : '201,92,59'},0.05);border-bottom:1px solid rgba(${isSug ? '45,90,136' : '201,92,59'},0.1);padding:24px;border-radius:var(--r-md) var(--r-md) 0 0;text-align:center;position:relative">
+      <button class="modal-close" data-close style="position:absolute;top:16px;left:16px;background:none;border:none;color:var(--ink-muted);font-size:18px;cursor:pointer"><i class="fa-solid fa-xmark"></i></button>
+      <div style="width:52px;height:52px;background:rgba(${isSug ? '45,90,136' : '201,92,59'},0.1);color:${accentColor};border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:22px"><i class="fa-solid ${typeIcon}"></i></div>
+      <h3 style="margin:0;color:${accentColor};font-size:16px;font-weight:800">${typeText}</h3>
     </div>
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        ${typeBadge}
-        <span style="font-size:11.5px;color:var(--ink-muted)"><i class="fa-regular fa-clock"></i> ${esc(dateStr)}</span>
+    
+    <div style="display:flex;flex-direction:column;gap:14px;padding-top:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:var(--bg-subtle);padding:12px;border-radius:var(--r-md);border:1px solid var(--line-soft)">
+        <div>
+          <span style="font-size:11px;color:var(--ink-muted);display:block;margin-bottom:2px">المرسل</span>
+          <span style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px"><i class="fa-solid fa-user-circle" style="color:var(--gold-deep)"></i> ${esc(item.senderName)}</span>
+        </div>
+        <div>
+          <span style="font-size:11px;color:var(--ink-muted);display:block;margin-bottom:2px">المستلم</span>
+          <span style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px"><i class="fa-solid fa-user-tie" style="color:var(--gold-deep)"></i> ${esc(item.recipientName)}</span>
+        </div>
       </div>
+      
       <div>
-        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:2px">من:</div>
-        <div style="font-size:14px;font-weight:700;color:var(--ink)">${esc(displayName)} ${isAnonymous && activeTab === "received" ? ' <span style="font-size:11px;color:var(--danger);font-weight:normal;">(مجهول الهوية للمستلم)</span>' : ''}</div>
+        <span style="font-size:11px;color:var(--ink-muted);display:block;margin-bottom:4px">الموضوع</span>
+        <div style="font-size:15px;font-weight:800;color:var(--ink)">${esc(item.title || "بدون عنوان")}</div>
       </div>
+
       <div>
-        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:2px">إلى:</div>
-        <div style="font-size:14px;font-weight:700;color:var(--ink)">${esc(item.recipientName)}</div>
+        <span style="font-size:11px;color:var(--ink-muted);display:block;margin-bottom:4px">المحتوى التفصيلي</span>
+        <div style="font-size:13.5px;color:var(--ink-soft);line-height:1.8;background:var(--bg-subtle);padding:16px;border-radius:var(--r-md);border:1px solid var(--line-soft);white-space:pre-wrap">${esc(item.content)}</div>
       </div>
-      <div>
-        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:2px">الموضوع:</div>
-        <div style="font-size:15px;font-weight:800;color:var(--ink);margin-top:2px">${esc(item.title || "بدون عنوان")}</div>
-      </div>
-      <div>
-        <div style="font-size:11.5px;color:var(--ink-muted);margin-bottom:4px">المحتوى التفصيلي:</div>
-        <div style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;background:var(--bg-subtle);padding:14px;border-radius:var(--r-md);border:1px solid var(--line-soft);white-space:pre-wrap;margin-top:4px">${esc(item.content)}</div>
-      </div>
+
       ${attachmentHtml}
+
+      <div style="margin-top:8px;padding-top:10px;border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--ink-muted)"><i class="fa-regular fa-clock"></i> تاريخ الإرسال: ${esc(dateStr)}</span>
+        <button class="btn btn-secondary btn-sm" data-close style="padding:6px 16px">إغلاق</button>
+      </div>
     </div>
-  `);
+  `;
+
+  openModal(modalHtml);
 }
 
 function openNewSuggestionModal() {
@@ -5431,11 +6143,6 @@ function openNewSuggestionModal() {
             <option value="${u.uid}">${esc(u.name)} (${esc(u.jobTitle || "موظف")})</option>
           `).join("")}
         </select>
-      </div>
-
-      <div class="form-group" id="sugAnonymousWrap" style="margin-bottom:14px;display:none;flex-direction:row;align-items:center;gap:10px">
-        <input type="checkbox" id="sugIsAnonymous" style="width:18px;height:18px;cursor:pointer">
-        <label for="sugIsAnonymous" style="cursor:pointer;font-weight:700;font-size:13px;color:var(--ink-soft);user-select:none">إرسال هذه الشكوى بشكل مجهول (إخفاء اسمي عن المدير)</label>
       </div>
 
       <div class="form-group" style="margin-bottom:14px">
@@ -5527,7 +6234,6 @@ function openNewSuggestionModal() {
 
   const typeRadios = document.querySelectorAll('input[name="sugType"]');
   const recipientWrap = $("#sugRecipientWrap");
-  const anonymousWrap = $("#sugAnonymousWrap");
   const recipientSelect = $("#sugRecipient");
 
   typeRadios.forEach(radio => {
@@ -5536,11 +6242,8 @@ function openNewSuggestionModal() {
       if (val === "complaint") {
         recipientSelect.value = exec.uid;
         recipientWrap.style.display = "none";
-        anonymousWrap.style.display = "flex";
       } else {
         recipientWrap.style.display = "block";
-        anonymousWrap.style.display = "none";
-        $("#sugIsAnonymous").checked = false;
       }
     });
   });
@@ -5552,7 +6255,6 @@ function openNewSuggestionModal() {
     btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الإرسال…`;
 
     const type = document.querySelector('input[name="sugType"]:checked').value;
-    const isAnonymous = type === "complaint" && $("#sugIsAnonymous").checked;
     
     let recId = recipientSelect.value;
     let recName = exec.name;
@@ -5568,19 +6270,16 @@ function openNewSuggestionModal() {
     }
 
     try {
-      const senderNameDisplay = isAnonymous ? "مجهول" : State.user.name;
-
       const resId = await S.createSuggestion({
         type,
         senderId: State.user.uid,
-        senderName: senderNameDisplay,
+        senderName: State.user.name,
         realSenderName: State.user.name,
         recipientId: recId,
         recipientName: recName,
         title: $("#sugTitle").value.trim(),
         content: $("#sugContent").value.trim(),
-        attachment: State.tempSuggestionAttachment,
-        isAnonymous
+        attachment: State.tempSuggestionAttachment
       });
 
       // إشعار فوري
@@ -5589,12 +6288,16 @@ function openNewSuggestionModal() {
         type: type === "complaint" ? "complaint" : "suggestion",
         title: type === "complaint" ? "وصلك شكوى جديدة ⚠️" : "وصلك اقتراح جديد 💡",
         body: type === "complaint" 
-          ? `لديك شكوى جديدة موجهة إليك` 
-          : `وصلك اقتراح جديد من ${senderNameDisplay}`
+          ? `لديك شكوى جديدة موجهة إليك من ${State.user.name}` 
+          : `وصلك اقتراح جديد من ${State.user.name}`
       }).catch(err => console.warn("Error sending notification:", err));
 
-      toast(type === "complaint" ? "تم إرسال الشكوى بنجاح" : "تم إرسال الاقتراح بنجاح");
-      closeModal();
+      await showActionSuccess({
+        title: type === "complaint" ? "تم إرسال الشكوى" : "تم إرسال الاقتراح",
+        message: "شكراً لك، تم استلام رسالتك بسرية وعناية وسيتم متابعتها."
+      });
+      await loadAllData();
+      renderSuggestions();
     } catch (err) {
       toast("تعذر إرسال الرسالة", "err");
       btn.disabled = false;

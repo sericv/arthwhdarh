@@ -1,0 +1,116 @@
+<div style="
+  width: 210mm;
+  height: 296.5mm;
+  padding: 15mm;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #000000;
+  direction: rtl;
+  font-family: 'Cairo', 'Arial', sans-serif;
+  position: relative;
+  overflow: hidden;
+  page-break-inside: avoid;
+">
+  <div style="
+    border: 2px solid #826120;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Flow elements naturally to balance spaces */
+  ">
+    <!-- ════════ الرأس (Header) ════════ -->
+    <div>
+      <table style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 20px;">
+        <tr>
+          <!-- اليمين: معلومات الجمعية -->
+          <td style="width: 35%; border: none; padding: 0; text-align: right; font-size: 13px; line-height: 1.7; font-weight: bold; color: #333333; vertical-align: top; direction: rtl;">
+            المملكة العربية السعودية<br>
+            جمعية إرث وحضارة<br>
+            القريات - ترخيص ١٠٠٠٥٦٨٨٠٠
+          </td>
+          <!-- المنتصف: شعار الجمعية -->
+          <td style="width: 30%; border: none; padding: 0; text-align: center; vertical-align: top;">
+            <img src="logo.png" style="height: 70px; object-fit: contain;" alt="شعار الجمعية">
+          </td>
+          <!-- اليسار: معلومات الخطاب -->
+          <td style="width: 35%; border: none; padding: 0; text-align: left; vertical-align: top; direction: rtl;">
+            <table style="border-collapse: collapse; border: none; margin-right: auto; text-align: right; direction: rtl; font-size: 13px; font-weight: bold; color: #333333; line-height: 1.7;">
+              <tr>
+                <td style="padding: 2px 0 2px 8px; border: none; color: #555555; white-space: nowrap;">الرقم:</td>
+                <td style="padding: 2px 0; border: none; text-align: right; direction: ltr; unicode-bidi: embed;">{{رقم_الطلب}}</td>
+              </tr>
+              <tr>
+                <td style="padding: 2px 0 2px 8px; border: none; color: #555555; white-space: nowrap;">التاريخ:</td>
+                <td style="padding: 2px 0; border: none; text-align: right; direction: ltr; unicode-bidi: embed; white-space: nowrap;">{{تاريخ_اليوم_ميلادي}}</td>
+              </tr>
+              <tr>
+                <td style="padding: 2px 0 2px 8px; border: none; color: #555555; white-space: nowrap;">الموافق:</td>
+                <td style="padding: 2px 0; border: none; text-align: right; direction: rtl; white-space: nowrap;">{{تاريخ_اليوم_هجري}} هـ</td>
+              </tr>
+              <tr>
+                <td style="padding: 2px 0 2px 8px; border: none; color: #555555; white-space: nowrap;">المرفقات:</td>
+                <td style="padding: 2px 0; border: none; text-align: right;">لا يوجد</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- خط فاصل مزخرف أو بسيط -->
+      <div style="width: 100%; height: 1.5px; background: #826120; margin-bottom: 25px; opacity: 0.8;"></div>
+
+      <!-- عنوان الخطاب -->
+      <div style="text-align: center; font-size: 24px; font-weight: bold; color: #111111; margin-top: 10px; margin-bottom: 25px;">
+        خطاب اعتماد إجازة
+        <div style="width: 140px; height: 2px; background: #826120; margin: 8px auto 0 auto;"></div>
+      </div>
+
+      <!-- النص التمهيدي -->
+      <div style="font-size: 16px; line-height: 1.8; color: #222222; margin-top: 15px; margin-bottom: 15px; text-align: justify; font-weight: 500;">
+        بناءً على طلب الإجازة المقدم تفيد جمعية إرث وحضارة بالقريات باعتماد إجازة الموظف :
+      </div>
+
+      <!-- جدول البيانات -->
+      <table style="width: 100%; border-collapse: collapse; margin-top: 40px; margin-bottom: 40px; border: 1.5px solid #826120; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <tr>
+          <th style="background-color: #826120; color: #ffffff; font-weight: bold; text-align: right; width: 30%; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">الاسم:</th>
+          <td style="background-color: #ffffff; color: #222222; text-align: right; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; font-weight: bold; vertical-align: middle;">{{اسم_الموظف}}</td>
+        </tr>
+        <tr>
+          <th style="background-color: #826120; color: #ffffff; font-weight: bold; text-align: right; width: 30%; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">المسمى الوظيفي:</th>
+          <td style="background-color: #ffffff; color: #222222; text-align: right; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">{{المسمى_الوظيفي}}</td>
+        </tr>
+        <tr>
+          <th style="background-color: #826120; color: #ffffff; font-weight: bold; text-align: right; width: 30%; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">نوع الإجازة:</th>
+          <td style="background-color: #ffffff; color: #222222; text-align: right; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">{{نوع_الإجازة}}</td>
+        </tr>
+        <tr>
+          <th style="background-color: #826120; color: #ffffff; font-weight: bold; text-align: right; width: 30%; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">من تاريخ:</th>
+          <td style="background-color: #ffffff; color: #222222; text-align: right; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle; direction: rtl;">
+            <span style="direction: ltr; display: inline-block; unicode-bidi: embed;">{{تاريخ_البداية_ميلادي}}</span> الموافق {{تاريخ_البداية_هجري}} هـ
+          </td>
+        </tr>
+        <tr>
+          <th style="background-color: #826120; color: #ffffff; font-weight: bold; text-align: right; width: 30%; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">إلى تاريخ:</th>
+          <td style="background-color: #ffffff; color: #222222; text-align: right; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle; direction: rtl;">
+            <span style="direction: ltr; display: inline-block; unicode-bidi: embed;">{{تاريخ_النهاية_ميلادي}}</span> الموافق {{تاريخ_النهاية_هجري}} هـ
+          </td>
+        </tr>
+        <tr>
+          <th style="background-color: #826120; color: #ffffff; font-weight: bold; text-align: right; width: 30%; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; vertical-align: middle;">عدد الأيام:</th>
+          <td style="background-color: #ffffff; color: #222222; text-align: right; border: 1.5px solid #826120; padding: 14px 18px; font-size: 15px; font-weight: bold; vertical-align: middle;">{{عدد_الأيام}} يوم</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- ════════ التوقيع والمدير التنفيذي ════════ -->
+    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 30px; margin-bottom: 20px; page-break-inside: avoid;">
+      <div style="font-size: 17px; font-weight: bold; color: #111111; margin-bottom: 8px;">المدير التنفيذي</div>
+      <div style="font-size: 15px; color: #333333; margin-bottom: 8px; font-weight: 500;">الاسم: {{اسم_المدير_التنفيذي}}</div>
+      <div style="font-size: 15px; color: #333333; font-weight: 500;">التوقيع: ____________________</div>
+    </div>
+  </div>
+</div>

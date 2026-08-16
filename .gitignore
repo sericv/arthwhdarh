@@ -1,1 +1,5 @@
-portal/worker/service-account.json 
+portal/worker/service-account.json
+.env
+.env.*
+*.env
+portal/functions/.env

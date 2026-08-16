@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -80,62 +80,7 @@
         }
 
         /* ========== PREMIUM NAVBAR ========== */
-        .nav-container {
-            position: sticky;
-            top: 0;
-            z-index: 200;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            padding: var(--sp-3, 0.8rem) 0 var(--sp-4, 1.5rem);
-            gap: var(--sp-4, 2rem);
-            height: auto;
-            background: var(--c-nav-bg, #f7f4ee);
-            margin-bottom: var(--sp-6, 2rem);
-            border-bottom: 1px solid var(--c-border-soft, rgba(28, 26, 23, 0.05));
-            transition: border-color var(--dur-base, 280ms) var(--ease-out), box-shadow var(--dur-base, 280ms) var(--ease-out);
-        }
 
-        .nav-container.scrolled {
-            border-bottom-color: var(--c-border, rgba(28, 26, 23, 0.08));
-            box-shadow: var(--shadow-xs, 0 1px 3px rgba(20, 16, 8, 0.04));
-        }
-        .logo-area-nav {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .nav-logo-img {
-            height: 52px;
-            width: auto;
-            object-fit: contain;
-            display: block;
-            flex-shrink: 0;
-        }
-
-        .association-name-nav {
-            font-weight: 800;
-            font-size: 1.3rem;
-            color: var(--c-text-primary, #1c1a17);
-            letter-spacing: -0.3px;
-        }
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .nav-links a {
-            position: relative;
-            text-decoration: none;
-            color: var(--c-text-secondary, #5a5650);
-            font-weight: 500;
-            font-size: 0.93rem;
-            transition: color var(--dur-fast, 180ms) var(--ease-out);
-            padding: 6px 2px;
-        }
 
         .nav-links a::after {
             content: "";
@@ -216,9 +161,10 @@
         }
         .grid-2cols { grid-template-columns: repeat(2,1fr); }
         .grid-3cols { grid-template-columns: repeat(3,1fr); }
+
         @media (max-width: 850px) {
             .grid-2cols, .grid-3cols { grid-template-columns: 1fr; }
-            .nav-container { flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 1rem; padding: 0.8rem 0; }
+            .nav-container { flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 1rem; padding: 0.8rem 1.25rem; }
             .site-wrapper { padding: 1rem; }
         }
         @media (max-width: 480px) {
@@ -3045,6 +2991,9 @@
             <a href="workshops.html">ورش العمل</a>
             <a href="volunteer.html">التطوع</a>
             <a href="news.html">الأخبار</a>
+            <a href="calendar.html">الرزنامة</a>
+            <a href="friends.html">أصدقاء الجمعية</a>
+            <a href="crafts.html">بيدي حرفة</a>
             <a href="partnerships.html">الشراكات</a>
             <a href="reports.html">الحوكمة</a>
             <a href="board.html">مجلس الإدارة</a>
@@ -3074,6 +3023,9 @@
                 <a href="workshops.html">ورش العمل</a>
                 <a href="volunteer.html">التطوع</a>
                 <a href="news.html">الأخبار</a>
+                <a href="calendar.html">الرزنامة</a>
+                <a href="friends.html">أصدقاء الجمعية</a>
+                <a href="crafts.html">بيدي حرفة</a>
                 <a href="partnerships.html">الشراكات</a>
                 <a href="reports.html">الحوكمة</a>
                 <a href="board.html">مجلس الإدارة</a>

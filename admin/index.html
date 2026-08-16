@@ -957,6 +957,8 @@ table.data tbody tr:hover{background:rgba(192,154,98,.06);}
     <div class="view" id="view-notifications"></div>
     <div class="view" id="view-news"></div>
     <div class="view" id="view-workshops"></div>
+    <div class="view" id="view-volunteer_program"></div>
+    <div class="view" id="view-volunteer_opportunities"></div>
     <div class="view" id="view-volunteers"></div>
     <div class="view" id="view-crafts"></div>
     <div class="view" id="view-global_db"></div>
@@ -1309,8 +1311,8 @@ document.getElementById('logoutBtn').addEventListener('click', async()=>{
 });
 
 /* ── Cache ── */
-const C={news:[],volunteers:[],crafts:[],workshops:[],workshop_registrations:[],admin_notifications:[],notifications:[],settings:{}};
-const loaded={news:false,volunteers:false,crafts:false,workshops:false,workshop_registrations:false,admin_notifications:false,notifications:false,settings:false};
+const C={news:[],volunteers:[],volunteer_applications:[],crafts:[],workshops:[],volunteerOpportunities:[],workshop_registrations:[],admin_notifications:[],notifications:[],settings:{}};
+const loaded={news:false,volunteers:false,volunteer_applications:false,crafts:false,workshops:false,volunteerOpportunities:false,workshop_registrations:false,admin_notifications:false,notifications:false,settings:false};
 
 async function loadCol(col){
   if(loaded[col]) return C[col];
@@ -1345,6 +1347,7 @@ const ROUTES=[
   {id:'notifications', label:'الإشعارات',      icon:iBell,     badge:'nNew'},
   {id:'news',          label:'إدارة الأخبار',  icon:iNews},
   {id:'workshops',     label:'ورش العمل',     icon:iTools,    badge:'wNew'},
+  {id:'volunteer_program', label:'برنامج التطوع', icon:iHeart, badge:'vpNew'},
   {id:'volunteers',    label:'أصدقاء الجمعية', icon:iUsers,    badge:'vNew'},
   {id:'crafts',        label:'بيدي حرفة',      icon:iCraft,    badge:'cNew'},
   {id:'global_db',     label:'قاعدة البيانات', icon:iDatabase},
@@ -1353,12 +1356,14 @@ const ROUTES=[
 let route='home', appBooted=false;
 
 async function renderNav(){
-  const vNew=(C.volunteers||[]).filter(v=>!v.reviewed).length;
+  const vpNew=(C.volunteers||[]).filter(v=>(v.type==='برنامج التطوع'||!v.type)&&!v.reviewed).length;
+  const vNew=(C.volunteers||[]).filter(v=>v.type==='صديق الجمعية'&&!v.reviewed).length;
   const cNew=(C.crafts||[]).filter(c=>!c.reviewed).length;
   const wNew=(C.workshop_registrations||[]).filter(w=>!w.reviewed).length;
+  const vaNew=(C.volunteer_applications||[]).filter(a=>!a.reviewed).length;
   const nNotifs = (C.admin_notifications || C.notifications || []);
-  const nNew = nNotifs.filter(n => !n.read && n.status !== 'read').length + vNew + cNew + wNew;
-  const bags={vNew,cNew,wNew,nNew};
+  const nNew = nNotifs.filter(n => !n.read && n.status !== 'read').length + vpNew + vNew + cNew + wNew + vaNew;
+  const bags={vpNew,vNew,cNew,wNew,nNew};
   document.getElementById('navList').innerHTML=ROUTES.map(r=>{
     const active=r.id===route?'active':'';
     const cnt=r.badge?bags[r.badge]:0;
@@ -1388,9 +1393,13 @@ async function goTo(r){
   await renderNav();
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const el=document.getElementById('view-'+r);
-  el.classList.add('active');
-  el.scrollTop=0;
-  await renderView(r);
+  if (el) {
+    el.classList.add('active');
+    el.scrollTop=0;
+    await renderView(r);
+  } else {
+    console.warn(`[goTo] View element 'view-${r}' not found in the DOM.`);
+  }
 }
 
 function loadingHTML(){
@@ -1406,6 +1415,7 @@ async function renderView(r){
   else if(r==='notifications') await vNotifications(el);
   else if(r==='news')         await vNews(el);
   else if(r==='workshops')    await vWorkshops(el);
+  else if(r==='volunteer_program'||r==='volunteer_opportunities') await vVolunteerProgram(el);
   else if(r==='volunteers')   await vVols(el);
   else if(r==='crafts')       await vCrafts(el);
   else if(r==='global_db')    await vGlobalDB(el);
@@ -1418,13 +1428,21 @@ function bootApp(){ renderNav(); goTo('home'); }
    HOME
 ════════════════════════════════ */
 async function vHome(el){
-  const [news,vols,crafts]=await Promise.all([loadCol('news'),loadCol('volunteers'),loadCol('crafts')]);
-  const vNew=vols.filter(v=>!v.reviewed).length;
-  const cNew=crafts.filter(c=>!c.reviewed).length;
+  const [news,vols,crafts,workshops,apps]=await Promise.all([
+    loadCol('news'),
+    loadCol('volunteers'),
+    loadCol('crafts'),
+    loadCol('workshops'),
+    loadCol('volunteer_applications')
+  ]);
+  const vpVols = vols.filter(v => v.type === 'برنامج التطوع' || !v.type);
+  const vpNew = vpVols.filter(v => !v.reviewed).length;
+  const cNew = crafts.filter(c => !c.reviewed).length;
   await renderNav();
 
   const recent=[
-    ...vols.map(v=>({kind:'vol',title:`صديق الجمعية — ${v.name||''}`,date:toTs(v.createdAt),isNew:!v.reviewed})),
+    ...vpVols.map(v=>({kind:'vol',title:`متطوع بالبرنامج — ${v.name||''}`,date:toTs(v.createdAt),isNew:!v.reviewed})),
+    ...apps.map(a=>({kind:'vol',title:`تقديم فرصة: ${a.opportunityTitle||'فرصة'} — ${a.name||''}`,date:toTs(a.createdAt),isNew:!a.reviewed})),
     ...crafts.map(c=>({kind:'craft',title:`بيدي حرفة — ${c.name||''}`,date:toTs(c.createdAt),isNew:!c.reviewed})),
     ...news.map(n=>({kind:'news',title:`خبر — ${n.title||''}`,date:toTs(n.createdAt),isNew:false})),
   ].sort((a,b)=>(b.date||0)-(a.date||0)).slice(0,6);
@@ -1433,17 +1451,18 @@ async function vHome(el){
   <div class="page-head">
     <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Overview · ${fmtEn(new Date())}</span><span class="e-label">لوحة التحكم</span></div>
     <h1 class="page-title">مرحباً</h1>
-    <p class="page-sub">نظرة عامة على نشاط الجمعية — المقالات المنشورة، أصدقاء الجمعية، ومبادرة "بيدي حرفة".</p>
+    <p class="page-sub">نظرة عامة على نشاط الجمعية — برنامج المتطوعين، ورش العمل، المقالات المنشورة، ومبادرة "بيدي حرفة".</p>
   </div>
   <div class="stats-grid">
-    ${sCard('Editorial','عدد الأخبار',news.length,'المحتوى المنشور')}
-    ${sCard('Friends','أصدقاء الجمعية',vols.length,`${vNew} طلب جديد`)}
+    ${sCard('VolunteersProg','برنامج المتطوعين',vpVols.length,`${vpNew} تسجيل جديد`)}
+    ${sCard('Editorial','المحتوى والأخبار',news.length,'مقال منشور')}
     ${sCard('Artisans','بيدي حرفة',crafts.length,`${cNew} طلب جديد`)}
+    ${sCard('WorkshopsCount','ورش العمل',workshops.length,'ورشة عمل')}
   </div>
   <div class="grid-2">
     <div class="card">
       <div class="card-head"><div><h3>النشاط الأخير</h3><div class="card-la">Recent activity</div></div>
-        <button class="btn btn-ghost btn-sm" data-go="news">عرض الأخبار</button></div>
+        <button class="btn btn-ghost btn-sm" data-go="notifications">عرض الإشعارات</button></div>
       <div class="activity-list">
         ${recent.length===0?emptyState('لا يوجد نشاط بعد'):recent.map(it=>`
         <div class="activity-item">
@@ -1458,9 +1477,10 @@ async function vHome(el){
     <div class="card">
       <div class="card-head"><div><h3>اختصارات</h3><div class="card-la">Quick actions</div></div></div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn btn-primary" data-action="add-news" style="justify-content:space-between;width:100%"><span>كتابة مقال جديد</span>${chevSvg()}</button>
-        <button class="btn btn-ghost" data-go="volunteers" style="justify-content:space-between;width:100%"><span>مراجعة أصدقاء الجمعية</span>${chevSvg()}</button>
-        <button class="btn btn-ghost" data-go="crafts" style="justify-content:space-between;width:100%"><span>مراجعة طلبات بيدي حرفة</span>${chevSvg()}</button>
+        <button class="btn btn-primary" data-go="volunteer_program" style="justify-content:space-between;width:100%"><span>إدارة برنامج المتطوعين</span>${chevSvg()}</button>
+        <button class="btn btn-ghost" data-action="add-news" style="justify-content:space-between;width:100%"><span>كتابة مقال جديد</span>${chevSvg()}</button>
+        <button class="btn btn-ghost" data-go="workshops" style="justify-content:space-between;width:100%"><span>إدارة ورش العمل</span>${chevSvg()}</button>
+        <button class="btn btn-ghost" data-go="global_db" style="justify-content:space-between;width:100%"><span>قاعدة البيانات الموحدة</span>${chevSvg()}</button>
       </div>
     </div>
   </div>`;
@@ -2586,6 +2606,919 @@ async function vWorkshopDetail(el, w, allRegistrants) {
   });
 }
 
+/* ════════════════════════════════
+   VOLUNTEER PROGRAMME MANAGEMENT (برنامج المتطوعين)
+════════════════════════════════ */
+let vpTab = 'volunteers', vpQ = '', vpFilter = 'all', vpCityFilter = 'all', voQ = '', voFilter = 'all', vAppQ = '';
+
+async function vVolunteerProgram(el) {
+  const [allVolunteers, allOpportunities, allApplications, siteSettings] = await Promise.all([
+    loadCol('volunteers'),
+    loadCol('volunteerOpportunities'),
+    loadCol('volunteer_applications'),
+    loadSettings()
+  ]);
+  await renderNav();
+
+  // Filter volunteers belonging to Volunteer Program
+  const progVolunteers = allVolunteers.filter(v => v.type === 'برنامج التطوع' || !v.type);
+  const openOpportunities = allOpportunities.filter(o => o.status === 'open');
+  const unreviewedVolunteers = progVolunteers.filter(v => !v.reviewed);
+  const displayedOppCount = (siteSettings && siteSettings.volunteerOpportunitiesCount !== undefined && siteSettings.volunteerOpportunitiesCount !== null)
+    ? siteSettings.volunteerOpportunitiesCount
+    : openOpportunities.length;
+
+  el.innerHTML = `
+  <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Volunteer Programme · برنامج المتطوعين</span><span class="e-label">نظام إدارة المتطوعين والفرص</span></div>
+      <h1 class="page-title">برنامج <span class="accent">المتطوعين</span></h1>
+      <p class="page-sub">إدارة متطوعي الجمعية الدائمين، نشر ومتابعة الفرص التطوعية، وإدارة إعدادات العداد العام.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btnCreateVO" style="gap:8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        <span>إضافة فرصة جديدة</span>
+      </button>
+      <button class="btn btn-outline" id="btnExportVolWord" style="gap:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>تصدير المتطوعين Word</span>
+      </button>
+      <button class="btn btn-outline" id="btnExportVolExcel" style="gap:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>تصدير Excel</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:24px;">
+    ${sCard('TotalVolunteers', 'إجمالي المتطوعين', progVolunteers.length, 'متطوع مسجل بالبرنامج')}
+    ${sCard('NewVolunteers', 'التسجيلات الجديدة', unreviewedVolunteers.length, 'بانتظار المراجعة')}
+    ${sCard('OpenVO', 'الفرص المنشورة', openOpportunities.length, `من إجمالي ${allOpportunities.length} فرصة`)}
+    ${sCard('TotalApplications', 'المتقدمون للفرص', allApplications.length, 'طلب تقديم على الفرص')}
+  </div>
+
+  <!-- Sub-Tabs Navigation -->
+  <div class="toolbar" style="margin-bottom:20px;border-bottom:1px solid var(--line-soft);padding-bottom:12px;">
+    <div class="filters">
+      <button class="chip ${vpTab === 'volunteers' ? 'active' : ''}" data-vptab="volunteers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><circle cx="9" cy="9" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><circle cx="17" cy="8" r="2.2"/><path d="M14 19a4 4 0 0 1 7 0"/></svg>
+        المتطوعون <span class="chip-count">${progVolunteers.length}</span>
+      </button>
+      <button class="chip ${vpTab === 'opportunities' ? 'active' : ''}" data-vptab="opportunities">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        الفرص التطوعية <span class="chip-count">${allOpportunities.length}</span>
+      </button>
+      <button class="chip ${vpTab === 'applicants' ? 'active' : ''}" data-vptab="applicants">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        المتقدمون للفرص <span class="chip-count">${allApplications.length}</span>
+      </button>
+      <button class="chip ${vpTab === 'settings' ? 'active' : ''}" data-vptab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.5 5.5l1.5 1.5M17 17l1.5 1.5M5.5 18.5l1.5-1.5M17 7l1.5-1.5"/></svg>
+        إعدادات البرنامج والعداد
+      </button>
+    </div>
+  </div>
+
+  <div id="vpTabContent">
+    ${vpTab === 'volunteers' ? renderVolunteersTabHTML(progVolunteers, unreviewedVolunteers.length) : ''}
+    ${vpTab === 'opportunities' ? renderVolunteerOpportunitiesTabHTML(allOpportunities) : ''}
+    ${vpTab === 'applicants' ? renderOpportunityApplicantsTabHTML(allApplications) : ''}
+    ${vpTab === 'settings' ? renderVolunteerProgramSettingsHTML(displayedOppCount) : ''}
+  </div>
+  `;
+
+  // Bind Top Buttons
+  el.querySelector('#btnCreateVO')?.addEventListener('click', () => openVolunteerOpportunityFormModal(null, el));
+  el.querySelector('#btnExportVolWord')?.addEventListener('click', () => exportVolunteersToWord(progVolunteers));
+  el.querySelector('#btnExportVolExcel')?.addEventListener('click', () => exportRegistrantsToCSV('متطوعو_برنامج_التطوع', progVolunteers));
+
+  // Bind Tab Switchers
+  el.querySelectorAll('[data-vptab]').forEach(b => {
+    b.addEventListener('click', () => {
+      vpTab = b.dataset.vptab;
+      vVolunteerProgram(el);
+    });
+  });
+
+  // Bind Sub-views specific events
+  if (vpTab === 'volunteers') {
+    bindVolunteersTabEvents(el, progVolunteers, allApplications);
+  } else if (vpTab === 'opportunities') {
+    bindOpportunitiesTabEvents(el, allOpportunities, allApplications);
+  } else if (vpTab === 'applicants') {
+    bindApplicantsTabEvents(el, allApplications);
+  } else if (vpTab === 'settings') {
+    bindProgramSettingsEvents(el);
+  }
+}
+
+/* ── TAB 1: VOLUNTEERS DIRECTORY HTML ── */
+function renderVolunteersTabHTML(volunteers, unreviewedCount) {
+  let rows = [...volunteers];
+  if (vpFilter === 'new') rows = rows.filter(v => !v.reviewed || v.status === 'جديد');
+  else if (vpFilter === 'approved') rows = rows.filter(v => v.status === 'معتمد');
+  else if (vpFilter === 'rejected') rows = rows.filter(v => v.status === 'مرفوض');
+
+  if (vpCityFilter !== 'all') {
+    rows = rows.filter(v => (v.city || '').trim() === vpCityFilter);
+  }
+
+  const q = vpQ.trim().toLowerCase();
+  if (q) {
+    rows = rows.filter(v =>
+      (v.name || v.fullName || '').toLowerCase().includes(q) ||
+      (v.phone || v.mobile || '').includes(q) ||
+      (v.nationalId || v.idNumber || '').includes(q) ||
+      (v.city || '').toLowerCase().includes(q) ||
+      (Array.isArray(v.skills) ? v.skills.join(' ') : (v.skills || '')).toLowerCase().includes(q)
+    );
+  }
+
+  rows.sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+
+  const cities = Array.from(new Set(volunteers.map(v => (v.city || '').trim()).filter(Boolean)));
+
+  return `
+  <div class="toolbar" style="margin-bottom:18px;">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+      <input type="text" id="vpSearch" placeholder="بحث بالاسم، رقم الجوال، الهوية، المدينة، أو المهارات…" value="${escA(vpQ)}"/>
+    </div>
+    <div class="filters">
+      <button class="chip ${vpFilter === 'all' ? 'active' : ''}" data-vpf="all">جميع المتطوعين <span class="chip-count">${volunteers.length}</span></button>
+      <button class="chip chip-new ${vpFilter === 'new' ? 'active' : ''}" data-vpf="new">جديد ${unreviewedCount > 0 ? `<span class="chip-badge">${unreviewedCount}</span>` : ''}</button>
+      <button class="chip chip-approved ${vpFilter === 'approved' ? 'active' : ''}" data-vpf="approved">معتمد</button>
+      <select id="vpCitySelect" class="chip" style="padding:6px 12px;cursor:pointer;">
+        <option value="all" ${vpCityFilter === 'all' ? 'selected' : ''}>كل المدن</option>
+        ${cities.map(c => `<option value="${escA(c)}" ${vpCityFilter === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  <div class="card" style="padding:20px;background:var(--paper);border-radius:16px;">
+    ${rows.length === 0
+      ? `<div style="text-align:center;padding:40px;color:var(--ink-muted);">لا يوجد متطوعون مطابقون للبحث أو الفلتر</div>`
+      : `
+      <div style="overflow-x:auto;">
+        <table class="tbl" style="width:100%;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الاسم الكامل</th>
+              <th>رقم الجوال</th>
+              <th>رقم الهوية</th>
+              <th>المدينة</th>
+              <th>المهارات والمجالات</th>
+              <th>تاريخ التسجيل</th>
+              <th>الحالة</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((v, idx) => {
+              const skillsStr = Array.isArray(v.skills) ? v.skills.join('، ') : (v.skills || v.interests || '—');
+              const isNew = !v.reviewed || v.status === 'جديد';
+              return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>
+                  <div style="font-weight:800;color:var(--ink);">${esc(v.name || v.fullName || 'بدون اسم')}</div>
+                  ${v.email ? `<div style="font-size:11px;color:var(--ink-muted);">${esc(v.email)}</div>` : ''}
+                </td>
+                <td dir="ltr" style="text-align:right;font-weight:600;">${esc(v.phone || v.mobile || '—')}</td>
+                <td>${esc(v.nationalId || v.idNumber || '—')}</td>
+                <td><span class="chip-count" style="background:var(--parchment-3);">${esc(v.city || '—')}</span></td>
+                <td style="max-width:200px;font-size:12px;color:var(--ink-mid);">${esc(skillsStr)}</td>
+                <td>${v.createdAt ? fmtEn(toTs(v.createdAt)) : '—'}</td>
+                <td><span class="row-status ${isNew ? 'new' : 'reviewed'}">${v.status || (isNew ? 'جديد' : 'معتمد')}</span></td>
+                <td>
+                  <div style="display:flex;gap:4px;flex-wrap:nowrap;">
+                    <button class="btn btn-sm btn-outline" data-vp-detail="${v.id}" style="font-size:11px;">تفاصيل</button>
+                    <button class="btn btn-sm btn-ghost" data-vp-edit="${v.id}" style="font-size:11px;">تعديل</button>
+                    <button class="btn btn-sm btn-ghost del" data-vp-del="${v.id}" style="font-size:11px;">حذف</button>
+                  </div>
+                </td>
+              </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      `
+    }
+  </div>
+  `;
+}
+
+/* ── TAB 2: VOLUNTEER OPPORTUNITIES HTML ── */
+function renderVolunteerOpportunitiesTabHTML(opportunities) {
+  let rows = [...opportunities];
+  if (voFilter === 'open') rows = rows.filter(o => o.status === 'open');
+  else if (voFilter === 'closed') rows = rows.filter(o => o.status === 'closed');
+  else if (voFilter === 'hidden') rows = rows.filter(o => o.status === 'hidden');
+
+  const q = voQ.trim().toLowerCase();
+  if (q) rows = rows.filter(o => (o.title || '').toLowerCase().includes(q) || (o.location || '').toLowerCase().includes(q));
+
+  rows.sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+
+  return `
+  <div class="toolbar" style="margin-bottom:18px;">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+      <input type="text" id="voSearchInput" placeholder="بحث باسم الفرصة أو المكان…" value="${escA(voQ)}"/>
+    </div>
+    <div class="filters">
+      <button class="chip ${voFilter === 'all' ? 'active' : ''}" data-vof="all">جميع الفرص <span class="chip-count">${opportunities.length}</span></button>
+      <button class="chip chip-approved ${voFilter === 'open' ? 'active' : ''}" data-vof="open">مفتوحة للتسجيل</button>
+      <button class="chip chip-rejected ${voFilter === 'closed' ? 'active' : ''}" data-vof="closed">منتهية</button>
+      <button class="chip ${voFilter === 'hidden' ? 'active' : ''}" data-vof="hidden">مخفية</button>
+    </div>
+  </div>
+
+  ${rows.length === 0
+    ? `<div class="card" style="padding:40px;text-align:center;">${emptyState(q ? 'لا توجد نتائج مطابقة للبحث' : 'لم يتم إضافة فرص تطوعية بعد', 'VOLUNTEER · EMPTY')}</div>`
+    : `
+    <div class="news-grid">
+      ${rows.map(o => {
+        let badge = `<span class="row-status reviewed">مفتوحة</span>`;
+        if (o.status === 'closed') badge = `<span class="row-status rejected">منتهية</span>`;
+        else if (o.status === 'hidden') badge = `<span class="row-status" style="background:#eee;color:#666;">مخفية</span>`;
+
+        const total = o.totalSeats ? parseInt(o.totalSeats, 10) : 'غير محدد';
+        const reg = o.registeredCount ? parseInt(o.registeredCount, 10) : 0;
+
+        return `
+        <div class="news-card" style="display:flex;flex-direction:column;justify-content:space-between;border-radius:14px;border:1px solid var(--line-soft);">
+          <div class="nc-body" style="padding:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span class="nc-meta">فرصة تطوعية</span>
+              ${badge}
+            </div>
+            <h3 style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:8px;">${esc(o.title || '')}</h3>
+            <p style="font-size:13px;color:var(--ink-mid);line-height:1.6;margin-bottom:12px;">${esc(o.description || '—')}</p>
+            
+            <div style="font-size:12px;color:var(--ink-muted);display:flex;flex-direction:column;gap:4px;background:var(--parchment-2);padding:10px;border-radius:8px;">
+              ${o.date ? `<div>📅 التاريخ: <strong style="color:var(--ink);">${esc(o.date)}</strong></div>` : ''}
+              ${o.location ? `<div>📍 المكان: <strong style="color:var(--ink);">${esc(o.location)}</strong></div>` : ''}
+              <div>👥 المقاعد المسجلة: <strong style="color:var(--gold-deep);">${reg} / ${total}</strong></div>
+            </div>
+          </div>
+          <div style="padding:12px 18px;background:var(--paper);border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-outline" data-vo-view-apps="${o.id}" style="font-size:11px;font-weight:700;">
+              مشاهدة المتقدمين (${reg})
+            </button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm btn-ghost" data-vo-edit="${o.id}" style="font-size:11px;">تحرير</button>
+              <button class="btn btn-sm btn-ghost del" data-vo-del="${o.id}" style="font-size:11px;">حذف</button>
+            </div>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+    `
+  }
+  `;
+}
+
+/* ── TAB 3: OPPORTUNITY APPLICANTS HTML ── */
+function renderOpportunityApplicantsTabHTML(applications) {
+  let rows = [...applications];
+  const q = vAppQ.trim().toLowerCase();
+  if (q) {
+    rows = rows.filter(a =>
+      (a.name || a.fullName || '').toLowerCase().includes(q) ||
+      (a.phone || a.mobile || '').includes(q) ||
+      (a.nationalId || a.idNumber || '').includes(q) ||
+      (a.opportunityTitle || '').toLowerCase().includes(q) ||
+      (a.city || '').toLowerCase().includes(q)
+    );
+  }
+
+  rows.sort((a, b) => (toTs(b.createdAt) || 0) - (toTs(a.createdAt) || 0));
+
+  return `
+  <div class="toolbar" style="margin-bottom:18px;">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
+      <input type="text" id="vAppSearch" placeholder="بحث باسم المتقدم، الجوال، الهوية، أو اسم الفرصة…" value="${escA(vAppQ)}"/>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline btn-sm" id="btnExportAllAppsExcel">تصدير المتقدمين Excel</button>
+    </div>
+  </div>
+
+  <div class="card" style="padding:20px;background:var(--paper);border-radius:16px;">
+    ${rows.length === 0
+      ? `<div style="text-align:center;padding:40px;color:var(--ink-muted);">لا توجد طلبات تقديم مسجلة للفرص</div>`
+      : `
+      <div style="overflow-x:auto;">
+        <table class="tbl" style="width:100%;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>اسم المتقدم</th>
+              <th>رقم الجوال</th>
+              <th>رقم الهوية</th>
+              <th>الفرصة التطوعية</th>
+              <th>المدينة</th>
+              <th>تاريخ التقديم</th>
+              <th>الحالة</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((a, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td><strong>${esc(a.name || a.fullName || 'بدون اسم')}</strong></td>
+                <td dir="ltr" style="text-align:right;">${esc(a.phone || a.mobile || '—')}</td>
+                <td>${esc(a.nationalId || a.idNumber || '—')}</td>
+                <td><span class="chip-count" style="background:var(--parchment-3);">${esc(a.opportunityTitle || 'فرصة تطوعية')}</span></td>
+                <td>${esc(a.city || '—')}</td>
+                <td>${a.createdAt ? fmtEn(toTs(a.createdAt)) : '—'}</td>
+                <td><span class="row-status ${!a.reviewed ? 'new' : 'reviewed'}">${a.status || 'جديد'}</span></td>
+                <td>
+                  <button class="btn btn-sm btn-ghost del" data-vapp-del="${a.id}">حذف</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      `
+    }
+  </div>
+  `;
+}
+
+/* ── TAB 4: PROGRAM SETTINGS & PUBLIC COUNTER HTML ── */
+function renderVolunteerProgramSettingsHTML(displayedCount) {
+  return `
+  <div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+    
+    <div class="card" style="padding:26px;border-radius:16px;background:var(--paper);">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div style="width:42px;height:42px;border-radius:10px;background:var(--gold-pale);display:grid;place-items:center;color:var(--gold-deep);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:22px;height:22px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div>
+          <h3 style="font-size:17px;font-weight:800;color:var(--ink);">عداد الفرص المعروضة للجمهور</h3>
+          <p style="font-size:13px;color:var(--ink-muted);margin-top:2px;">التحكم بالرقم الذي يظهر في العداد الصغير بصفحة التطوع العامة.</p>
+        </div>
+      </div>
+
+      <form id="vpSettingsForm" style="display:flex;flex-direction:column;gap:16px;">
+        <div class="field">
+          <label style="font-weight:700;font-size:14px;color:var(--ink);">عدد الفرص المعروضة (الرقم الظاهر للزوار)</label>
+          <input type="number" id="vpSet_oppCount" min="0" max="99" value="${displayedCount}" required style="padding:12px 14px;border-radius:10px;border:1px solid var(--line-soft);font-size:16px;font-weight:700;width:100%;">
+          <span style="font-size:12px;color:var(--ink-muted);margin-top:4px;display:block;">
+            * ملاحظة: هذا الرقم مستقل تماماً عن عدد المتطوعين وعدد السجلات، وهو فقط رقم تحدده الإدارة ليظهر للعامة.
+          </span>
+        </div>
+
+        <div style="background:var(--parchment-2);padding:14px 18px;border-radius:12px;border:1px solid var(--line-soft);display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;color:var(--ink-mid);">المعاينة المباشرة:</span>
+          <span class="chip chip-approved" id="vpCounterPreview" style="font-weight:800;font-size:13px;">
+            متاح الآن ${displayedCount} فرص تطوعية
+          </span>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+          <button type="submit" class="btn btn-primary" id="btnSaveVpSettings" style="gap:8px;padding:10px 24px;">
+            <span>حفظ وتحديث العداد</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+  `;
+}
+
+/* ── BIND TAB EVENTS ── */
+function bindVolunteersTabEvents(el, volunteers, applications) {
+  const sInput = el.querySelector('#vpSearch');
+  if (sInput) {
+    sInput.addEventListener('input', e => {
+      vpQ = e.target.value;
+      vVolunteerProgram(el);
+      el.querySelector('#vpSearch')?.focus();
+    });
+  }
+
+  el.querySelectorAll('[data-vpf]').forEach(b => {
+    b.addEventListener('click', () => {
+      vpFilter = b.dataset.vpf;
+      vVolunteerProgram(el);
+    });
+  });
+
+  el.querySelector('#vpCitySelect')?.addEventListener('change', e => {
+    vpCityFilter = e.target.value;
+    vVolunteerProgram(el);
+  });
+
+  // Volunteer Detail Modal
+  el.querySelectorAll('[data-vp-detail]').forEach(b => {
+    b.addEventListener('click', () => {
+      const vid = b.dataset.vpDetail;
+      const volObj = volunteers.find(v => v.id === vid);
+      if (volObj) {
+        const userApps = applications.filter(a => a.volunteerId === vid || (a.phone && a.phone === volObj.phone));
+        openVolunteerDetailModal(volObj, userApps);
+      }
+    });
+  });
+
+  // Volunteer Edit Modal
+  el.querySelectorAll('[data-vp-edit]').forEach(b => {
+    b.addEventListener('click', () => {
+      const vid = b.dataset.vpEdit;
+      const volObj = volunteers.find(v => v.id === vid);
+      if (volObj) {
+        openVolunteerEditModal(volObj, () => {
+          loaded.volunteers = false;
+          vVolunteerProgram(el);
+        });
+      }
+    });
+  });
+
+  // Volunteer Delete
+  el.querySelectorAll('[data-vp-del]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const vid = b.dataset.vpDel;
+      if (!confirm('هل تريد حذف هذا المتطوع نهائياً من قاعدة البيانات؟')) return;
+      try {
+        await deleteDoc(doc(db, 'volunteers', vid));
+        loaded.volunteers = false;
+        toast('تم حذف المتطوع بنجاح');
+        vVolunteerProgram(el);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
+    });
+  });
+}
+
+function bindOpportunitiesTabEvents(el, opportunities, applications) {
+  const sInput = el.querySelector('#voSearchInput');
+  if (sInput) {
+    sInput.addEventListener('input', e => {
+      voQ = e.target.value;
+      vVolunteerProgram(el);
+      el.querySelector('#voSearchInput')?.focus();
+    });
+  }
+
+  el.querySelectorAll('[data-vof]').forEach(b => {
+    b.addEventListener('click', () => {
+      voFilter = b.dataset.vof;
+      vVolunteerProgram(el);
+    });
+  });
+
+  // View Applicants for an Opportunity
+  el.querySelectorAll('[data-vo-view-apps]').forEach(b => {
+    b.addEventListener('click', () => {
+      const oppId = b.dataset.voViewApps;
+      const oppObj = opportunities.find(o => o.id === oppId);
+      if (oppObj) openOpportunityApplicantsModal(oppObj, el);
+    });
+  });
+
+  // Edit Opportunity
+  el.querySelectorAll('[data-vo-edit]').forEach(b => {
+    b.addEventListener('click', () => {
+      const oppId = b.dataset.voEdit;
+      const oppObj = opportunities.find(o => o.id === oppId);
+      if (oppObj) openVolunteerOpportunityFormModal(oppObj, el);
+    });
+  });
+
+  // Delete Opportunity
+  el.querySelectorAll('[data-vo-del]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const oppId = b.dataset.voDel;
+      if (!confirm('هل تريد حذف هذه الفرصة التطوعية؟')) return;
+      try {
+        await deleteDoc(doc(db, 'volunteerOpportunities', oppId));
+        loaded.volunteerOpportunities = false;
+        toast('تم حذف الفرصة التطوعية بنجاح');
+        vVolunteerProgram(el);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
+    });
+  });
+}
+
+function bindApplicantsTabEvents(el, applications) {
+  const sInput = el.querySelector('#vAppSearch');
+  if (sInput) {
+    sInput.addEventListener('input', e => {
+      vAppQ = e.target.value;
+      vVolunteerProgram(el);
+      el.querySelector('#vAppSearch')?.focus();
+    });
+  }
+
+  el.querySelector('#btnExportAllAppsExcel')?.addEventListener('click', () => {
+    exportRegistrantsToCSV('جميع_المتقدمين_للفرص_التطوعية', applications);
+  });
+
+  // Delete Application
+  el.querySelectorAll('[data-vapp-del]').forEach(b => {
+    b.addEventListener('click', async () => {
+      const appId = b.dataset.vappDel;
+      if (!confirm('هل تريد حذف طلب التقديم هذا؟')) return;
+      try {
+        await deleteDoc(doc(db, 'volunteer_applications', appId));
+        loaded.volunteer_applications = false;
+        toast('تم حذف طلب التقديم بنجاح');
+        vVolunteerProgram(el);
+      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
+    });
+  });
+}
+
+function bindProgramSettingsEvents(el) {
+  const input = el.querySelector('#vpSet_oppCount');
+  const preview = el.querySelector('#vpCounterPreview');
+  if (input && preview) {
+    input.addEventListener('input', e => {
+      const val = parseInt(e.target.value, 10) || 0;
+      preview.textContent = `متاح الآن ${val} فرص تطوعية`;
+    });
+  }
+
+  el.querySelector('#vpSettingsForm')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = el.querySelector('#btnSaveVpSettings');
+    btn.disabled = true;
+    btn.textContent = 'جارٍ الحفظ…';
+
+    const countVal = parseInt(el.querySelector('#vpSet_oppCount').value, 10) || 0;
+
+    try {
+      await setDoc(doc(db, 'settings', 'site'), {
+        volunteerOpportunitiesCount: countVal
+      }, { merge: true });
+
+      loaded.settings = false;
+      toast('تم حفظ إعدادات عداد الفرص بنجاح');
+    } catch (err) {
+      console.error(err);
+      toast('حدث خطأ أثناء حفظ الإعدادات', 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'حفظ وتحديث العداد';
+    }
+  });
+}
+
+/* ── MODAL: VOLUNTEER FULL DETAILS ── */
+function openVolunteerDetailModal(v, userApps) {
+  const skillsStr = Array.isArray(v.skills) ? v.skills.join('، ') : (v.skills || v.interests || '—');
+  const html = `
+    <div class="modal-head">
+      <div>
+        <div class="la">VOLUNTEER · Details</div>
+        <h2>بيانات المتطوع</h2>
+      </div>
+      <button class="close-btn" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;padding:10px 0;">
+      
+      <div style="display:flex;align-items:center;gap:14px;background:var(--parchment-2);padding:16px;border-radius:12px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--gold-deep);color:#fff;display:grid;place-items:center;font-size:20px;font-weight:800;">
+          ${(v.name || v.fullName || 'م').charAt(0)}
+        </div>
+        <div>
+          <h3 style="font-size:17px;font-weight:800;color:var(--ink);">${esc(v.name || v.fullName || '—')}</h3>
+          <span class="row-status ${v.status === 'معتمد' ? 'reviewed' : 'new'}">${v.status || 'جديد'}</span>
+        </div>
+      </div>
+
+      <div class="form-grid two" style="gap:12px;">
+        <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+          <span style="font-size:11px;color:var(--ink-muted);display:block;">رقم الجوال</span>
+          <strong dir="ltr" style="font-size:14px;color:var(--ink);">${esc(v.phone || v.mobile || '—')}</strong>
+        </div>
+        <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+          <span style="font-size:11px;color:var(--ink-muted);display:block;">رقم الهوية / الإقامة</span>
+          <strong style="font-size:14px;color:var(--ink);">${esc(v.nationalId || v.idNumber || '—')}</strong>
+        </div>
+      </div>
+
+      <div class="form-grid two" style="gap:12px;">
+        <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+          <span style="font-size:11px;color:var(--ink-muted);display:block;">المدينة</span>
+          <strong style="font-size:14px;color:var(--ink);">${esc(v.city || '—')}</strong>
+        </div>
+        <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+          <span style="font-size:11px;color:var(--ink-muted);display:block;">البريد الإلكتروني</span>
+          <strong style="font-size:14px;color:var(--ink);">${esc(v.email || 'غير مسجل')}</strong>
+        </div>
+      </div>
+
+      <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+        <span style="font-size:11px;color:var(--ink-muted);display:block;">المهارات والمجالات التطوعية</span>
+        <strong style="font-size:13px;color:var(--gold-deep);line-height:1.7;">${esc(skillsStr)}</strong>
+      </div>
+
+      ${v.notes ? `
+      <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+        <span style="font-size:11px;color:var(--ink-muted);display:block;">الملاحظات والخبرات السابقة</span>
+        <p style="font-size:13px;color:var(--ink);margin:0;line-height:1.6;">${esc(v.notes)}</p>
+      </div>` : ''}
+
+      <div style="background:var(--parchment-3);padding:14px;border-radius:10px;font-size:12px;color:var(--ink-mid);">
+        <div>📅 تاريخ التسجيل في البرنامج: <strong>${v.createdAt ? fmtEn(toTs(v.createdAt)) : '—'}</strong></div>
+        ${v.ackDate ? `<div>✍️ تاريخ توثيق الإقرار: <strong>${esc(v.ackDate)}</strong></div>` : ''}
+      </div>
+
+      <!-- Opportunities Applied To -->
+      <div style="margin-top:8px;">
+        <h4 style="font-size:14px;font-weight:800;color:var(--ink);margin-bottom:8px;">الفرص التي تقدم عليها (${(userApps||[]).length})</h4>
+        ${(!userApps || !userApps.length)
+          ? `<p style="font-size:12px;color:var(--ink-muted);">لم يتقدم على أي فرصة تطوعية محددة حتى الآن.</p>`
+          : `<div style="display:flex;flex-direction:column;gap:6px;">
+              ${userApps.map(a => `
+                <div style="background:var(--paper);padding:8px 12px;border-radius:6px;border:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+                  <span>🎯 <strong>${esc(a.opportunityTitle || 'فرصة تطوعية')}</strong></span>
+                  <span style="color:var(--ink-muted);">${a.createdAt ? fmtEn(toTs(a.createdAt)) : '—'}</span>
+                </div>
+              `).join('')}
+            </div>`
+        }
+      </div>
+
+    </div>
+  `;
+  showModal(html);
+}
+
+/* ── MODAL: VOLUNTEER EDIT DETAILS ── */
+function openVolunteerEditModal(v, callback) {
+  const skillsArr = Array.isArray(v.skills) ? v.skills : (v.skills ? [v.skills] : []);
+  const html = `
+    <div class="modal-head">
+      <div>
+        <div class="la">VOLUNTEER · Edit</div>
+        <h2>تعديل بيانات المتطوع</h2>
+      </div>
+      <button class="close-btn" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <form id="vpEditForm" class="form-grid" style="gap:14px;">
+      <div class="field">
+        <label>الاسم الكامل <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="vpE_name" value="${escA(v.name || v.fullName || '')}" required>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>رقم الجوال</label>
+          <input type="text" id="vpE_phone" value="${escA(v.phone || v.mobile || '')}">
+        </div>
+        <div class="field">
+          <label>رقم الهوية / الإقامة</label>
+          <input type="text" id="vpE_nationalId" value="${escA(v.nationalId || v.idNumber || '')}">
+        </div>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>المدينة</label>
+          <input type="text" id="vpE_city" value="${escA(v.city || 'القريات')}">
+        </div>
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="vpE_email" value="${escA(v.email || '')}">
+        </div>
+      </div>
+      <div class="field">
+        <label>الحالة</label>
+        <select id="vpE_status">
+          <option value="معتمد" ${v.status === 'معتمد' ? 'selected' : ''}>معتمد</option>
+          <option value="جديد" ${!v.status || v.status === 'جديد' ? 'selected' : ''}>جديد / بانتظار المراجعة</option>
+          <option value="مرفوض" ${v.status === 'مرفوض' ? 'selected' : ''}>مرفوض</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>الملاحظات والخبرات</label>
+        <textarea id="vpE_notes" rows="3">${esc(v.notes || '')}</textarea>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveVpEdit">
+          <span>حفظ التعديلات</span>
+        </button>
+      </div>
+    </form>
+  `;
+  showModal(html);
+
+  document.getElementById('vpEditForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveVpEdit');
+    btn.disabled = true;
+    btn.textContent = 'جارٍ الحفظ…';
+
+    const updatedData = {
+      name: document.getElementById('vpE_name').value.trim(),
+      fullName: document.getElementById('vpE_name').value.trim(),
+      phone: document.getElementById('vpE_phone').value.trim(),
+      mobile: document.getElementById('vpE_phone').value.trim(),
+      nationalId: document.getElementById('vpE_nationalId').value.trim(),
+      idNumber: document.getElementById('vpE_nationalId').value.trim(),
+      city: document.getElementById('vpE_city').value.trim(),
+      email: document.getElementById('vpE_email').value.trim(),
+      status: document.getElementById('vpE_status').value,
+      notes: document.getElementById('vpE_notes').value.trim(),
+      reviewed: true,
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      await updateDoc(doc(db, 'volunteers', v.id), updatedData);
+      toast('تم تحديث بيانات المتطوع بنجاح');
+      closeModal();
+      if (typeof callback === 'function') callback();
+    } catch (err) {
+      console.error(err);
+      toast('حدث خطأ أثناء التحديث', 'err');
+    }
+  });
+}
+
+/* ── MODAL: CREATE / EDIT VOLUNTEER OPPORTUNITY ── */
+function openVolunteerOpportunityFormModal(voToEdit, mainEl) {
+  const isEdit = !!voToEdit;
+  const html = `
+    <div class="modal-head">
+      <div>
+        <div class="la">VOLUNTEER OPPORTUNITIES · Form</div>
+        <h2>${isEdit ? 'تعديل فرصة تطوعية' : 'إضافة فرصة تطوعية جديدة'}</h2>
+      </div>
+      <button class="close-btn" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <form id="voAdminForm" class="form-grid" style="gap:14px;">
+      <div class="field">
+        <label>عنوان الفرصة التطوعية <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="voF_title" value="${isEdit ? escA(voToEdit.title || '') : ''}" required placeholder="مثال: تنظيم فعاليات يوم التأسيس السعودي">
+      </div>
+      <div class="field">
+        <label>وصف الفرصة والمهام المطلوبة</label>
+        <textarea id="voF_desc" rows="3" placeholder="أدخل تفاصيل الفرصة والمهام المتوقعة من المتطوعين…">${isEdit ? esc(voToEdit.description || '') : ''}</textarea>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>تاريخ الفرصة</label>
+          <input type="text" id="voF_date" value="${isEdit ? escA(voToEdit.date || '') : ''}" placeholder="مثال: 22 فبراير 2026">
+        </div>
+        <div class="field">
+          <label>الوقت</label>
+          <input type="text" id="voF_time" value="${isEdit ? escA(voToEdit.time || '') : ''}" placeholder="مثال: 04:00 م - 09:00 م">
+        </div>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>المكان / الموقع</label>
+          <input type="text" id="voF_location" value="${isEdit ? escA(voToEdit.location || 'القريات') : 'القريات'}" placeholder="مقر الفعالية أو الجمعية">
+        </div>
+        <div class="field">
+          <label>عدد المقاعد المطلوبة</label>
+          <input type="number" id="voF_seats" min="1" value="${isEdit ? (voToEdit.totalSeats || 20) : 20}" placeholder="20">
+        </div>
+      </div>
+      <div class="form-grid two">
+        <div class="field">
+          <label>حالة الفرصة <span style="color:var(--danger)">*</span></label>
+          <select id="voF_status" required>
+            <option value="open" ${isEdit && voToEdit.status === 'open' ? 'selected' : (!isEdit ? 'selected' : '')}>مفتوحة للتسجيل</option>
+            <option value="closed" ${isEdit && voToEdit.status === 'closed' ? 'selected' : ''}>منتهية / مغلقة</option>
+            <option value="hidden" ${isEdit && voToEdit.status === 'hidden' ? 'selected' : ''}>مخفية</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>رابط خارجي اختياري (إن وجد)</label>
+          <input type="url" id="voF_link" value="${isEdit ? escA(voToEdit.link || '') : ''}" placeholder="https://… (اتركه فارغاً للتقديم الداخلي)">
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveVo">
+          <span>${isEdit ? 'حفظ التعديلات' : 'إضافة الفرصة'}</span>
+        </button>
+      </div>
+    </form>
+  `;
+
+  showModal(html);
+
+  document.getElementById('voAdminForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const submitBtn = document.getElementById('btnSaveVo');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جارٍ الحفظ…';
+
+    const data = {
+      title: document.getElementById('voF_title').value.trim(),
+      description: document.getElementById('voF_desc').value.trim(),
+      date: document.getElementById('voF_date').value.trim(),
+      time: document.getElementById('voF_time').value.trim(),
+      location: document.getElementById('voF_location').value.trim(),
+      totalSeats: parseInt(document.getElementById('voF_seats').value, 10) || 20,
+      status: document.getElementById('voF_status').value,
+      link: document.getElementById('voF_link').value.trim()
+    };
+
+    try {
+      if (isEdit) {
+        await updateDoc(doc(db, 'volunteerOpportunities', voToEdit.id), { ...data, updatedAt: serverTimestamp() });
+        toast('تم تحديث بيانات الفرصة بنجاح');
+      } else {
+        await addDoc(collection(db, 'volunteerOpportunities'), { ...data, registeredCount: 0, createdAt: serverTimestamp() });
+        toast('تم إضافة الفرصة بنجاح');
+      }
+      loaded.volunteerOpportunities = false;
+      closeModal();
+      vVolunteerProgram(mainEl);
+    } catch (err) {
+      console.error(err);
+      toast('حدث خطأ أثناء حفظ البيانات', 'err');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = isEdit ? 'حفظ التعديلات' : 'إضافة الفرصة';
+      }
+    }
+  });
+}
+
+/* ── MODAL: VIEW OPPORTUNITY APPLICANTS ── */
+async function openOpportunityApplicantsModal(opp, mainEl) {
+  const allApps = await loadCol('volunteer_applications');
+  const oppApps = allApps.filter(a => a.opportunityId === opp.id);
+
+  const html = `
+    <div class="modal-head">
+      <div>
+        <div class="la">APPLICANTS · المتقدمون للفرصة</div>
+        <h2>المتقدمون: ${esc(opp.title || 'فرصة تطوعية')}</h2>
+      </div>
+      <button class="close-btn" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+    </div>
+    <div style="padding:10px 0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <span style="font-size:13px;color:var(--ink-mid);">إجمالي المتقدمين: <strong>${oppApps.length}</strong> متقدم</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm btn-outline" id="btnExportOppAppsWord">تصدير Word</button>
+          <button class="btn btn-sm btn-outline" id="btnExportOppAppsExcel">تصدير Excel</button>
+        </div>
+      </div>
+
+      ${oppApps.length === 0
+        ? `<div style="text-align:center;padding:30px;color:var(--ink-muted);">لا يوجد متقدمون على هذه الفرصة حتى الآن</div>`
+        : `
+        <div style="max-height:400px;overflow-y:auto;">
+          <table class="tbl" style="width:100%;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الاسم</th>
+                <th>الجوال</th>
+                <th>الهوية</th>
+                <th>المدينة</th>
+                <th>تاريخ التقديم</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${oppApps.map((a, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td><strong>${esc(a.name || a.fullName || '—')}</strong></td>
+                  <td dir="ltr" style="text-align:right;">${esc(a.phone || a.mobile || '—')}</td>
+                  <td>${esc(a.nationalId || a.idNumber || '—')}</td>
+                  <td>${esc(a.city || '—')}</td>
+                  <td>${a.createdAt ? fmtEn(toTs(a.createdAt)) : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        `
+      }
+    </div>
+  `;
+  showModal(html);
+
+  document.getElementById('btnExportOppAppsWord')?.addEventListener('click', () => {
+    exportOpportunityApplicantsToWord(opp, oppApps);
+  });
+  document.getElementById('btnExportOppAppsExcel')?.addEventListener('click', () => {
+    exportRegistrantsToCSV(`متقدمو_فرصة_${opp.title || 'تطوع'}`, oppApps);
+  });
+}
+
 /* ── Modal: Create/Edit Workshop ── */
 function openWorkshopFormModal(wsToEdit, mainEl) {
   const isEdit = !!wsToEdit;
@@ -2715,11 +3648,12 @@ function openWorkshopFormModal(wsToEdit, mainEl) {
 let notifFilter = 'all';
 
 async function vNotifications(el) {
-  const [notifs, wRegs, vRegs, cRegs] = await Promise.all([
+  const [notifs, wRegs, vRegs, cRegs, vApps] = await Promise.all([
     loadCol('admin_notifications'),
     loadCol('workshop_registrations'),
-    loadCol('volunteer_registrations'),
-    loadCol('bidi_herfa_registrations')
+    loadCol('volunteers'),
+    loadCol('crafts'),
+    loadCol('volunteer_applications')
   ]);
 
   await renderNav();
@@ -2747,16 +3681,35 @@ async function vNotifications(el) {
 
   vRegs.forEach(r => {
     if (!seenIds.has('vol_' + r.id)) {
+      const isProg = r.type === 'برنامج التطوع' || !r.type;
+      const skillsStr = Array.isArray(r.skills) ? r.skills.join('، ') : (r.skills || (Array.isArray(r.interests) ? r.interests.join('، ') : r.interests) || 'تطوع');
       aggregatedNotifs.push({
         id: 'vol_' + r.id,
         rawId: r.id,
-        col: 'volunteer_registrations',
-        name: r.fullName || r.name || 'متطوع جديد',
-        label: 'أصدقاء الجمعية',
-        formType: 'أصدقاء الجمعية',
-        activityTitle: r.program || r.field || 'تطوع',
-        read: !!r.reviewed,
-        status: r.reviewed ? 'read' : 'unread',
+        col: 'volunteers',
+        name: r.name || r.fullName || 'متطوع جديد',
+        label: isProg ? 'برنامج التطوع' : 'أصدقاء الجمعية',
+        formType: isProg ? 'برنامج التطوع' : 'أصدقاء الجمعية',
+        activityTitle: skillsStr,
+        read: !!r.reviewed || r.status === 'معتمد',
+        status: (r.reviewed || r.status === 'معتمد') ? 'read' : 'unread',
+        createdAt: r.createdAt
+      });
+    }
+  });
+
+  (vApps || []).forEach(r => {
+    if (!seenIds.has('vapp_' + r.id)) {
+      aggregatedNotifs.push({
+        id: 'vapp_' + r.id,
+        rawId: r.id,
+        col: 'volunteer_applications',
+        name: r.name || r.fullName || 'متقدم لفرصة تطوعية',
+        label: 'برنامج التطوع',
+        formType: 'برنامج التطوع',
+        activityTitle: `فرصة: ${r.opportunityTitle || 'فرصة تطوعية'}`,
+        read: !!r.reviewed || r.status === 'معتمد',
+        status: (r.reviewed || r.status === 'معتمد') ? 'read' : 'unread',
         createdAt: r.createdAt
       });
     }
@@ -2767,13 +3720,13 @@ async function vNotifications(el) {
       aggregatedNotifs.push({
         id: 'crf_' + r.id,
         rawId: r.id,
-        col: 'bidi_herfa_registrations',
-        name: r.fullName || r.name || 'حرفي جديد',
+        col: 'crafts',
+        name: r.name || r.fullName || 'حرفي جديد',
         label: 'بيدي حرفة',
         formType: 'بيدي حرفة',
-        activityTitle: r.craftName || r.program || 'حرفة',
-        read: !!r.reviewed,
-        status: r.reviewed ? 'read' : 'unread',
+        activityTitle: r.craft || r.craftName || r.program || 'حرفة',
+        read: !!r.reviewed || r.status === 'معتمد',
+        status: (r.reviewed || r.status === 'معتمد') ? 'read' : 'unread',
         createdAt: r.createdAt
       });
     }
@@ -2885,11 +3838,12 @@ async function vNotifications(el) {
 let dbQ = '', dbCat = 'all';
 
 async function vGlobalDB(el) {
-  const [wRegs, vRegs, cRegs, contactMsgs] = await Promise.all([
+  const [wRegs, vRegs, cRegs, contactMsgs, vApps] = await Promise.all([
     loadCol('workshop_registrations'),
-    loadCol('volunteer_registrations'),
-    loadCol('bidi_herfa_registrations'),
-    loadCol('contact_messages')
+    loadCol('volunteers'),
+    loadCol('crafts'),
+    loadCol('contact_messages'),
+    loadCol('volunteer_applications')
   ]);
 
   await renderNav();
@@ -2910,25 +3864,37 @@ async function vGlobalDB(el) {
     })),
     ...vRegs.map(r => ({
       id: r.id,
-      col: 'volunteer_registrations',
-      name: r.fullName || r.name || 'بدون اسم',
+      col: 'volunteers',
+      name: r.name || r.fullName || 'بدون اسم',
       phone: r.phone || r.mobile || '—',
       nationalId: r.nationalId || r.idNumber || '—',
       email: r.email || '—',
-      category: 'أصدقاء الجمعية',
-      activity: r.program || r.field || 'تطوع',
+      category: r.type === 'صديق الجمعية' ? 'أصدقاء الجمعية' : 'برنامج التطوع',
+      activity: Array.isArray(r.skills) ? r.skills.join('، ') : (r.skills || (Array.isArray(r.interests) ? r.interests.join('، ') : r.interests) || 'متطوع بالبرنامج'),
+      createdAt: r.createdAt,
+      raw: r
+    })),
+    ...vApps.map(r => ({
+      id: r.id,
+      col: 'volunteer_applications',
+      name: r.name || r.fullName || 'متقدم لفرصة',
+      phone: r.phone || r.mobile || '—',
+      nationalId: r.nationalId || r.idNumber || '—',
+      email: r.email || '—',
+      category: 'برنامج التطوع',
+      activity: `فرصة: ${r.opportunityTitle || 'فرصة تطوعية'}`,
       createdAt: r.createdAt,
       raw: r
     })),
     ...cRegs.map(r => ({
       id: r.id,
-      col: 'bidi_herfa_registrations',
-      name: r.fullName || r.name || 'بدون اسم',
+      col: 'crafts',
+      name: r.name || r.fullName || 'بدون اسم',
       phone: r.phone || r.mobile || '—',
-      nationalId: r.nationalId || r.idNumber || '—',
+      nationalId: r.idNumber || r.nationalId || '—',
       email: r.email || '—',
       category: 'بيدي حرفة',
-      activity: r.craftName || r.program || 'برنامج حرفي',
+      activity: r.craft || r.craftName || r.program || 'برنامج حرفي',
       createdAt: r.createdAt,
       raw: r
     })),
@@ -2958,6 +3924,7 @@ async function vGlobalDB(el) {
       (r.name || '').toLowerCase().includes(q) ||
       (r.phone || '').includes(q) ||
       (r.nationalId || '').includes(q) ||
+      (r.category || '').toLowerCase().includes(q) ||
       (r.activity || '').toLowerCase().includes(q)
     );
   }
@@ -2967,9 +3934,9 @@ async function vGlobalDB(el) {
   el.innerHTML = `
   <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;">
     <div>
-      <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Global Database · قاعدة البيانات الموحدة</span><span class="e-label">المصدر الوحيد للبيانات</span></div>
+      <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Global Database · قاعدة البيانات الموحدة</span><span class="e-label">المصدر الموحد للبيانات</span></div>
       <h1 class="page-title">قاعدة البيانات <span class="accent">الشاملة</span></h1>
-      <p class="page-sub">تجميع موحد لجميع الأشخاص والمسجلين في كافة أقسام الموقع بدون تكرار السجلات.</p>
+      <p class="page-sub">تجميع موحد لجميع المسجلين في برنامج التطوع، ورش العمل، بيدي حرفة، وأصدقاء الجمعية بدون تكرار.</p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-outline" id="btnExportDbWord" style="gap:6px;">
@@ -2985,18 +3952,19 @@ async function vGlobalDB(el) {
 
   <div class="stats-grid" style="margin-bottom:24px;">
     ${sCard('TotalRegistrants', 'إجمالي السجلات', aggregated.length, 'سجل موحد')}
-    ${sCard('WorkshopsRegs', 'مسجلو ورش العمل', aggregated.filter(a => a.category === 'ورش العمل').length, 'متقدم')}
-    ${sCard('VolunteersRegs', 'أصدقاء الجمعية', aggregated.filter(a => a.category === 'أصدقاء الجمعية').length, 'متطوع')}
+    ${sCard('VolunteersProgRegs', 'برنامج التطوع', aggregated.filter(a => a.category === 'برنامج التطوع').length, 'متطوع ومتقدم')}
+    ${sCard('WorkshopsRegs', 'مسجلو ورش العمل', aggregated.filter(a => a.category === 'ورش العمل').length, 'مشارك')}
     ${sCard('CraftsRegs', 'بيدي حرفة', aggregated.filter(a => a.category === 'بيدي حرفة').length, 'حرفي')}
   </div>
 
   <div class="toolbar">
     <div class="search-box">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
-      <input type="text" id="dbSearch" placeholder="بحث باسم الشخص، رقم الجوال، الهوية، أو الورشة…" value="${escA(q)}"/>
+      <input type="text" id="dbSearch" placeholder="بحث بالاسم، رقم الجوال، الهوية، القسم، أو النشاط…" value="${escA(q)}"/>
     </div>
     <div class="filters">
       <button class="chip ${dbCat === 'all' ? 'active' : ''}" data-dbc="all">جميع الأقسام <span class="chip-count">${aggregated.length}</span></button>
+      <button class="chip ${dbCat === 'برنامج التطوع' ? 'active' : ''}" data-dbc="برنامج التطوع">برنامج التطوع</button>
       <button class="chip ${dbCat === 'ورش العمل' ? 'active' : ''}" data-dbc="ورش العمل">ورش العمل</button>
       <button class="chip ${dbCat === 'أصدقاء الجمعية' ? 'active' : ''}" data-dbc="أصدقاء الجمعية">أصدقاء الجمعية</button>
       <button class="chip ${dbCat === 'بيدي حرفة' ? 'active' : ''}" data-dbc="بيدي حرفة">بيدي حرفة</button>
@@ -3832,6 +4800,383 @@ async function exportGlobalDBToWord(rows) {
   }
 }
 
+/* Dedicated Word (.docx) Exporter for Volunteers Programme */
+async function exportVolunteersToWord(rows) {
+  if (!rows || !rows.length) {
+    toast('لا توجد بيانات متطوعين للتصدير إلى Word', 'err');
+    return;
+  }
+
+  if (typeof docx === 'undefined') {
+    toast('جارٍ تحميل مكتبة Word… يرجى المحاولة بعد لحظات', 'err');
+    return;
+  }
+
+  toast('جارٍ تجهيز مستند Word لمتطوعي الجمعية…');
+
+  try {
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle, ImageRun, Footer, PageNumber, NumberOfPages } = docx;
+    const mainFont = { name: 'Almarai', cs: 'Almarai' };
+
+    let logoImageRun = null;
+    try {
+      const imgRes = await fetch('../assets/الشعار/الشعار.png');
+      if (imgRes.ok) {
+        const imgBuffer = await imgRes.arrayBuffer();
+        logoImageRun = new ImageRun({
+          data: imgBuffer,
+          transformation: { width: 75, height: 75 }
+        });
+      }
+    } catch(e) { console.warn('Logo image fetch for Volunteers Word skipped:', e); }
+
+    const reportDate = new Date().toISOString().split('T')[0];
+    const children = [];
+
+    if (logoImageRun) {
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 120 },
+          children: [logoImageRun]
+        })
+      );
+    }
+
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: 'جمعية إرث وحضارة بالقريات', bold: true, size: 34, color: '9C6E38', rightToLeft: true, font: mainFont })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 140 },
+        children: [
+          new TextRun({ text: 'سجل قاعدة بيانات المتطوعين (برنامج المتطوعين)', bold: true, size: 30, color: '1C1A17', rightToLeft: true, font: mainFont })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 240 },
+        children: [
+          new TextRun({ text: `تاريخ التقرير: ${reportDate}   |   إجمالي عدد المتطوعين: ${rows.length} متطوع`, size: 20, color: '718096', rightToLeft: true, font: mainFont })
+        ]
+      })
+    );
+
+    const tableHeaders = ['الرقم', 'الاسم الكامل', 'رقم الهوية', 'رقم الجوال', 'المدينة', 'المهارات والمجالات', 'الحالة', 'تاريخ التسجيل'];
+    const colWidths = [5, 20, 14, 13, 10, 18, 10, 10];
+
+    const headerCells = tableHeaders.map((hdr, i) => new TableCell({
+      width: { size: colWidths[i], type: WidthType.PERCENTAGE },
+      shading: { fill: '9C6E38' },
+      margins: { top: 140, bottom: 140, left: 100, right: 100 },
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: '8A5E28' },
+        bottom: { style: BorderStyle.SINGLE, size: 6, color: '8A5E28' },
+        left: { style: BorderStyle.SINGLE, size: 2, color: 'B0844E' },
+        right: { style: BorderStyle.SINGLE, size: 2, color: 'B0844E' }
+      },
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          bidirectional: true,
+          children: [
+            new TextRun({ text: hdr, bold: true, size: 18, color: 'FFFFFF', rightToLeft: true, font: mainFont })
+          ]
+        })
+      ]
+    }));
+
+    const tableRows = [
+      new TableRow({
+        cantSplit: true,
+        tableHeader: true,
+        children: headerCells
+      })
+    ];
+
+    rows.forEach((r, idx) => {
+      const isEven = idx % 2 === 0;
+      const rowBg = isEven ? 'FBF9F5' : 'FFFFFF';
+      const skillsStr = Array.isArray(r.skills) ? r.skills.join('، ') : (r.skills || r.interests || '—');
+
+      const cells = [
+        (idx + 1).toString(),
+        r.name || r.fullName || '—',
+        r.nationalId || r.idNumber || '—',
+        r.phone || r.mobile || '—',
+        r.city || '—',
+        skillsStr,
+        r.status || 'جديد',
+        r.createdAt ? fmtEn(toTs(r.createdAt)) : '—'
+      ];
+
+      tableRows.push(
+        new TableRow({
+          cantSplit: true,
+          children: cells.map((cellText, cIdx) => new TableCell({
+            width: { size: colWidths[cIdx], type: WidthType.PERCENTAGE },
+            shading: { fill: rowBg },
+            margins: { top: 100, bottom: 100, left: 80, right: 80 },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              left: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              right: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' }
+            },
+            children: [
+              new Paragraph({
+                alignment: (cIdx === 0 || cIdx === 2 || cIdx === 3 || cIdx === 6 || cIdx === 7) ? AlignmentType.CENTER : AlignmentType.RIGHT,
+                bidirectional: true,
+                children: [
+                  new TextRun({ text: cellText || '—', size: 17, color: '2D3748', rightToLeft: true, font: mainFont })
+                ]
+              })
+            ]
+          }))
+        })
+      );
+    });
+
+    const volunteersTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows,
+      alignment: AlignmentType.CENTER
+    });
+
+    children.push(volunteersTable);
+
+    const docObj = new Document({
+      sections: [{
+        properties: {
+          page: {
+            size: { orientation: docx.PageOrientation.LANDSCAPE },
+            margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 }
+          }
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                bidirectional: true,
+                children: [
+                  new TextRun({ text: 'جمعية إرث وحضارة بالقريات  |  برنامج المتطوعين  |  صفحة ', size: 16, color: 'A0AEC0', rightToLeft: true, font: mainFont }),
+                  new TextRun({ children: [PageNumber.CURRENT], size: 16, color: 'A0AEC0' }),
+                  new TextRun({ text: ' من ', size: 16, color: 'A0AEC0', rightToLeft: true, font: mainFont }),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: 'A0AEC0' })
+                ]
+              })
+            ]
+          })
+        },
+        children: children
+      }]
+    });
+
+    const blob = await Packer.toBlob(docObj);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `سجل_متطوعي_الجمعية_${reportDate}.docx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    toast('تم تصدير ملف Word لمتطوعي الجمعية بنجاح');
+  } catch (err) {
+    console.error('Volunteers Word export error:', err);
+    toast('حدث خطأ أثناء تصدير ملف Word', 'err');
+  }
+}
+
+/* Dedicated Word (.docx) Exporter for Opportunity Applicants */
+async function exportOpportunityApplicantsToWord(opp, rows) {
+  if (!rows || !rows.length) {
+    toast('لا يوجد متقدمون للتصدير إلى Word', 'err');
+    return;
+  }
+
+  if (typeof docx === 'undefined') {
+    toast('جارٍ تحميل مكتبة Word… يرجى المحاولة بعد لحظات', 'err');
+    return;
+  }
+
+  toast('جارٍ تجهيز مستند Word لمتقدمي الفرصة…');
+
+  try {
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle, ImageRun, Footer, PageNumber, NumberOfPages } = docx;
+    const mainFont = { name: 'Almarai', cs: 'Almarai' };
+
+    let logoImageRun = null;
+    try {
+      const imgRes = await fetch('../assets/الشعار/الشعار.png');
+      if (imgRes.ok) {
+        const imgBuffer = await imgRes.arrayBuffer();
+        logoImageRun = new ImageRun({
+          data: imgBuffer,
+          transformation: { width: 75, height: 75 }
+        });
+      }
+    } catch(e) { console.warn('Logo image fetch for Opp Word skipped:', e); }
+
+    const reportDate = new Date().toISOString().split('T')[0];
+    const children = [];
+
+    if (logoImageRun) {
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 120 },
+          children: [logoImageRun]
+        })
+      );
+    }
+
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: 'جمعية إرث وحضارة بالقريات', bold: true, size: 34, color: '9C6E38', rightToLeft: true, font: mainFont })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 140 },
+        children: [
+          new TextRun({ text: `كشف المتقدمين للفرصة التطوعية: ${opp.title || 'فرصة تطوعية'}`, bold: true, size: 30, color: '1C1A17', rightToLeft: true, font: mainFont })
+        ]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { after: 240 },
+        children: [
+          new TextRun({ text: `تاريخ التقرير: ${reportDate}   |   إجمالي المتقدمين: ${rows.length} متقدم   |   المكان: ${opp.location || 'القريات'}`, size: 20, color: '718096', rightToLeft: true, font: mainFont })
+        ]
+      })
+    );
+
+    const tableHeaders = ['الرقم', 'اسم المتقدم', 'رقم الهوية', 'رقم الجوال', 'المدينة', 'تاريخ التقديم'];
+    const colWidths = [8, 30, 20, 18, 12, 12];
+
+    const headerCells = tableHeaders.map((hdr, i) => new TableCell({
+      width: { size: colWidths[i], type: WidthType.PERCENTAGE },
+      shading: { fill: '9C6E38' },
+      margins: { top: 140, bottom: 140, left: 100, right: 100 },
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: '8A5E28' },
+        bottom: { style: BorderStyle.SINGLE, size: 6, color: '8A5E28' },
+        left: { style: BorderStyle.SINGLE, size: 2, color: 'B0844E' },
+        right: { style: BorderStyle.SINGLE, size: 2, color: 'B0844E' }
+      },
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          bidirectional: true,
+          children: [
+            new TextRun({ text: hdr, bold: true, size: 18, color: 'FFFFFF', rightToLeft: true, font: mainFont })
+          ]
+        })
+      ]
+    }));
+
+    const tableRows = [
+      new TableRow({
+        cantSplit: true,
+        tableHeader: true,
+        children: headerCells
+      })
+    ];
+
+    rows.forEach((r, idx) => {
+      const isEven = idx % 2 === 0;
+      const rowBg = isEven ? 'FBF9F5' : 'FFFFFF';
+
+      const cells = [
+        (idx + 1).toString(),
+        r.name || r.fullName || '—',
+        r.nationalId || r.idNumber || '—',
+        r.phone || r.mobile || '—',
+        r.city || '—',
+        r.createdAt ? fmtEn(toTs(r.createdAt)) : '—'
+      ];
+
+      tableRows.push(
+        new TableRow({
+          cantSplit: true,
+          children: cells.map((cellText, cIdx) => new TableCell({
+            width: { size: colWidths[cIdx], type: WidthType.PERCENTAGE },
+            shading: { fill: rowBg },
+            margins: { top: 100, bottom: 100, left: 80, right: 80 },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              left: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              right: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' }
+            },
+            children: [
+              new Paragraph({
+                alignment: (cIdx === 0 || cIdx === 2 || cIdx === 3 || cIdx === 5) ? AlignmentType.CENTER : AlignmentType.RIGHT,
+                bidirectional: true,
+                children: [
+                  new TextRun({ text: cellText || '—', size: 17, color: '2D3748', rightToLeft: true, font: mainFont })
+                ]
+              })
+            ]
+          }))
+        })
+      );
+    });
+
+    const oppTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows,
+      alignment: AlignmentType.CENTER
+    });
+
+    children.push(oppTable);
+
+    const docObj = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 }
+          }
+        },
+        children: children
+      }]
+    });
+
+    const blob = await Packer.toBlob(docObj);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const cleanTitle = (opp.title || 'فرصة').replace(/[\s\/\\:\*\?"<>\|]+/g, '_');
+    link.download = `متقدمو_فرصة_${cleanTitle}_${reportDate}.docx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    toast('تم تصدير ملف Word لمتقدمي الفرصة بنجاح');
+  } catch (err) {
+    console.error('Opp Applicants Word export error:', err);
+    toast('حدث خطأ أثناء تصدير ملف Word', 'err');
+  }
+}
+
 /* ════════════════════════════════
    SETTINGS — Auth & Account
 ════════════════════════════════ */
@@ -4006,6 +5351,7 @@ function trashSvg(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="curren
 /* ── NAV ICONS ── */
 function iHome() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 11L12 4l8 7v9H4Z M10 20v-6h4v6" stroke-linejoin="round"/></svg>`; }
 function iBell() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
+function iHeart() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
 function iNews() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 9h16M8 13h8M8 16h5"/></svg>`; }
 function iTools(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`; }
 function iUsers(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><circle cx="17" cy="8" r="2.2"/><path d="M14 19a4 4 0 0 1 7 0"/></svg>`; }

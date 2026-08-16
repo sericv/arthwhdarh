@@ -1,0 +1,8 @@
+{
+  "name": "erth-portal-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx concurrently --kill-others \"npx firebase emulators:start --only functions\" \"npx serve . -p 3000\""
+  }
+}

@@ -100,7 +100,14 @@ async function sendFcm(pid, accessToken, token, n, notifId) {
         tag: String(n.refId || notifId)
       },
       webpush: {
-        notification: { icon: ICON, badge: ICON, dir: "rtl", lang: "ar" },
+        notification: {
+          title: n.title || "إرث وحضارة",
+          body: n.body || "",
+          icon: ICON,
+          badge: ICON,
+          dir: "rtl",
+          lang: "ar"
+        },
         fcm_options: { link: "/portal/" }
       },
       android: { priority: "high" },

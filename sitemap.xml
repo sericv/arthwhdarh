@@ -50,6 +50,30 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- الرزنامة والمناسبات -->
+    <url>
+        <loc>https://arthwhdarh.com/calendar.html</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- أصدقاء الجمعية -->
+    <url>
+        <loc>https://arthwhdarh.com/friends.html</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.85</priority>
+    </url>
+
+    <!-- بيدي حرفة -->
+    <url>
+        <loc>https://arthwhdarh.com/crafts.html</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.85</priority>
+    </url>
+
     <!-- الشراكات والاتفاقيات -->
     <url>
         <loc>https://arthwhdarh.com/partnerships.html</loc>

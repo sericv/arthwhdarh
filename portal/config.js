@@ -208,12 +208,16 @@ export const NOTIF_PREFS = {
 };
 export const NOTIF_PREFS_DEFAULT = { tasks:true, leaves:true, files:true, messages:true, system:true };
 
-/* ── إعدادات EmailJS لمطابقة القوالب ── */
-export const EMAILJS_CONFIG = {
-  serviceId: "service_s92fl7s",
-  templateId: "template_nsrn4uq",
-  taskAssignedTemplateId: "template_nayfdrz",
-  publicKey: "nQlB9aYs04boNO6Ky"
+/* ── إعدادات Microsoft SharePoint لبوابة الموظفين (للسير الذاتية CV) ── */
+export const SHAREPOINT_CONFIG = {
+  tenantId: "5380057d-dc58-45d5-8ae2-230b3ef6a2ef",
+  clientId: "e92632b0-43b5-40a0-a2e7-b3130aca7c35",
+  hostname: "arthwhdarh.sharepoint.com",
+  siteId: "arthwhdarh.sharepoint.com,bb3ea8bd-1240-47ea-9acb-b3f580790fe7,e3a42d88-edbc-4597-99d1-f215f095c6ac",
+  driveId: "b!vag-u0AS6keay7P1gHkP54gtpOO87ZdFmdHyFfCVxqyBUJAhWFk3TrtY3uYtcmis",
+  libraryName: "مكتبة ملفات بوابة الموظفين",
+  libraryUrl: "https://arthwhdarh.sharepoint.com/DocLib",
+  cvFolder: "ملفات الموظفين/CV"
 };
 
 

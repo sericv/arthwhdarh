@@ -10,13 +10,13 @@ import {
 import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc,
   updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot,
-  serverTimestamp, Timestamp, or
+  serverTimestamp, Timestamp, or, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getMessaging, getToken, onMessage, isSupported as fcmIsSupported
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
-import { FIREBASE_CONFIG, CLOUDINARY_CONFIG, VAPID_KEY, PUSH_ENDPOINT, COL, ROLES, NOTIF_TYPE, EMAILJS_CONFIG } from "./config.js";
+import { FIREBASE_CONFIG, CLOUDINARY_CONFIG, VAPID_KEY, PUSH_ENDPOINT, COL, ROLES, NOTIF_TYPE, SHAREPOINT_CONFIG } from "./config.js";
 
 const app  = initializeApp(FIREBASE_CONFIG);
 console.log("%c[Portal] Firebase initialized", "color:#3a5e2e;font-weight:bold;font-size:12px");
@@ -34,7 +34,7 @@ let _fcmSupported = null; // null = لم يُفحص بعد
 /* مُصدّرات Firestore الخام للاستخدام عند الحاجة */
 export {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp, Timestamp,
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, Timestamp, writeBatch,
   onAuthStateChanged, signInWithEmailAndPassword, signOut, updatePassword
 };
 
@@ -272,26 +272,99 @@ export async function listFiles(departments){
 
 /* ═══════════════ المهام ═══════════════ */
 export async function createTask(t){
+  const isGroup = t.recipientAll === true || t.isGroup === true;
+  let usersToAssign = t.targetUsers || [];
+
+  if (isGroup && (!Array.isArray(usersToAssign) || usersToAssign.length === 0)) {
+    const usersSnap = await getDocs(collection(db, COL.users));
+    usersToAssign = usersSnap.docs
+      .map(d => ({ uid: d.id, ...d.data() }))
+      .filter(u => u.uid !== t.adminId && u.status !== "inactive");
+  }
+
   const docRef = await addDoc(collection(db, COL.tasks), {
     title:              t.title,
     description:        t.description || "",
     priority:           t.priority || "medium",
-    status:             "pending",
+    status:             isGroup ? "in_progress" : "pending",
     dueDate:            t.dueDate ? Timestamp.fromDate(new Date(t.dueDate)) : null,
     attachmentRequired: !!t.attachmentRequired,
     adminId:            t.adminId,
     adminName:          t.adminName,
-    employeeId:         t.employeeId,
-    employeeName:       t.employeeName,
+    employeeId:         isGroup ? "all" : t.employeeId,
+    employeeName:       isGroup ? "جميع الموظفين" : (t.employeeName || ""),
+    isGroup:            isGroup,
+    recipientAll:       isGroup,
+    targetCount:        isGroup ? usersToAssign.length : 1,
     rejectionReason:    "",
     attachment:         null,
-    adminAttachmentUrl:  t.adminAttachmentUrl || null,
-    adminAttachmentName: t.adminAttachmentName || null,
-    adminAttachmentType: t.adminAttachmentType || null,
+    adminAttachmentUrl:          t.adminAttachmentUrl || null,
+    adminAttachmentName:         t.adminAttachmentName || null,
+    adminAttachmentType:         t.adminAttachmentType || null,
+    adminAttachmentProvider:     t.adminAttachmentProvider || null,
+    adminAttachmentDriveItemId:  t.adminAttachmentDriveItemId || null,
+    adminAttachmentDownloadUrl:  t.adminAttachmentDownloadUrl || null,
+    adminAttachmentPath:         t.adminAttachmentPath || null,
+    adminAttachmentObj:          t.adminAttachmentObj || null,
     createdAt:          serverTimestamp(),
     updatedAt:          serverTimestamp()
   });
+
+  if (isGroup && usersToAssign.length > 0) {
+    const batch = writeBatch(db);
+    usersToAssign.forEach(u => {
+      const execRef = doc(db, COL.tasks, docRef.id, "executions", u.uid);
+      batch.set(execRef, {
+        employeeId: u.uid,
+        employeeName: u.name || "موظف",
+        employeeJobTitle: u.jobTitle || "موظف",
+        status: "not_started",
+        attachment: null,
+        notes: "",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        completedAt: null
+      });
+    });
+    await batch.commit();
+  }
   return docRef.id;
+}
+
+/* ═══════════════ متابعة تنفيذ المهام الجماعية ═══════════════ */
+export async function getTaskExecutions(taskId){
+  try {
+    const snap = await getDocs(collection(db, COL.tasks, taskId, "executions"));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    console.warn("[Firestore] getTaskExecutions error:", e);
+    return [];
+  }
+}
+
+export function watchTaskExecutions(taskId, cb){
+  const colRef = collection(db, COL.tasks, taskId, "executions");
+  return onSnapshot(colRef, snap => {
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, err => console.warn("[Firestore] watchTaskExecutions error:", err));
+}
+
+export async function getTaskExecution(taskId, userId){
+  try {
+    const snap = await getDoc(doc(db, COL.tasks, taskId, "executions", userId));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  } catch(e) {
+    console.warn("[Firestore] getTaskExecution error:", e);
+    return null;
+  }
+}
+
+export async function updateTaskExecution(taskId, userId, fields){
+  const ref = doc(db, COL.tasks, taskId, "executions", userId);
+  await setDoc(ref, {
+    ...fields,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }
 
 export async function updateTask(taskId, fields){
@@ -307,7 +380,7 @@ export async function setTaskStatus(taskId, status){
 }
 
 export async function deleteTask(taskId){
-  await deleteDoc(doc(db, COL.tasks, taskId));
+  throw new Error("حذف المهام غير مسموح به في النظام");
 }
 
 /* ═══════════════ المهام الشخصية والملاحظات ═══════════════ */
@@ -484,35 +557,54 @@ export async function markAllNotifsRead(ids){
 /* ═══════════════ الاستماعات اللحظية للـ Dashboard والـ State ═══════════════ */
 export function watchTasks(user, cb){
   const isExecOrTech = user.role === "executive" || user.role === "tech_admin" || user.isTechAdmin === true;
-  let base;
   if(isExecOrTech){
-    base = collection(db, COL.tasks);
-  } else {
-    base = query(collection(db, COL.tasks), where("employeeId", "==", user.uid));
-  }
+    const base = collection(db, COL.tasks);
+    let active = null;
+    const subscribePlain = () => {
+      active = onSnapshot(base, snap => {
+        const list = sortByCreatedDesc(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        cb(list);
+      }, err => console.warn("[Firestore] tasks watch (plain) error:", err));
+    };
 
-  let active = null;
-  const subscribePlain = () => {
-    active = onSnapshot(base, snap => {
-      const list = sortByCreatedDesc(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      cb(list);
-    }, err => console.warn("[Firestore] tasks watch (plain) error:", err));
-  };
-
-  active = onSnapshot(
-    query(base, orderBy("createdAt", "desc")),
-    snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err => {
-      if(err?.code === "failed-precondition"){
-        console.warn("[Firestore] Composite index missing for portal_tasks list. Sorting client side.");
-        subscribePlain();
-      } else {
-        console.warn("[Firestore] tasks watch error:", err);
+    active = onSnapshot(
+      query(base, orderBy("createdAt", "desc")),
+      snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => {
+        if(err?.code === "failed-precondition"){
+          console.warn("[Firestore] Composite index missing for portal_tasks list. Sorting client side.");
+          subscribePlain();
+        } else {
+          console.warn("[Firestore] tasks watch error:", err);
+        }
       }
-    }
-  );
+    );
 
-  return () => { if(active) active(); };
+    return () => { if(active) active(); };
+  } else {
+    let listPersonal = [];
+    let listGroup = [];
+    const mergeAndEmit = () => {
+      const map = new Map();
+      [...listPersonal, ...listGroup].forEach(item => map.set(item.id, item));
+      const merged = sortByCreatedDesc(Array.from(map.values()));
+      cb(merged);
+    };
+
+    const q1 = query(collection(db, COL.tasks), where("employeeId", "==", user.uid));
+    const unsub1 = onSnapshot(q1, snap => {
+      listPersonal = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      mergeAndEmit();
+    }, err => console.warn("[Firestore] emp personal tasks watch error:", err));
+
+    const q2 = query(collection(db, COL.tasks), where("isGroup", "==", true));
+    const unsub2 = onSnapshot(q2, snap => {
+      listGroup = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      mergeAndEmit();
+    }, err => console.warn("[Firestore] emp group tasks watch error:", err));
+
+    return () => { unsub1(); unsub2(); };
+  }
 }
 
 export function watchMyLeaves(userId, cb){
@@ -1010,11 +1102,74 @@ export async function uploadAvatar(uid, file) {
   return url;
 }
 
+export function getCvPreviewUrl(cv) {
+  if (!cv) return "#";
+  if (cv.provider === "sharepoint") {
+    return cv.url || cv.webUrl || "#";
+  }
+  return cv.url || "#";
+}
+
+export function getCvDownloadUrl(cv) {
+  if (!cv) return "#";
+  if (cv.provider === "sharepoint") {
+    return cv.downloadUrl || cv.url || cv.webUrl || "#";
+  }
+  return getCloudinaryDownloadUrl(cv.url);
+}
+
+let functionsEmulatorConnected = false;
+
 export async function uploadCV(uid, file) {
-  const url = await uploadToCloudinary(file);
-  const cvObj = { name: file.name, url, updatedAt: new Date().toISOString() };
-  await updateDoc(doc(db, COL.users, uid), { cv: cvObj });
-  return cvObj;
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  
+  console.log("[CV] Upload provider: SharePoint");
+
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { getFunctions, connectFunctionsEmulator, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+  const functions = getFunctions(app);
+
+  if (isLocal && !functionsEmulatorConnected) {
+    try {
+      connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+      functionsEmulatorConnected = true;
+      console.log("%c[CV] Using Functions Emulator: http://127.0.0.1:5001/arthwhdarh-782ec/us-central1/uploadCvToSharePoint", "color:#b88e36;font-weight:bold");
+    } catch (e) {
+      functionsEmulatorConnected = true;
+    }
+  }
+
+  try {
+    const uploadFn = httpsCallable(functions, "uploadCvToSharePoint");
+    const res = await uploadFn({
+      targetUserId: uid,
+      fileName: file.name,
+      fileBase64: fileBase64,
+      mimeType: file.type
+    });
+
+    console.log("[CV] SharePoint upload success via Functions Emulator/Backend!");
+    console.log("[CV] Saved provider: sharepoint");
+
+    return res.data;
+  } catch (err) {
+    console.error("[CV] SharePoint upload error:", err);
+    if (isLocal) {
+      throw new Error(`فشل رفع CV عبر محاكي الدالة محلياً: ${err.message || err}`);
+    }
+    console.warn("[SharePoint CV] Backend upload failed in production, falling back to legacy Cloudinary:", err);
+    const url = await uploadToCloudinary(file);
+    const cvObj = { provider: "cloudinary", name: file.name, url, updatedAt: new Date().toISOString() };
+    await updateDoc(doc(db, COL.users, uid), { cv: cvObj });
+    return cvObj;
+  }
 }
 
 export async function uploadCourseCert(uid, file) {
@@ -1064,58 +1219,6 @@ export async function getUsersByRole(role) {
   return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
 }
 
-/* إرسال إشعار بريدي عبر EmailJS عند تقديم/موافقة الإجازة */
-export async function sendLeaveRequestEmail(recipientEmail, recipientName, employeeName, reviewLink) {
-  if (!window.emailjs) {
-    console.error("[EmailJS] SDK is not loaded in window.");
-    throw new Error("EmailJS SDK not loaded");
-  }
-
-  // تهيئة المعرّف العام للمكتبة
-  window.emailjs.init(EMAILJS_CONFIG.publicKey);
-
-  const params = {
-    to_email: recipientEmail,
-    recipient_name: recipientName,
-    employee_name: employeeName,
-    review_link: reviewLink,
-    company_name: "جمعية إرث وحضارة بالقريات"
-  };
-
-  return window.emailjs.send(
-    EMAILJS_CONFIG.serviceId,
-    EMAILJS_CONFIG.templateId,
-    params
-  );
-}
-
-/* إرسال إشعار بريدي عبر EmailJS عند إسناد مهمة جديدة للموظف */
-export async function sendTaskAssignedEmail(recipientEmail, recipientName, senderName, taskTitle, taskPriority, reviewLink) {
-  if (!window.emailjs) {
-    console.error("[EmailJS] SDK is not loaded in window.");
-    throw new Error("EmailJS SDK not loaded");
-  }
-
-  // تهيئة المعرّف العام للمكتبة
-  window.emailjs.init(EMAILJS_CONFIG.publicKey);
-
-  const params = {
-    to_email: recipientEmail,
-    recipient_name: recipientName,
-    sender_name: senderName,
-    task_title: taskTitle,
-    task_priority: taskPriority,
-    review_link: reviewLink,
-    company_name: "جمعية إرث وحضارة بالقريات"
-  };
-
-  return window.emailjs.send(
-    EMAILJS_CONFIG.serviceId,
-    EMAILJS_CONFIG.taskAssignedTemplateId,
-    params
-  );
-}
-
 /* ════════ الاقتراحات والشكاوى ════════ */
 export function watchSuggestions(userId, cb) {
   const q = query(
@@ -1156,7 +1259,6 @@ export async function createSuggestion(data) {
     title:          data.title,
     content:        data.content,
     attachment:     data.attachment || null, // { url, name, type }
-    isAnonymous:    data.isAnonymous || false,
     isRead:         false,
     createdAt:      serverTimestamp()
   });
@@ -1166,4 +1268,74 @@ export async function createSuggestion(data) {
 export async function markSuggestionAsRead(id) {
   const ref = doc(db, COL.suggestions, id);
   await updateDoc(ref, { isRead: true });
+}
+
+/* ═══════════════ رفع وتتبع مرفقات المهام إلى SharePoint ═══════════════ */
+export async function uploadTaskAttachment(params, file, onProgress, onStatus) {
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { getFunctions, connectFunctionsEmulator, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+  const functions = getFunctions(app);
+
+  if (isLocal && !functionsEmulatorConnected) {
+    try {
+      connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+      functionsEmulatorConnected = true;
+      console.log("%c[Task Attachment] Using Functions Emulator: http://127.0.0.1:5001/arthwhdarh-782ec/us-central1/uploadTaskAttachmentToSharePoint", "color:#b88e36;font-weight:bold");
+    } catch (e) {
+      functionsEmulatorConnected = true;
+    }
+  }
+
+  try {
+    const uploadFn = httpsCallable(functions, "uploadTaskAttachmentToSharePoint");
+    const res = await uploadFn({
+      taskType: params.taskType,
+      taskId: params.taskId,
+      subFolder: params.subFolder,
+      employeeUid: params.employeeUid,
+      fileName: file.name,
+      fileBase64: fileBase64,
+      mimeType: file.type
+    });
+
+    console.log("[Task Attachment] SharePoint upload success:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("[Task Attachment] SharePoint upload error:", err);
+    if (isLocal) {
+      throw new Error(`فشل رفع مرفق المهمة محلياً: ${err.message || err}`);
+    }
+    console.warn("[Task Attachment] Backend upload failed in production, falling back to Cloudinary:", err);
+    const url = await uploadToCloudinary(file, onProgress, onStatus);
+    return {
+      provider: "cloudinary",
+      name: file.name,
+      url: url,
+      downloadUrl: getCloudinaryDownloadUrl(url),
+      updatedAt: new Date().toISOString()
+    };
+  }
+}
+
+export function getTaskAttachmentPreviewUrl(url, itemObj) {
+  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint" || itemObj.adminAttachmentProvider === "sharepoint")) {
+    return itemObj.url || itemObj.webUrl || url || "#";
+  }
+  return url || "#";
+}
+
+export function getTaskAttachmentDownloadUrl(url, itemObj) {
+  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint" || itemObj.adminAttachmentProvider === "sharepoint")) {
+    return itemObj.downloadUrl || itemObj.url || itemObj.webUrl || url || "#";
+  }
+  return getCloudinaryDownloadUrl(url);
 }

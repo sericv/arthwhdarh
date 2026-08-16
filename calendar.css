@@ -1,0 +1,492 @@
+/* ═══════════════════════════════════════════════════════════════════
+   CALENDAR.CSS — جمعية إرث وحضارة بالقريات
+   تصميم تقويم شهري احترافي متناسق 100% مع الهوية البصرية للموقع
+   نسخة مطورة تدعم التفاعل الكامل والـ Animations الراقية والتجاوب
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. الهيكل الخارجي المزدوج (Double-Bezel Architecture) ── */
+.cal-outer-shell {
+    background: var(--c-bg-soft, #fbf9f5);
+    border: 1px solid var(--c-border-soft, rgba(28, 26, 23, 0.05));
+    padding: var(--sp-4, 1rem);
+    border-radius: var(--r-xl, 28px);
+    box-shadow: var(--shadow-sm);
+    margin-top: 0; /* تقريب التقويم للأعلى بعد حذف البحث */
+}
+
+.cal-inner-core {
+    background: var(--c-surface, #ffffff);
+    border: 1px solid var(--c-border, rgba(28, 26, 23, 0.08));
+    border-radius: calc(var(--r-xl, 28px) - 8px);
+    padding: var(--sp-5, 1.5rem);
+    box-shadow: var(--shadow-xs);
+}
+
+/* ── 2. شريط الفلاتر ── */
+.cal-search-filters-bar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3, 0.75rem);
+    margin-bottom: var(--sp-4, 1.25rem);
+    border-bottom: 1px solid var(--c-border-soft);
+    padding-bottom: var(--sp-4, 1.25rem);
+}
+
+/* فلاتر الفئات (Chips) */
+.cal-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.cal-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--c-bg-soft);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-pill);
+    color: var(--c-text-secondary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+    font-family: var(--font-arabic);
+}
+
+.cal-filter-btn .btn-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-text-muted);
+    transition: all var(--dur-fast);
+}
+
+.cal-filter-btn:hover {
+    color: var(--c-text-primary);
+    border-color: var(--c-gold-line);
+    background: var(--c-surface);
+}
+
+.cal-filter-btn.active {
+    background: var(--c-gold-deep, #9c6e38);
+    color: #ffffff;
+    border-color: var(--c-gold-deep);
+    box-shadow: var(--shadow-sm);
+}
+
+.cal-filter-btn.active .btn-dot {
+    background: #ffffff;
+    transform: scale(1.2);
+}
+
+/* ── 3. شريط التحكم والتقويم العلوي ── */
+.cal-control-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-5);
+}
+
+.cal-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cal-control-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--c-bg-soft);
+    border: 1px solid var(--c-border-soft);
+    color: var(--c-text-primary);
+    transition: all var(--dur-fast) var(--ease-out);
+    cursor: pointer;
+}
+
+.cal-control-btn:hover {
+    background: var(--c-surface);
+    border-color: var(--c-gold);
+    color: var(--c-gold-deep);
+    transform: translateY(-1px);
+}
+
+.cal-control-btn:active {
+    transform: scale(0.95);
+}
+
+.cal-today-btn {
+    padding: 0 16px;
+    height: 38px;
+    border-radius: var(--r-pill);
+    background: var(--c-bg-soft);
+    border: 1px solid var(--c-border-soft);
+    color: var(--c-text-primary);
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-family: var(--font-arabic);
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.cal-today-btn:hover {
+    background: var(--c-surface);
+    border-color: var(--c-gold);
+    color: var(--c-gold-deep);
+}
+
+.cal-select-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cal-select {
+    padding: 8px 16px;
+    font-family: var(--font-arabic);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--c-text-primary);
+    background: var(--c-bg-soft);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    outline: none;
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+
+.cal-select:focus {
+    border-color: var(--c-gold);
+    box-shadow: 0 0 0 2px var(--c-gold-pale);
+}
+
+/* ── 4. شبكة أيام الأسبوع والتقويم ── */
+.cal-weekdays-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--c-border-soft);
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.cal-weekday {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--c-text-secondary);
+    letter-spacing: 0.05em;
+    padding: 6px 0;
+}
+
+.cal-days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+/* ── 5. خلايا الأيام (Day Cells) ── */
+.cal-day-cell {
+    min-height: 120px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
+    border-radius: var(--r-sm, 12px);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all var(--dur-base) var(--ease-out);
+    cursor: pointer;
+    position: relative;
+}
+
+.cal-day-cell:hover {
+    border-color: var(--c-gold-line);
+    background: var(--c-bg-soft);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    z-index: 5;
+}
+
+/* الأيام من خارج الشهر الحالي */
+.cal-day-cell.other-month {
+    background: rgba(28, 26, 23, 0.02);
+    border-color: transparent;
+    opacity: 0.42;
+}
+
+.cal-day-cell.other-month:hover {
+    opacity: 0.8;
+    background: var(--c-bg-soft);
+}
+
+/* اليوم الحالي */
+.cal-day-cell.is-today {
+    border: 2px solid var(--c-gold-deep, #9c6e38) !important;
+    background: var(--c-gold-pale) !important;
+}
+
+.cal-day-cell.is-today .cal-day-num {
+    color: var(--c-gold-deep);
+    font-weight: 800;
+}
+
+/* خلية بها مناسبات */
+.cal-day-cell.has-events {
+    border-color: rgba(184, 136, 62, 0.35);
+}
+
+/* مؤشر وجود مناسبة مدمج بالخلية */
+.cal-day-cell.has-events::before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-gold);
+}
+
+.cal-day-num {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--c-text-primary);
+    align-self: flex-end;
+}
+
+.cal-day-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    width: 100%;
+}
+
+/* بطاقة مناسبة مصغرة داخل التقويم */
+.cal-cell-event-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: var(--c-gold-deep);
+    background: var(--c-gold-pale);
+    border: 1px solid var(--c-gold-line);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+    text-align: right;
+}
+
+.cal-cell-more-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: var(--c-text-muted);
+    padding-right: 4px;
+    text-align: right;
+}
+
+/* ── 6. النافذة المنبثقة للتفاصيل (Modal) ── */
+.cal-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(20, 18, 14, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.cal-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cal-modal-shell {
+    width: 100%;
+    max-width: 520px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-xl, 28px);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px) scale(0.96);
+    transition: transform var(--dur-base) var(--ease-spring);
+    overflow: hidden;
+    position: relative;
+}
+
+.cal-modal-overlay.active .cal-modal-shell {
+    transform: translateY(0) scale(1);
+}
+
+.cal-modal-accent-bar {
+    height: 4px;
+    background: linear-gradient(90deg, var(--c-gold), var(--c-gold-soft));
+    width: 100%;
+}
+
+.cal-modal-content {
+    padding: 30px;
+}
+
+.cal-modal-close-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px; /* لكون اتجاه الموقع RTL */
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--c-bg-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--c-text-secondary);
+    cursor: pointer;
+    transition: all var(--dur-fast);
+}
+
+.cal-modal-close-btn:hover {
+    background: var(--c-border-soft);
+    color: var(--c-text-primary);
+}
+
+.cal-modal-date-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--c-gold);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+}
+
+.cal-modal-day-label {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--c-text-primary);
+    margin-bottom: 24px;
+    line-height: 1.2;
+}
+
+.cal-modal-events-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.cal-modal-event-item {
+    padding: 16px;
+    background: var(--c-bg-soft);
+    border-radius: var(--r-sm);
+    border: 1px solid var(--c-border-soft);
+}
+
+.cal-modal-event-cat {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--c-gold-deep);
+    background: var(--c-gold-pale);
+    border: 1px solid var(--c-gold-line);
+    padding: 2px 8px;
+    border-radius: 100px;
+    display: inline-block;
+    margin-bottom: 8px;
+}
+
+.cal-modal-event-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--c-text-primary);
+    margin-bottom: 8px;
+}
+
+.cal-modal-event-desc {
+    font-size: 0.88rem;
+    color: var(--c-text-secondary);
+    line-height: 1.6;
+}
+
+/* ── Empty State ── */
+.cal-empty-state {
+    text-align: center;
+    padding: var(--sp-6) 0;
+    color: var(--c-text-muted);
+}
+
+/* ── 7. التجاوب (Responsive Layout) ── */
+@media (max-width: 900px) {
+    .cal-day-cell {
+        min-height: 90px;
+        padding: 6px;
+    }
+
+    .cal-cell-event-tag {
+        font-size: 0.65rem;
+        padding: 2px 4px;
+    }
+}
+
+@media (max-width: 600px) {
+    .cal-control-header {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+    
+    .cal-select-group {
+        justify-content: space-between;
+    }
+    
+    .cal-nav-group {
+        justify-content: space-between;
+    }
+
+    .cal-day-cell {
+        min-height: 54px;
+        padding: 4px;
+        justify-content: flex-start;
+        gap: 2px;
+    }
+
+    .cal-day-num {
+        font-size: 0.9rem;
+        align-self: flex-start;
+    }
+
+    .cal-day-events-list {
+        margin-top: 2px;
+    }
+
+    .cal-cell-event-tag {
+        display: none; /* إخفاء النص الطويل على شاشات الجوال */
+    }
+
+    /* استبدال النص بنقطة ذهبية تحت الرقم للجوال */
+    .cal-day-cell.has-events::after {
+        content: "";
+        position: absolute;
+        bottom: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--c-gold);
+    }
+    
+    .cal-weekday {
+        font-size: 0.72rem;
+    }
+}
