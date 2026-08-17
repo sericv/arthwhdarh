@@ -24,6 +24,7 @@ const ICON = "/assets/الشعار/الشعار.png";
 
 export default {
   async fetch(request, env) {
+    const startTime = Date.now();
     const cors = corsHeaders(env);
 
     if (request.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -37,67 +38,94 @@ export default {
     const notifId = String(body.notifId || "").trim();
     if (!notifId) return json({ error: "missing-notifId" }, 400, cors);
 
+    const reqId = notifId.slice(0, 6) + '-' + Math.random().toString(36).slice(2, 6);
+
+    console.log(`[Push Trace 1][ID=${reqId}] Request received for notifId: ${notifId}`);
+
     try {
       const token = await getAccessToken(env);             // OAuth للوصول لـ Firestore + FCM
-      const result = await sendForNotification(env, token, notifId);
-      return json({ ok: true, ...result }, 200, cors);
+      const result = await sendForNotification(env, token, notifId, reqId);
+      const duration = Date.now() - startTime;
+      console.log(`[Push Summary][ID=${reqId}] success: ${result.success}, failure: ${result.failure}, duration: ${duration}ms`);
+      return json({ ok: true, reqId, notifId, ...result, durationMs: duration }, 200, cors);
     } catch (e) {
-      console.error("worker error:", e?.message || e);
-      return json({ ok: false, error: String(e?.message || e) }, 500, cors);
+      const duration = Date.now() - startTime;
+      console.error(`[Push Trace Error][ID=${reqId}] worker error:`, e?.message || e);
+      console.log(`[Push Summary][ID=${reqId}] success: 0, failure: 1, duration: ${duration}ms`);
+      return json({ ok: false, reqId, notifId, error: String(e?.message || e), durationMs: duration }, 500, cors);
     }
   }
 };
 
-/* ═══════════ منطق الإرسال (مطابق لمنطق Cloud Function) ═══════════ */
-async function sendForNotification(env, accessToken, notifId) {
+/* ═══════════ منطق الإرسال مع التتبع المرحلي ═══════════ */
+async function sendForNotification(env, accessToken, notifId, reqId) {
   const pid = env.PROJECT_ID;
 
   // 1) اقرأ مستند الإشعار
   const n = await fsGet(pid, accessToken, `${COL.notifications}/${notifId}`);
-  if (!n) return { skipped: "notification-not-found" };
-  if (n.pushed === true || n.pushedAt) {
-    console.log(`[Push Trace] Worker: Notification ${notifId} already pushed, skipping.`);
-    return { skipped: "already-pushed" };
+  if (!n) {
+    console.log(`[Push Trace 2][ID=${reqId}] Notification not found: ${notifId}`);
+    return { skipped: "notification-not-found", success: 0, failure: 0, removed: 0 };
   }
+
+  console.log(`[Push Trace 2][ID=${reqId}] Notification ID: ${notifId} | Type: ${n.type || "general"} | Target: ${n.userId || "N/A"} | Exclude UID: ${n.excludeUid || "none"}`);
 
   // 2) حُلّ المستهدفين
   const uids = await resolveUids(pid, accessToken, n.userId, n.excludeUid);
-  if (!uids.length) return { skipped: "no-uids" };
+  console.log(`[Push Trace 3][ID=${reqId}] Target UIDs resolved: COUNT = ${uids.length}`);
+  if (!uids.length) return { skipped: "no-uids", success: 0, failure: 0, removed: 0 };
 
   // 3) رشّح حسب التفضيلات
   const allowed = [];
   for (const uid of uids) {
     if (await prefAllows(pid, accessToken, uid, n.pref)) allowed.push(uid);
   }
-  if (!allowed.length) return { skipped: "opted-out" };
+  if (!allowed.length) {
+    console.log(`[Push Trace 3][ID=${reqId}] All recipients opted out of pref: ${n.pref}`);
+    return { skipped: "opted-out", success: 0, failure: 0, removed: 0 };
+  }
 
   // 4) اجلب الرموز
   const tokenDocs = await tokensForUids(pid, accessToken, allowed);
-  if (!tokenDocs.length) return { skipped: "no-tokens" };
+  console.log(`[Push Trace 4][ID=${reqId}] FCM tokens found: COUNT = ${tokenDocs.length}`);
+  if (!tokenDocs.length) return { skipped: "no-tokens", success: 0, failure: 0, removed: 0 };
 
   // 5) أرسل لكل رمز عبر FCM v1
-  let success = 0, removed = 0;
-  await Promise.all(tokenDocs.map(async (td) => {
-    const res = await sendFcm(pid, accessToken, td.token, n, notifId);
-    if (res.ok) { success++; return; }
-    if (res.invalid) {
-      removed++;
-      await fsDelete(pid, accessToken, `${COL.tokens}/${td.token}`).catch(() => {});
+  console.log(`[Push Trace 5][ID=${reqId}] Sending FCM request for ${tokenDocs.length} tokens`);
+  let success = 0, failure = 0, removed = 0;
+  let lastFcmStatus = null, lastFcmError = null;
+
+  await Promise.all(tokenDocs.map(async (td, idx) => {
+    const tokenPrefix = td.token ? `${td.token.slice(0, 8)}... (len: ${td.token.length})` : "empty";
+    const res = await sendFcm(pid, accessToken, td.token, n, notifId, reqId, idx, tokenPrefix);
+    lastFcmStatus = res.status;
+    if (res.ok) {
+      success++;
+    } else {
+      failure++;
+      lastFcmError = res.errorDetails;
+      if (res.invalid) {
+        removed++;
+        await fsDelete(pid, accessToken, `${COL.tokens}/${td.token}`).catch(() => {});
+      }
     }
   }));
 
-  // وسم الإشعار كمُرسل لمنع التكرار نهائياً بين الخوادم
-  await fsPatch(pid, accessToken, `${COL.notifications}/${notifId}`, {
-    pushed: true,
-    pushedAt: new Date().toISOString(),
-    pushedBy: "cloudflare-worker"
-  }).catch(() => {});
+  console.log(`[Push Trace 7][ID=${reqId}] FCM result: successCount = ${success}, failureCount = ${failure} (invalid tokens removed: ${removed})`);
 
-  return { recipients: allowed.length, tokens: tokenDocs.length, success, removed };
+  return {
+    recipients: allowed.length,
+    tokens: tokenDocs.length,
+    success,
+    failure,
+    removed,
+    lastFcmStatus,
+    lastFcmError
+  };
 }
 
 /* رسالة FCM HTTP v1 — مع ترويسات APNs الصريحة لـ iOS PWA Background Alert */
-async function sendFcm(pid, accessToken, token, n, notifId) {
+async function sendFcm(pid, accessToken, token, n, notifId, reqId, idx, tokenPrefix) {
   const titleText = String(n.title || "إرث وحضارة");
   const bodyText = String(n.body || "");
   const deepLinkUrl = `/portal/#${n.link || "notifs"}${n.refId ? ":" + n.refId : ""}`;
@@ -160,12 +188,21 @@ async function sendFcm(pid, accessToken, token, n, notifId) {
     }
   );
 
-  if (r.ok) return { ok: true };
+  console.log(`[Push Trace 6][ID=${reqId}] FCM HTTP status: STATUS = ${r.status} (token #${idx}: ${tokenPrefix})`);
+
+  if (r.ok) {
+    return { ok: true, status: r.status };
+  }
+
   const errText = await r.text();
-  // رموز الأخطاء التي تعني أن الرمز باطل ويجب حذفه
   const invalid = /UNREGISTERED|INVALID_ARGUMENT|NOT_FOUND/i.test(errText);
-  console.warn("[IOS PUSH TEST] FCM send failed:", r.status, errText.slice(0, 160));
-  return { ok: false, invalid };
+  console.warn(`[Push Trace Error][ID=${reqId}] FCM send failed (token #${idx}: ${tokenPrefix}): HTTP ${r.status} - ${errText.slice(0, 300)}`);
+  return {
+    ok: false,
+    status: r.status,
+    invalid,
+    errorDetails: errText.slice(0, 300)
+  };
 }
 
 /* ═══════════ حلّ المستهدفين والتفضيلات ═══════════ */

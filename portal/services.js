@@ -481,15 +481,37 @@ export async function pushNotification(n){
     read:   false,
     createdAt: serverTimestamp()
   });
-  // طبقة الدفع الخلفي عبر Cloudflare Worker (لا تُعطّل المسار إن فشلت/غير مُعدّة)
-  triggerPush(ref.id);
+
+  console.log(`[Push Trace] triggerPush called`);
+  console.log(`[Push Trace] notificationId: ${ref.id}`);
+  console.log(`[Push Trace] type: ${n.type}`);
+  console.log(`[Push Trace] target: ${n.userId}`);
+
+  triggerPush(ref.id, n);
   return ref.id;
 }
 
-/* نداء غير حاجب للـ Worker — معطّل لعزل المسار واختبار Firebase Cloud Function وحدها */
-function triggerPush(notifId){
-  // معطّل لاختبار Firebase Cloud Function الحصرية
-  return;
+/* نداء غير حاجب للـ Worker مع تسجيل التشخيص الدقيق */
+function triggerPush(notifId, n = {}){
+  if(!PUSH_ENDPOINT) return;
+  try{
+    fetch(PUSH_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notifId }),
+      keepalive: true
+    }).then(async r => {
+      let data = {};
+      try { data = await r.json(); } catch(e){}
+      console.log(`[Push Trace] Worker response: HTTP status: ${r.status} | success: ${data.success ?? r.ok}`);
+      if(data.reqId) console.log(`[Push Trace] Request ID: ${data.reqId}`);
+      if(data.lastFcmError) console.warn(`[Push Trace] FCM Error:`, data.lastFcmError);
+    }).catch(e => {
+      console.warn(`[Push Trace] Worker call failed:`, e?.message || e);
+    });
+  }catch(e){
+    console.warn(`[Push Trace] trigger error:`, e);
+  }
 }
 
 /* بثّ إشعار لكل أفراد إدارة */
