@@ -747,7 +747,7 @@ async function getMessagingLazy(){
    { ok:false, reason:"no-sw" }            ← لا دعم Service Worker
    { ok:false, reason:"error", error }     ← خطأ غير متوقع
 */
-/* تشخيص حالة Web Push التلقائي والآمن */
+/* تشخيص حالة Web Push التلقائي والآمن لنظام iOS PWA */
 export async function logPushDiagnostics(uid){
   const ua = navigator.userAgent;
   const isIOS = /iPhone|iPad|iPod/i.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
@@ -755,55 +755,57 @@ export async function logPushDiagnostics(uid){
   const notifPerm = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
   const hasSW = "serviceWorker" in navigator;
   
-  let swRegistered = false;
+  let swStatus = "not registered";
   let swScope = "N/A";
+  let pushSubStatus = "none";
+  let reg = null;
+
   if(hasSW){
     try {
-      const reg = await navigator.serviceWorker.getRegistration(SW_URL).catch(()=>null);
+      reg = await navigator.serviceWorker.getRegistration(SW_URL).catch(()=>null);
       if(reg){
-        swRegistered = true;
+        swStatus = "registered & ready";
         swScope = reg.scope;
+        const sub = await reg.pushManager.getSubscription().catch(()=>null);
+        if(sub && sub.endpoint){
+          const epDomain = new URL(sub.endpoint).hostname;
+          pushSubStatus = `exists (endpoint: ${epDomain})`;
+        }
       }
     } catch(e){}
   }
 
   const fcmSupport = await fcmSupported();
-  let tokenExists = false;
-  let pushSubExists = false;
+  let tokenStatus = "none";
 
-  if(hasSW && fcmSupport && notifPerm === "granted"){
+  if(hasSW && fcmSupport && notifPerm === "granted" && reg){
     try {
-      const reg = await navigator.serviceWorker.getRegistration(SW_URL).catch(()=>null);
-      if(reg){
-        const sub = await reg.pushManager.getSubscription().catch(()=>null);
-        if(sub) pushSubExists = true;
-      }
       const msg = await getMessagingLazy();
       if(msg){
-        const token = await getToken(msg, { vapidKey: VAPID_KEY }).catch(()=>null);
-        if(token) tokenExists = true;
+        const token = await getToken(msg, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg }).catch(()=>null);
+        if(token){
+          tokenStatus = `exists (length: ${token.length}, prefix: ${token.slice(0, 8)}...)`;
+        }
       }
     } catch(e){}
   }
 
-  console.log("%c[Push Debug] Platform & Web Push Diagnostics", "color:#9c6e38;font-weight:bold");
-  console.log(`[Push Debug] Platform: ${navigator.platform || "Unknown"}`);
-  console.log(`[Push Debug] iOS: ${isIOS}`);
-  console.log(`[Push Debug] PWA: ${isPWA}`);
-  console.log(`[Push Debug] Notification permission: ${notifPerm}`);
-  console.log(`[Push Debug] Service Worker registered: ${swRegistered}`);
-  console.log(`[Push Debug] Service Worker scope: ${swScope}`);
-  console.log(`[Push Debug] Push supported: ${fcmSupport}`);
-  console.log(`[Push Debug] FCM token exists: ${tokenExists}`);
-  console.log(`[Push Debug] Push subscription exists: ${pushSubExists}`);
+  console.log("%c[IOS PUSH TEST]", "color:#9c6e38;font-weight:bold;font-size:13px;");
+  console.log(`[IOS PUSH TEST] PWA: ${isPWA}`);
+  console.log(`[IOS PUSH TEST] Service Worker: ${swStatus}`);
+  console.log(`[IOS PUSH TEST] Service Worker scope: ${swScope}`);
+  console.log(`[IOS PUSH TEST] Notification permission: ${notifPerm}`);
+  console.log(`[IOS PUSH TEST] Push supported: ${fcmSupport}`);
+  console.log(`[IOS PUSH TEST] Push subscription: ${pushSubStatus}`);
+  console.log(`[IOS PUSH TEST] FCM token: ${tokenStatus}`);
+  console.log(`[IOS PUSH TEST] Token saved: ${Boolean(tokenStatus !== "none" && uid)}`);
 
   return {
-    isIOS, isPWA, notifPerm, swRegistered, swScope, fcmSupport, tokenExists, pushSubExists
+    isIOS, isPWA, notifPerm, swStatus, swScope, fcmSupport, pushSubStatus, tokenStatus
   };
 }
 
 export async function initMessaging(uid){
-  console.log("[iOS Push Debug] S.initMessaging() started, uid:", uid || "—");
   LOG("initMessaging() start · uid =", uid || "—");
 
   // تشخيص تلقائي آمن
@@ -811,86 +813,59 @@ export async function initMessaging(uid){
 
   // 0) دعم Notification API الأساسي
   if(!browserNotifSupported()){
-    console.warn("[iOS Push Debug] Notification API not supported in this browser!");
+    console.warn("[IOS PUSH TEST] Notification API not supported in this browser!");
     WARN("Notification API غير متوفر في هذا المتصفح");
     return { ok:false, reason:"unsupported" };
   }
 
   // 1) طلب الإذن (مطلوب لكلا المسارين)
   let perm = Notification.permission;
-  console.log("[iOS Push Debug] S.initMessaging: Notification.permission BEFORE request:", perm);
   if(perm === "default"){
-    console.log("[iOS Push Debug] S.initMessaging: Calling Notification.requestPermission...");
     try{
       perm = await Notification.requestPermission();
-      console.log("[iOS Push Debug] S.initMessaging: Notification.requestPermission resolved to:", perm);
     } catch(e){
-      console.error("[iOS Push Debug] S.initMessaging: Notification.requestPermission threw error:", e);
-      console.error("[iOS Push Debug] requestPermission error details:", e ? { name: e.name, message: e.message, code: e.code } : "null");
       WARN("requestPermission threw:", e);
     }
-  } else {
-    console.log("[iOS Push Debug] S.initMessaging: Notification.permission is not 'default', bypassing requestPermission. Value:", perm);
   }
 
   if(perm === "denied"){
-    console.warn("[iOS Push Debug] S.initMessaging: Notification permission is denied.");
     WARN("الإذن مرفوض من المستخدم/المتصفح");
     return { ok:false, reason:"denied" };
   }
   if(perm !== "granted"){
-    console.warn("[iOS Push Debug] S.initMessaging: Notification permission is not granted (current value:", perm, ")");
     return { ok:false, reason:"denied" };
   }
 
   // 2) محاولة مسار FCM الكامل
-  console.log("[iOS Push Debug] S.initMessaging: Notification permission is granted. Attempting FCM setup...");
   const supported = await fcmSupported();
   const hasSW = "serviceWorker" in navigator;
-  console.log("[iOS Push Debug] S.initMessaging: fcmSupported =", supported, "· serviceWorker in navigator =", hasSW);
 
   if(supported && hasSW){
     try{
-      console.log("[iOS Push Debug] S.initMessaging: Registering Service Worker at SW_URL:", SW_URL);
       const reg = await navigator.serviceWorker.register(SW_URL);
-      console.log("[iOS Push Debug] S.initMessaging: Waiting for Service Worker to be ready...");
       await navigator.serviceWorker.ready;
-      console.log("[iOS Push Debug] S.initMessaging: Service Worker registered and ready. Scope:", reg.scope);
 
-      console.log("[iOS Push Debug] S.initMessaging: Lazy loading Firebase Messaging...");
       const msg = await getMessagingLazy();
-      console.log("[iOS Push Debug] S.initMessaging: getMessagingLazy resolved to:", msg ? "Firebase Messaging Object" : "null");
       if(msg){
-        console.log("[iOS Push Debug] S.initMessaging: Requesting FCM token via getToken...");
         const token = await getToken(msg, {
           vapidKey: VAPID_KEY,
           serviceWorkerRegistration: reg
         });
         if(token){
-          console.log("[iOS Push Debug] S.initMessaging: getToken succeeded! Token acquired ✓ length:", token.length);
           if(uid){
-            console.log("[iOS Push Debug] S.initMessaging: Saving FCM token to Firestore for uid:", uid);
             await saveFcmToken(uid, token);
-            console.log("[iOS Push Debug] S.initMessaging: Token saved successfully.");
           }
+          setTimeout(() => logPushDiagnostics(uid), 300);
           return { ok:true, mode:"fcm", token };
         }
-        console.warn("[iOS Push Debug] S.initMessaging: getToken returned an empty token!");
         WARN("getToken returned empty — falling back to browser notifications");
-      } else {
-        console.warn("[iOS Push Debug] S.initMessaging: getMessagingLazy returned null.");
       }
     }catch(e){
-      console.error("[iOS Push Debug] S.initMessaging: FCM setup route threw an error:", e);
-      console.error("[iOS Push Debug] FCM error details:", e ? { name: e.name, message: e.message, code: e.code, stack: e.stack } : "null");
       WARN("FCM path failed (", e?.code || e?.message || e, ") — falling back to browser notifications");
     }
-  } else {
-    console.log("[iOS Push Debug] S.initMessaging: FCM path bypassed (not supported or no SW support).");
   }
 
   // 3) الاحتياطي: الإذن ممنوح لكن FCM غير متاح ⇒ إشعارات متصفح محلية تعمل
-  console.log("[iOS Push Debug] S.initMessaging: Falling back to local browser notifications mode.");
   return { ok:true, mode:"browser" };
 }
 

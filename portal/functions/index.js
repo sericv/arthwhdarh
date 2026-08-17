@@ -125,9 +125,9 @@ exports.sendPushOnNotification = onDocumentCreated(
     const bodyText = String(n.body || "");
     const deepLinkUrl = `/portal/#${n.link || "notifs"}${n.refId ? ":" + n.refId : ""}`;
 
-    console.log(`[Push Debug] Notification created: id=${event.params.id}, type=${n.type || "general"}, link=${n.link || "notifs"}`);
-    console.log(`[Push Debug] Target UIDs count: ${allowed.length}`);
-    console.log(`[Push Debug] FCM Token docs count: ${tokenDocs.length}`);
+    console.log(`[IOS PUSH TEST] Notification created: id=${event.params.id}, type=${n.type || "general"}, link=${n.link || "notifs"}`);
+    console.log(`[IOS PUSH TEST] Cloud Function target: ${allowed.join(", ")} (count: ${allowed.length})`);
+    console.log(`[IOS PUSH TEST] FCM token count: ${tokenDocs.length}`);
 
     const message = {
       notification: {
@@ -194,7 +194,7 @@ exports.sendPushOnNotification = onDocumentCreated(
       db.collection(COL.tokens).doc(t).delete().catch(()=>{})
     ));
 
-    console.log(`[Push Debug] FCM send result: ${resp.successCount}/${tokens.length} ok, ${toDelete.length} invalid tokens removed`);
+    console.log(`[IOS PUSH TEST] FCM send result: ${resp.successCount}/${tokens.length} ok, ${toDelete.length} invalid tokens removed`);
   }
 );
 

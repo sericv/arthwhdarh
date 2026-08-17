@@ -24,8 +24,8 @@ const SWLOG = (...a) => console.log("[SW]", ...a);
 self.addEventListener('install', () => { SWLOG("install"); self.skipWaiting(); });
 self.addEventListener('activate', (e) => { SWLOG("activate"); e.waitUntil(self.clients.claim()); });
 
-/* أيقونة الشعار بمسار نسبي */
-const LOGO = new URL('../assets/الشعار/الشعار.png', self.location).href;
+/* أيقونة الشعار بمسار محلي مباشر وموثوق */
+const LOGO = new URL('android-chrome-192x192.png', self.location).href;
 /* عنوان البوابة (جذر مجلد الـ SW) */
 const PORTAL_URL = new URL('./', self.location).href;
 /* معالج الدفع المخصص (يقمع أخطاء آيفون ويضمن عرض الإشعار فوراً دون تأخر التحميل) */

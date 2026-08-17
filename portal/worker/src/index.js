@@ -57,7 +57,7 @@ async function sendForNotification(env, accessToken, notifId) {
   if (!n) return { skipped: "notification-not-found" };
 
   // 2) حُلّ المستهدفين
-  const uids = await resolveUids(pid, accessToken, n.userId);
+  const uids = await resolveUids(pid, accessToken, n.userId, n.excludeUid);
   if (!uids.length) return { skipped: "no-uids" };
 
   // 3) رشّح حسب التفضيلات
@@ -85,15 +85,22 @@ async function sendForNotification(env, accessToken, notifId) {
   return { recipients: allowed.length, tokens: tokenDocs.length, success, removed };
 }
 
-/* رسالة FCM HTTP v1 — نفس بنية حمولة الدالة الأصلية */
+/* رسالة FCM HTTP v1 — مع ترويسات APNs الصريحة لـ iOS PWA Background Alert */
 async function sendFcm(pid, accessToken, token, n, notifId) {
+  const titleText = String(n.title || "إرث وحضارة");
+  const bodyText = String(n.body || "");
+  const deepLinkUrl = `/portal/#${n.link || "notifs"}${n.refId ? ":" + n.refId : ""}`;
+
   const message = {
     message: {
       token,
-      notification: { title: n.title || "إرث وحضارة", body: n.body || "" },
+      notification: {
+        title: titleText,
+        body: bodyText
+      },
       data: {
-        title: String(n.title || ""),
-        body: String(n.body || ""),
+        title: titleText,
+        body: bodyText,
         link: String(n.link || "notifs"),
         refId: String(n.refId || ""),
         notifId: String(notifId),
@@ -101,17 +108,35 @@ async function sendFcm(pid, accessToken, token, n, notifId) {
       },
       webpush: {
         notification: {
-          title: n.title || "إرث وحضارة",
-          body: n.body || "",
+          title: titleText,
+          body: bodyText,
           icon: ICON,
           badge: ICON,
           dir: "rtl",
           lang: "ar"
         },
-        fcm_options: { link: "/portal/" }
+        headers: {
+          Urgency: "high",
+          TTL: "86400"
+        },
+        fcm_options: { link: deepLinkUrl }
       },
       android: { priority: "high" },
-      apns: { payload: { aps: { sound: "default" } } }
+      apns: {
+        headers: {
+          "apns-priority": "10",
+          "apns-push-type": "alert"
+        },
+        payload: {
+          aps: {
+            alert: {
+              title: titleText,
+              body: bodyText
+            },
+            sound: "default"
+          }
+        }
+      }
     }
   };
 
@@ -128,30 +153,38 @@ async function sendFcm(pid, accessToken, token, n, notifId) {
   const errText = await r.text();
   // رموز الأخطاء التي تعني أن الرمز باطل ويجب حذفه
   const invalid = /UNREGISTERED|INVALID_ARGUMENT|NOT_FOUND/i.test(errText);
-  console.warn("fcm send failed:", r.status, errText.slice(0, 160));
+  console.warn("[IOS PUSH TEST] FCM send failed:", r.status, errText.slice(0, 160));
   return { ok: false, invalid };
 }
 
 /* ═══════════ حلّ المستهدفين والتفضيلات ═══════════ */
-async function resolveUids(pid, accessToken, userId) {
+async function resolveUids(pid, accessToken, userId, excludeUid) {
   if (!userId) return [];
+  let uids = [];
   if (userId.startsWith("dept:")) {
     const dept = userId.slice(5);
     const users = await fsListDocuments(pid, accessToken, COL.users);
     if (dept === "all") {
-      return users.map(u => u.__name);
+      uids = users.map(u => u.__name);
+    } else {
+      uids = users.filter(u => {
+        if (dept === "hr") {
+          return u.role === "hr" || u.department === "hr" || (u.perms && u.perms.canReviewLeave);
+        }
+        if (dept === "executive") {
+          return u.role === "executive";
+        }
+        return u.department === dept || u.role === dept;
+      }).map(u => u.__name);
     }
-    return users.filter(u => {
-      if (dept === "hr") {
-        return u.role === "hr" || u.department === "hr" || (u.perms && u.perms.canReviewLeave);
-      }
-      if (dept === "executive") {
-        return u.role === "executive";
-      }
-      return u.department === dept || u.role === dept;
-    }).map(u => u.__name);
+  } else {
+    uids = [userId];
   }
-  return [userId];
+
+  if (excludeUid) {
+    uids = uids.filter(u => u !== excludeUid);
+  }
+  return uids;
 }
 
 async function fsListDocuments(pid, accessToken, collection) {
