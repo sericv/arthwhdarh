@@ -869,23 +869,48 @@ export async function initMessaging(uid){
   return { ok:true, mode:"browser" };
 }
 
-/* عرض إشعار متصفح محلي (يُستخدم في وضع fallback أو للإشعارات اللحظية) */
-export function showLocalNotification(title, body, opts = {}){
+/* عرض إشعار متصفح محلي متوافق مع iPhone PWA و Safari و Chrome و Android */
+export async function showLocalNotification(title, body, opts = {}){
   if(!browserNotifSupported() || Notification.permission !== "granted") return false;
   try{
-    const n = new Notification(title, {
+    const iconUrl = opts.icon || new URL("android-chrome-192x192.png", import.meta.url).href;
+    const notifOptions = {
       body: body || "",
-      icon: opts.icon || new URL("../assets/الشعار/الشعار.png", import.meta.url).href,
-      badge: opts.badge,
-      dir: "rtl", lang: "ar",
-      tag: opts.tag || "erth-portal",
-      ...opts
-    });
-    if(opts.onClick){
-      n.onclick = () => { window.focus(); opts.onClick(); n.close(); };
+      icon: iconUrl,
+      badge: opts.badge || iconUrl,
+      dir: "rtl",
+      lang: "ar",
+      tag: opts.tag || ("erth-local-" + Date.now()),
+      renotify: true,
+      data: opts.data || { url: window.location.href, link: opts.link || "notifs", refId: opts.refId || "" }
+    };
+
+    // المسار المعتمد والوحيد لـ iOS WebKit و PWA: عبر Service Worker
+    if("serviceWorker" in navigator){
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if(reg && typeof reg.showNotification === "function"){
+          await reg.showNotification(title, notifOptions);
+          return true;
+        }
+      } catch(swErr){
+        console.warn("[Local Notif] SW showNotification error:", swErr);
+      }
     }
-    return true;
-  }catch(e){ WARN("showLocalNotification failed:", e); return false; }
+
+    // احتياطي للمتصفحات القديمة غير الداعمة لـ SW
+    if(typeof Notification === "function"){
+      const n = new Notification(title, notifOptions);
+      if(opts.onClick){
+        n.onclick = () => { window.focus(); opts.onClick(); n.close(); };
+      }
+      return true;
+    }
+    return false;
+  }catch(e){
+    WARN("showLocalNotification failed:", e);
+    return false;
+  }
 }
 
 /* استماع لرسائل FCM في المقدمة (التبويب مفتوح) */

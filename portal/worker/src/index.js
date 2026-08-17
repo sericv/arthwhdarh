@@ -55,6 +55,10 @@ async function sendForNotification(env, accessToken, notifId) {
   // 1) اقرأ مستند الإشعار
   const n = await fsGet(pid, accessToken, `${COL.notifications}/${notifId}`);
   if (!n) return { skipped: "notification-not-found" };
+  if (n.pushed === true || n.pushedAt) {
+    console.log(`[Push Trace] Worker: Notification ${notifId} already pushed, skipping.`);
+    return { skipped: "already-pushed" };
+  }
 
   // 2) حُلّ المستهدفين
   const uids = await resolveUids(pid, accessToken, n.userId, n.excludeUid);
@@ -81,6 +85,13 @@ async function sendForNotification(env, accessToken, notifId) {
       await fsDelete(pid, accessToken, `${COL.tokens}/${td.token}`).catch(() => {});
     }
   }));
+
+  // وسم الإشعار كمُرسل لمنع التكرار نهائياً بين الخوادم
+  await fsPatch(pid, accessToken, `${COL.notifications}/${notifId}`, {
+    pushed: true,
+    pushedAt: new Date().toISOString(),
+    pushedBy: "cloudflare-worker"
+  }).catch(() => {});
 
   return { recipients: allowed.length, tokens: tokenDocs.length, success, removed };
 }
@@ -248,6 +259,28 @@ async function fsDelete(pid, accessToken, path) {
     method: "DELETE",
     headers: { Authorization: `Bearer ${accessToken}` }
   });
+}
+
+async function fsPatch(pid, accessToken, path, data) {
+  const fields = {};
+  const mask = [];
+  for(const [k, v] of Object.entries(data)){
+    fields[k] = encodeValue(v);
+    mask.push(`updateMask.fieldPaths=${encodeURIComponent(k)}`);
+  }
+  const url = `${fsBase(pid)}/${path}?${mask.join("&")}`;
+  await fetch(url, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ fields })
+  });
+}
+
+function encodeValue(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === "boolean") return { booleanValue: v };
+  if (typeof v === "number") return { integerValue: String(v) };
+  return { stringValue: String(v) };
 }
 
 async function fsQuery(pid, accessToken, collection, { fieldFilter }) {

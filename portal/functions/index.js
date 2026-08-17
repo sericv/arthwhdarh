@@ -107,6 +107,10 @@ exports.sendPushOnNotification = onDocumentCreated(
   async (event) => {
     const n = event.data?.data();
     if(!n) return;
+    if(n.pushed === true || n.pushedAt){
+      console.log(`[IOS PUSH TEST] Notification ${event.params.id} already pushed, skipping Cloud Function duplicate.`);
+      return;
+    }
 
     const uids = await resolveUids(n.userId, n.excludeUid);
     if(!uids.length){ console.log("no target uids for", n.userId); return; }
@@ -193,6 +197,13 @@ exports.sendPushOnNotification = onDocumentCreated(
     await Promise.all(toDelete.map(t =>
       db.collection(COL.tokens).doc(t).delete().catch(()=>{})
     ));
+
+    // وسم الإشعار كمُرسل لمنع التكرار
+    await event.data.ref.update({
+      pushed: true,
+      pushedAt: new Date().toISOString(),
+      pushedBy: "firebase-functions"
+    }).catch(()=>{});
 
     console.log(`[IOS PUSH TEST] FCM send result: ${resp.successCount}/${tokens.length} ok, ${toDelete.length} invalid tokens removed`);
   }
