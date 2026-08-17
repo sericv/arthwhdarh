@@ -39,7 +39,16 @@ export const COL = {
   notifications: "portal_notifications",
   tokens:        "portal_fcm_tokens",   // رموز FCM (متعددة الأجهزة)
   personalTasks: "portal_personal_tasks",
-  suggestions:   "portal_suggestions_complaints"
+  suggestions:   "portal_suggestions_complaints",
+  announcements: "portal_announcements"
+};
+
+/* ── أنواع التعميمات والإعلانات ── */
+export const ANNOUNCEMENT_TYPES = {
+  general:   { label: "عام",    la: "General",   color: "var(--info)",        bg: "rgba(37, 99, 235, 0.1)",  icon: "fa-bullhorn" },
+  important: { label: "مهم",    la: "Important", color: "var(--gold-deep)",   bg: "rgba(156, 110, 56, 0.12)", icon: "fa-star" },
+  urgent:    { label: "عاجل",   la: "Urgent",    color: "var(--danger)",      bg: "rgba(220, 38, 38, 0.1)",  icon: "fa-triangle-exclamation" },
+  other:     { label: "أخرى",   la: "Other",     color: "var(--ink-mid)",     bg: "rgba(0, 0, 0, 0.06)",     icon: "fa-circle-info" }
 };
 
 /* ── الصلاحيات القياسية الثلاث ──
@@ -195,6 +204,8 @@ export const NOTIF_TYPE = {
   leave_exec_rej: { label: "رفض المدير",      icon: "fa-circle-xmark",     color: "#7a2518", pref: "leaves"    },
   file_uploaded:  { label: "ملف جديد",       icon: "fa-file-arrow-up",    color: "#9c6e38", pref: "files"     },
   message_new:    { label: "رسالة جديدة",    icon: "fa-envelope",         color: "#2d4a63", pref: "messages"  },
+  announcement:   { label: "تعميم جديد",      icon: "fa-bullhorn",         color: "#9c6e38", pref: "system" },
+  feedback:       { label: "شكوى / اقتراح",   icon: "fa-comments",         color: "#9c6e38", pref: "system" },
   system_alert:   { label: "تنبيه النظام",   icon: "fa-triangle-exclamation", color: "#b8651a", pref: "system" }
 };
 

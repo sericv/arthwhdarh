@@ -10,6 +10,7 @@ import {
 import * as S from "./services.js?v=5";
 import { renderPdfEditor, checkUnsavedAndLeave } from "./pdf-editor.js";
 import { renderFinancialCalc } from "./financial-calc.js";
+import { renderAnnouncements } from "./announcements.js";
 
 /* ════════ الحالة العامة (State) ════════ */
 const State = {
@@ -79,28 +80,37 @@ function timeAgo(ts) {
   if (days === 1) return "أمس";
   if (days === 2) return "منذ يومين";
   if (days <= 10) return `منذ ${days} أيام`;
-  return dateObj.toLocaleDateString("ar-SA");
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const dd = String(dateObj.getDate()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd}`;
 }
-function fmtDate(ts){ const d=tsToDate(ts); return d?d.toLocaleDateString("ar-SA",{day:"numeric",month:"long",year:"numeric"}):"—"; }
+
+function fmtDate(ts){
+  const d = tsToDate(ts);
+  if (!d) return "—";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd}`;
+}
 
 function getHijriDate(ts) {
   const d = tsToDate(ts);
   if (!d) return "—";
-  return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  }).format(d).replace("هـ", "").trim();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd}`;
 }
 
 function getGregorianDate(ts) {
   const d = tsToDate(ts);
   if (!d) return "—";
-  return new Intl.DateTimeFormat('ar-SA', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  }).format(d);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd}`;
 }
 
 async function generateLeavePdf(leaveId, btn) {
@@ -418,7 +428,7 @@ S.onAuthStateChanged(S.auth, async (fbUser)=>{
   }
 });
 
-/* ════════ Circle Reveal Transition Manager ════════ */
+/* ════════ Progressive Reveal Transition Manager ════════ */
 let isInitialRevealDone = false;
 
 function revealPortal(target = "app") {
@@ -439,20 +449,20 @@ function revealPortal(target = "app") {
     return;
   }
 
-  // Trigger Circle Reveal Animation
-  boot.classList.add("revealing");
+  // الكشف التدريجي المنظم لعناصر الواجهة
   if (targetEl) {
     targetEl.classList.add("portal-revealing");
   }
+  boot.classList.add("fading-out");
 
   setTimeout(() => {
     boot.classList.add("hidden");
-    boot.classList.remove("revealing");
+    boot.classList.remove("fading-out");
     if (targetEl) {
       targetEl.classList.remove("portal-revealing");
     }
-    console.log("%c[Portal] Circle Reveal completed", "color:#3a5e2e;font-weight:bold");
-  }, 1180);
+    console.log("%c[Portal] Progressive Reveal completed", "color:#3a5e2e;font-weight:bold");
+  }, 480);
 }
 
 function showLogin(err=""){
@@ -640,21 +650,26 @@ async function enterApp(){
       });
     } catch(e){ console.warn("[Portal] watchNotifications error:", e); }
 
-    // Only init messaging automatically if permission is already granted.
+    // Only init messaging automatically if permission is already granted, else show soft banner.
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       S.initMessaging(State.user.uid).catch(e=>console.warn("[Portal] Messaging init error:", e));
+    } else {
+      setTimeout(checkAndShowNotificationBanner, 1200);
     }
 
-    // Navigate to dashboard or target view from query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetView = urlParams.get("view");
-    if (targetView && VIEW_META[targetView]) {
-      navigate(targetView);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      console.log(`%c[Portal] Navigated to query-param view: ${targetView}`, "color:#3a5e2e;font-weight:bold");
-    } else {
-      navigate("dash");
-      console.log("%c[Portal] Dashboard rendered", "color:#3a5e2e;font-weight:bold");
+    // Navigate to target view from deep link hash or query parameters
+    const hasHashLink = checkUrlHashDeepLink();
+    if (!hasHashLink) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetView = urlParams.get("view");
+      if (targetView && VIEW_META[targetView]) {
+        navigate(targetView);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        console.log(`%c[Portal] Navigated to query-param view: ${targetView}`, "color:#3a5e2e;font-weight:bold");
+      } else {
+        navigate("dash");
+        console.log("%c[Portal] Dashboard rendered", "color:#3a5e2e;font-weight:bold");
+      }
     }
 
     // Trigger Circle Reveal Transition
@@ -698,6 +713,7 @@ function renderSidebar(){
 
   let workNav = `
     <li><button class="nav-item ${State.view==='dash'?'active':''}" data-nav="dash"><i class="fa-solid fa-house"></i><span class="nlbl">الرئيسية</span></button></li>
+    <li><button class="nav-item ${State.view==='announcements'?'active':''}" data-nav="announcements"><i class="fa-solid fa-bullhorn"></i><span class="nlbl">التعميمات</span></button></li>
     <li><button class="nav-item ${State.view==='profile'?'active':''}" data-nav="profile"><i class="fa-solid fa-user"></i><span class="nlbl">الملف الشخصي</span></button></li>
     <li><button class="nav-item ${State.view==='leaves'?'active':''}" data-nav="leaves"><i class="fa-solid fa-calendar-days"></i><span class="nlbl">إجازاتي</span></button></li>
     <li><button class="nav-item ${State.view==='tasks'?'active':''}" data-nav="tasks"><i class="fa-solid fa-check-double"></i><span class="nlbl">المهام</span></button></li>
@@ -797,6 +813,7 @@ async function doLogout(){
 /* ════════ التنقل بين الشاشات (Navigation) ════════ */
 const VIEW_META = {
   dash:                 { la:"Dashboard",        lbl:"الرئيسية",             fn:renderDash },
+  announcements:        { la:"Work",             lbl:"التعميمات",            fn:renderAnnouncements },
   profile:              { la:"Profile",          lbl:"الملف الشخصي",         fn:renderProfile },
   leaves:               { la:"My Leaves",        lbl:"إجازاتي",               fn:renderMyLeaves },
   emp_leaves:           { la:"Employee Leaves",  lbl:"إجازات الموظفين",      fn:renderEmpLeavesHR },
@@ -839,11 +856,13 @@ function performNavigate(view){
 
 // تصدير دوال الواجهة الأساسية للاستخدام العام
 if (typeof window !== "undefined") {
+  window.State = State;
   window.navigate = navigate;
   window.openModal = openModal;
   window.closeModal = closeModal;
   window.toast = toast;
   window.openConfirmModal = openConfirmModal;
+  window.showActionSuccess = showActionSuccess;
 }
 
 // ربط النقر بمسار التنقل (Breadcrumbs) للرجوع للأدوات العامة
@@ -1032,7 +1051,8 @@ function renderDash(el){
   const hasLeaves = recentLeaves.length > 0;
 
   const roleLabel = ROLES[u.role]?.label || u.role;
-  const todayStr = new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const nowStr = new Date();
+  const todayStr = `${nowStr.getFullYear()}/${String(nowStr.getMonth() + 1).padStart(2, "0")}/${String(nowStr.getDate()).padStart(2, "0")}`;
 
   let sectionsHtml = "";
 
@@ -1229,7 +1249,7 @@ function renderProfile(el){
             </p>
           </div>
         </div>
-        <button class="btn btn-secondary btn-sm" id="btnViewLeaveDetails" style="border: 1px solid rgba(217, 119, 6, 0.2); background: var(--bg-paper); color: rgb(217, 119, 6); font-size: 12px; border-radius: var(--r-pill); padding: 6px 16px; transition: all 0.2s;"><i class="fa-solid fa-eye"></i> عرض طلب الإجازة</button>
+        <button class="profile-leave-btn" id="btnViewLeaveDetails"><i class="fa-solid fa-eye"></i> عرض طلب الإجازة</button>
       </div>
     `;
   }
@@ -4022,16 +4042,11 @@ function renderMyNotes(el) {
   // تصفية حسب المستخدم (المستخدم يرى مهامه الشخصية فقط لخصوصية القسم)
   list = list.filter(t => t.userId === State.user.uid);
 
-  // تصفية حسب الحالة (مفعلة دائماً في اللوحة والقائمة)
-  if (State.myNotesFilterStatus !== "all") {
-    list = list.filter(t => t.status === State.myNotesFilterStatus);
-  }
-
   // الفرز الافتراضي (الأحدث إنشاءً أولاً)
   list.sort((a, b) => tsToDate(b.createdAt) - tsToDate(a.createdAt));
 
   el.innerHTML = `
-    ${pageHead("My Notes", "ملاحظاتي", "مساحة المهام", "والملاحظات", "نظّم مهامك الشخصية وسجل ملاحظاتك اليومية وسير أعمالك بكل سرية تامة.")}
+    ${pageHead("My Notes", "ملاحظاتي", "مساحة المهام", "والملاحظات", "سجل ونظم ملاحظاتك ومهامك اليومية وسير أعمالك بكل ترتيب.")}
 
     <div class="toolbar" style="margin-bottom:24px;gap:12px;display:flex;align-items:center;flex-wrap:wrap">
       <!-- زر تبديل طريقة العرض -->
@@ -4044,20 +4059,10 @@ function renderMyNotes(el) {
         </button>
       </div>
 
-      <!-- الفلتر الوحيد: الحالة -->
-      <div class="form-group" style="min-width:140px">
-        <select class="input" id="noteFilterStatus" style="padding:6px 12px;font-size:12.5px;border-radius:var(--r-sm)">
-          <option value="all" ${State.myNotesFilterStatus === "all" ? "selected" : ""}>كل الحالات</option>
-          <option value="new" ${State.myNotesFilterStatus === "new" ? "selected" : ""}>قيد الانتظار</option>
-          <option value="in_progress" ${State.myNotesFilterStatus === "in_progress" ? "selected" : ""}>قيد التنفيذ</option>
-          <option value="completed" ${State.myNotesFilterStatus === "completed" ? "selected" : ""}>مكتملة</option>
-        </select>
-      </div>
-
       <div class="spacer"></div>
       
-      <!-- زر إضافة مهمة -->
-      <button class="btn btn-primary" id="newNoteBtn" style="border-radius:var(--r-sm);padding:8px 16px"><i class="fa-solid fa-plus"></i> مهمة شخصية جديدة</button>
+      <!-- زر إضافة ملاحظة -->
+      <button class="btn btn-primary" id="newNoteBtn" style="border-radius:var(--r-sm);padding:8px 16px"><i class="fa-solid fa-plus"></i> ملاحظة جديدة</button>
     </div>
 
     <!-- مساحة عرض البيانات -->
@@ -4073,11 +4078,6 @@ function renderMyNotes(el) {
   });
   $("#viewModeList").addEventListener("click", () => {
     State.myNotesViewMode = "list";
-    renderMyNotes(el);
-  });
-
-  $("#noteFilterStatus").addEventListener("change", (e) => {
-    State.myNotesFilterStatus = e.target.value;
     renderMyNotes(el);
   });
 
@@ -4866,16 +4866,64 @@ async function renderSettings(el){
 /* ════════════════ 9. الملفات (Files) ════════════════ */
 
 /* ════════ مساعدة النافذة والشريط ════════ */
+function openSidebar(){
+  const sb = $("#sidebar");
+  const sc = $("#scrim");
+  if(sb) sb.classList.add("open");
+  if(sc) sc.classList.add("show");
+  document.body.classList.add("sidebar-menu-open");
+}
+
 function closeSidebar(){
   const sb = $("#sidebar");
   if(sb) sb.classList.remove("open");
   const sc = $("#scrim");
   if(sc) sc.classList.remove("show");
+  document.body.classList.remove("sidebar-menu-open");
 }
 
-$("#menuToggle").addEventListener("click", ()=>{
-  $("#sidebar").classList.add("open");
-  $("#scrim").classList.add("show");
+const menuToggleBtn = $("#menuToggle");
+if(menuToggleBtn){
+  menuToggleBtn.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    const sb = $("#sidebar");
+    if(sb){
+      const isOpen = sb.classList.contains("open");
+      if(isOpen){
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
+    }
+  });
+}
+
+const scrimElement = $("#scrim");
+if(scrimElement){
+  scrimElement.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeSidebar();
+  });
+  scrimElement.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    closeSidebar();
+  }, { passive: false });
+
+  // منع سحب وحركة الصفحة الخلفية عند اللمس على الشفافية
+  scrimElement.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+  }, { passive: false });
+}
+
+// إغلاق القائمة الجانبية فورياً عند الضغط أو اللمس خارج القائمة على الجوال والديسكتب
+document.addEventListener("pointerdown", (e) => {
+  const sb = $("#sidebar");
+  if (!sb || !sb.classList.contains("open")) return;
+  const isInsideSidebar = sb.contains(e.target);
+  const isMenuToggle = $("#menuToggle")?.contains(e.target);
+  if (!isInsideSidebar && !isMenuToggle) {
+    closeSidebar();
+  }
 });
 
 if($("#bellBtn")){
@@ -4883,7 +4931,109 @@ if($("#bellBtn")){
 }
 
 function renderNotifPanel(){}
-function handleDeepLinkHash(){}
+
+/* ════════════════ المعالجة المباشرة للإشعارات والتنقّل العميق ════════════════ */
+async function handleDeepLinkTarget(link, refId) {
+  if (!link) return;
+  let targetView = link;
+  if (link === "feedback") targetView = "suggestions";
+
+  if (VIEW_META[targetView]) {
+    navigate(targetView);
+  }
+
+  if (!refId) return;
+
+  if (targetView === "announcements") {
+    setTimeout(async () => {
+      let item = window.announcementsCache?.find(a => a.id === refId);
+      if (!item) {
+        const currentUser = window.State?.user;
+        const list = await S.listAnnouncements(currentUser);
+        item = list?.find(a => a.id === refId);
+      }
+      if (item && typeof openAnnouncementDetailsModal === "function") {
+        openAnnouncementDetailsModal(item);
+      }
+    }, 450);
+  } else if (targetView === "suggestions") {
+    setTimeout(() => {
+      const card = document.querySelector(`[data-suggestion-id="${refId}"]`) || document.getElementById(`suggestion_${refId}`);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.style.outline = "2px solid var(--gold-deep)";
+        card.style.outlineOffset = "2px";
+        setTimeout(() => { card.style.outline = "none"; }, 3500);
+      }
+    }, 500);
+  }
+}
+
+function checkUrlHashDeepLink() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return false;
+  const parts = hash.split(":");
+  const link = parts[0];
+  const refId = parts[1] || "";
+  if (link && (VIEW_META[link] || link === "feedback")) {
+    handleDeepLinkTarget(link, refId);
+    return true;
+  }
+  return false;
+}
+
+if (typeof S !== "undefined" && S.onSwMessage) {
+  S.onSwMessage((data) => {
+    if (data && data.kind === "notification-click") {
+      handleDeepLinkTarget(data.link, data.refId);
+    }
+  });
+}
+
+window.addEventListener("hashchange", () => {
+  checkUrlHashDeepLink();
+});
+
+/* ════════ طلب إذن الإشعارات الهادئ والأنيق ════════ */
+function checkAndShowNotificationBanner() {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission !== "default") return;
+  if (localStorage.getItem("erth_notif_banner_dismissed") === "true") return;
+
+  const main = document.querySelector(".main");
+  if (!main || document.getElementById("notifPermissionBanner")) return;
+
+  const banner = document.createElement("div");
+  banner.id = "notifPermissionBanner";
+  banner.style.cssText = "background:var(--bg-paper);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--ink);box-shadow:var(--shadow-card);flex-wrap:wrap;";
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <i class="fa-solid fa-bell" style="color:var(--gold-deep);font-size:18px;"></i>
+      <span>فعّل الإشعارات ليصلك الجديد من التعميمات والمهام والتنبيهات المهمة.</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button id="btnAllowNotifBanner" class="btn btn-primary btn-sm" style="padding:6px 14px;font-size:12px;border-radius:var(--r-sm);">تفعيل الإشعارات</button>
+      <button id="btnDismissNotifBanner" class="btn btn-secondary btn-sm" style="padding:6px 12px;font-size:11.5px;border-radius:var(--r-sm);">لاحقاً</button>
+    </div>
+  `;
+
+  main.insertBefore(banner, main.firstChild);
+
+  banner.querySelector("#btnAllowNotifBanner").addEventListener("click", async () => {
+    const user = window.State?.user;
+    if (user) {
+      await S.initMessaging(user.uid);
+    } else {
+      await Notification.requestPermission();
+    }
+    banner.remove();
+  });
+
+  banner.querySelector("#btnDismissNotifBanner").addEventListener("click", () => {
+    localStorage.setItem("erth_notif_banner_dismissed", "true");
+    banner.remove();
+  });
+}
 
 /* ════════════════ أدوات عامة (General Tools Hub) ════════════════ */
 const GENERAL_TOOLS = [

@@ -149,6 +149,22 @@ service cloud.firestore {
       allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isExec());
     }
 
+    // ── التعميمات والإعلانات الداخلية (portal_announcements) ──
+    match /portal_announcements/{id} {
+      // قراءة وثائق التعميمات المتاحة للمستخدمين المسجلين (التصفية بحسب المستهدفين تتم في العميل)
+      allow read: if signedIn();
+      allow create: if isExec() || isTechAdmin();
+      allow update: if isExec() || isTechAdmin();
+      allow delete: if isExec() || isTechAdmin();
+
+      // سجل المشاهدات (views) — محمي أمنياً: المدير يقرأ جميع المشاهدات، والموظف يقرأ ويسجل وثيقة مشاهدته الشخصية فقط
+      match /views/{uid} {
+        allow read: if isExec() || isTechAdmin() || (signedIn() && request.auth.uid == uid);
+        allow create, update: if signedIn() && request.auth.uid == uid;
+        allow delete: if isExec() || isTechAdmin();
+      }
+    }
+
     // ════════════════ الموقع العام (زوار بلا مصادقة) ════════════════
 
     match /volunteers/{id} {

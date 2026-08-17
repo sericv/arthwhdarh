@@ -470,13 +470,14 @@ export async function listTasks(user){
 /* ═══════════════ الإشعارات ═══════════════ */
 export async function pushNotification(n){
   const ref = await addDoc(collection(db, COL.notifications), {
-    userId: n.userId,            // uid أو رمز إدارة ("dept:finance")
+    userId: n.userId,            // uid أو رمز إدارة ("dept:finance" / "dept:all")
+    excludeUid: n.excludeUid || "", // استثناء صاحب العمل من الدفع
     type:   n.type,
     pref:   NOTIF_TYPE[n.type]?.pref || "system",  // مجموعة التفضيل
     title:  n.title,
     body:   n.body || "",
-    link:   n.link || "",        // وجهة التنقّل: "tasks" | "files" | "notifs"
-    refId:  n.refId || "",       // مُعرّف المهمة/الملف للوصول المباشر
+    link:   n.link || "",        // وجهة التنقّل: "announcements" | "feedback" | "tasks" | "files"
+    refId:  n.refId || "",       // مُعرّف التعميم/الشكوى/المهمة
     read:   false,
     createdAt: serverTimestamp()
   });
@@ -1262,6 +1263,27 @@ export async function createSuggestion(data) {
     isRead:         false,
     createdAt:      serverTimestamp()
   });
+
+  // إرسال إشعار دفع فوري للمستقبل المحدد
+  try {
+    const isComplaint = data.type === "complaint";
+    const notifTitle = isComplaint ? "شكوى جديدة" : "اقتراح جديد";
+    const notifBody = isComplaint ? "لديك شكوى جديدة بانتظار المراجعة" : "لديك اقتراح جديد بانتظار المراجعة";
+
+    if (data.recipientId) {
+      await pushNotification({
+        userId: data.recipientId,
+        title: notifTitle,
+        body: notifBody,
+        type: "feedback",
+        link: "suggestions",
+        refId: docRef.id
+      });
+    }
+  } catch (err) {
+    console.warn("Failed to send suggestion/complaint push notification:", err);
+  }
+
   return docRef.id;
 }
 
@@ -1339,3 +1361,223 @@ export function getTaskAttachmentDownloadUrl(url, itemObj) {
   }
   return getCloudinaryDownloadUrl(url);
 }
+
+/* ═══════════════ 16. التعميمات والإعلانات الداخلية ═══════════════ */
+
+export async function uploadAnnouncementAttachment(params, file, onProgress, onStatus) {
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { getFunctions, connectFunctionsEmulator, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+  const functions = getFunctions(app);
+
+  if (isLocal && !functionsEmulatorConnected) {
+    try {
+      connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+      functionsEmulatorConnected = true;
+      console.log("%c[Announcement Attachment] Using Functions Emulator", "color:#b88e36;font-weight:bold");
+    } catch (e) {
+      functionsEmulatorConnected = true;
+    }
+  }
+
+  try {
+    const uploadFn = httpsCallable(functions, "uploadAnnouncementAttachmentToSharePoint");
+    const res = await uploadFn({
+      announcementId: params.announcementId,
+      fileName: file.name,
+      fileBase64: fileBase64,
+      mimeType: file.type
+    });
+
+    console.log("[Announcement Attachment] SharePoint upload success:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("[Announcement Attachment] SharePoint upload error:", err);
+    if (isLocal) {
+      throw new Error(`فشل رفع مرفق التعميم محلياً: ${err.message || err}`);
+    }
+    console.warn("[Announcement Attachment] Backend upload failed, falling back to Cloudinary:", err);
+    const url = await uploadToCloudinary(file, onProgress, onStatus);
+    return {
+      provider: "cloudinary",
+      name: file.name,
+      url: url,
+      downloadUrl: getCloudinaryDownloadUrl(url),
+      updatedAt: new Date().toISOString()
+    };
+  }
+}
+
+export function getAnnouncementAttachmentPreviewUrl(url, itemObj) {
+  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint")) {
+    return itemObj.url || itemObj.webUrl || url || "#";
+  }
+  return url || "#";
+}
+
+export function getAnnouncementAttachmentDownloadUrl(url, itemObj) {
+  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint")) {
+    return itemObj.downloadUrl || itemObj.url || itemObj.webUrl || url || "#";
+  }
+  return getCloudinaryDownloadUrl(url);
+}
+
+export async function listAnnouncements(currentUser) {
+  try {
+    const q = query(collection(db, COL.announcements), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const isAuthorized = currentUser && (
+      currentUser.role === "executive" ||
+      currentUser.role === "hr" ||
+      currentUser.isTechAdmin === true ||
+      currentUser.role === "tech_admin"
+    );
+
+    if (isAuthorized) return list;
+
+    // تصفية التعميمات للموظف العادي: يرى الموجه للكل أو الموجه له شخصياً
+    return list.filter(item => {
+      if (item.targetAudience === "all") return true;
+      if (Array.isArray(item.targetUids) && item.targetUids.includes(currentUser?.uid)) return true;
+      return false;
+    });
+  } catch (e) {
+    console.warn("listAnnouncements error:", e);
+    return [];
+  }
+}
+
+export async function createAnnouncement(data, currentUser) {
+  const docRef = await addDoc(collection(db, COL.announcements), {
+    title: data.title,
+    content: data.content,
+    type: data.type || "general",
+    targetAudience: data.targetAudience || "all", // "all" | "specific"
+    targetUids: data.targetUids || [],
+    attachment: data.attachment || null,
+    createdById: currentUser.uid,
+    createdByName: currentUser.name || "الإدارة",
+    createdAt: serverTimestamp(),
+    createdAtIso: new Date().toISOString()
+  });
+
+  // إرسال إشعارات فورية للمستهدفين
+  try {
+    const notifTitle = "تعميم جديد";
+    const notifBody = `وصل تعميم جديد من المدير التنفيذي\n"${data.title}"`;
+
+    if (data.targetAudience === "all") {
+      await pushNotification({
+        userId: "dept:all",
+        excludeUid: currentUser?.uid || "",
+        title: notifTitle,
+        body: notifBody,
+        type: "announcement",
+        link: "announcements",
+        refId: docRef.id
+      });
+    } else if (Array.isArray(data.targetUids)) {
+      for (const targetUid of data.targetUids) {
+        await pushNotification({
+          userId: targetUid,
+          title: notifTitle,
+          body: notifBody,
+          type: "announcement",
+          link: "announcements",
+          refId: docRef.id
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to create announcement notifications:", err);
+  }
+
+  return docRef.id;
+}
+
+export async function deleteAnnouncement(announcementId) {
+  const ref = doc(db, COL.announcements, announcementId);
+  await deleteDoc(ref);
+}
+
+const viewedAnnouncementsCache = new Set();
+
+export async function recordAnnouncementView(announcementId, currentUser) {
+  if (!announcementId || !currentUser || !currentUser.uid) return;
+  const cacheKey = `${announcementId}_${currentUser.uid}`;
+
+  // 1. فحص حامي التكرار السريع في الذاكرة
+  if (viewedAnnouncementsCache.has(cacheKey)) {
+    return;
+  }
+
+  try {
+    const viewRef = doc(db, COL.announcements, announcementId, "views", currentUser.uid);
+
+    // 2. فحص المستند في Firestore: إذا تم تسجيل المشاهدة الأولى سابقاً لا تُعدل ولا تُحدث اطلاقاً
+    const snap = await getDoc(viewRef);
+    if (snap.exists()) {
+      viewedAnnouncementsCache.add(cacheKey);
+      return;
+    }
+
+    // 3. تسكيل المشاهدة الأولى فقط بحسب أول وقت فتح للتعميم
+    await setDoc(viewRef, {
+      announcementId: announcementId,
+      employeeUid: currentUser.uid,
+      employeeName: currentUser.name || "موظف",
+      department: currentUser.department || "",
+      viewedAt: new Date().toISOString(),
+      firstViewedTimestamp: serverTimestamp()
+    });
+
+    viewedAnnouncementsCache.add(cacheKey);
+    console.log(`[Announcement View] First view recorded for user ${currentUser.uid}`);
+  } catch (err) {
+    console.warn("recordAnnouncementView error (may be protected or offline):", err);
+  }
+}
+
+export async function listAnnouncementViews(announcementId) {
+  if (!announcementId) return [];
+  try {
+    const viewsRef = collection(db, COL.announcements, announcementId, "views");
+    const snap = await getDocs(viewsRef);
+    const rawList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // 1. ضمان حظر التكرار في العرض وإظهار كل موظف مرة واحدة فقط بوقت أول مشاهدة
+    const uniqueMap = new Map();
+    for (const item of rawList) {
+      const empId = item.employeeUid || item.id;
+      if (!uniqueMap.has(empId)) {
+        uniqueMap.set(empId, item);
+      } else {
+        // في حال وجود سجلات قديمة مكررة، الاحتفاظ بالوقت الأقدم (أول مشاهدة)
+        const existing = uniqueMap.get(empId);
+        const existingTime = new Date(existing.viewedAt || 0).getTime();
+        const currentTime = new Date(item.viewedAt || 0).getTime();
+        if (currentTime < existingTime) {
+          uniqueMap.set(empId, item);
+        }
+      }
+    }
+
+    const uniqueList = Array.from(uniqueMap.values());
+    // 2. عرض المشاهدات مرتبة
+    return uniqueList.sort((a, b) => new Date(b.viewedAt || 0) - new Date(a.viewedAt || 0));
+  } catch (err) {
+    console.error("listAnnouncementViews error:", err);
+    return [];
+  }
+}
+

@@ -53,19 +53,31 @@ const COL = {
 const ICON = "/assets/الشعار/الشعار.png";
 
 /* حلّ المستهدفين: uid مباشر أو "dept:CODE" لكل أفراد إدارة */
-async function resolveUids(userId){
+async function resolveUids(userId, excludeUid){
   if(!userId) return [];
+  let uids = [];
   if(userId.startsWith("dept:")){
     const dept = userId.slice(5);
-    // الإدارة التنفيذية ترى الكل؛ غيرها حسب الدور
-    const snap = await db.collection(COL.users)
-      .where("role", "in", dept === "executive"
-        ? ["executive"]
-        : [dept, "executive"])  // التنفيذي يستقبل أيضاً إشعارات الإدارات
-      .get();
-    return snap.docs.map(d => d.id);
+    if(dept === "all") {
+      // إشعار موجه للجميع: جلب كافة حسابات الموظفين
+      const snap = await db.collection(COL.users).get();
+      uids = snap.docs.map(d => d.id);
+    } else {
+      const snap = await db.collection(COL.users)
+        .where("role", "in", dept === "executive"
+          ? ["executive"]
+          : [dept, "executive"])
+        .get();
+      uids = snap.docs.map(d => d.id);
+    }
+  } else {
+    uids = [userId];
   }
-  return [userId];
+
+  if(excludeUid) {
+    uids = uids.filter(u => u !== excludeUid);
+  }
+  return uids;
 }
 
 /* جلب رموز FCM لمجموعة مستخدمين */
@@ -96,7 +108,7 @@ exports.sendPushOnNotification = onDocumentCreated(
     const n = event.data?.data();
     if(!n) return;
 
-    const uids = await resolveUids(n.userId);
+    const uids = await resolveUids(n.userId, n.excludeUid);
     if(!uids.length){ console.log("no target uids for", n.userId); return; }
 
     // ترشيح حسب التفضيلات
@@ -108,6 +120,8 @@ exports.sendPushOnNotification = onDocumentCreated(
 
     const tokenDocs = await tokensForUids(allowed);
     if(!tokenDocs.length){ console.log("no tokens for recipients"); return; }
+
+    const deepLinkUrl = `/portal/#${n.link || "notifs"}${n.refId ? ":" + n.refId : ""}`;
 
     const message = {
       notification: { title: n.title || "إرث وحضارة", body: n.body || "" },
@@ -121,7 +135,7 @@ exports.sendPushOnNotification = onDocumentCreated(
       },
       webpush: {
         notification: { icon: ICON, badge: ICON, dir: "rtl", lang: "ar" },
-        fcmOptions: { link: "/portal/" }
+        fcmOptions: { link: deepLinkUrl }
       },
       android: { priority: "high" },
       apns: { payload: { aps: { sound: "default" } } }
@@ -419,5 +433,101 @@ exports.uploadTaskAttachmentToSharePoint = onCall({ cors: true }, async (request
   };
 
   console.log(`[SP Task Upload Success] File "${fileName}" stored in ${relativePath}`);
+  return attachmentObj;
+});
+
+/* ════════ رفع مرفقات التعميمات إلى Microsoft SharePoint ════════ */
+exports.uploadAnnouncementAttachmentToSharePoint = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "يجب تسجيل الدخول أولاً للوصول إلى الخدمة");
+  }
+
+  const {
+    announcementId,
+    fileName,
+    fileBase64,
+    mimeType
+  } = request.data || {};
+
+  if (!fileName || !fileBase64) {
+    throw new HttpsError("invalid-argument", "بيانات رفع مرفق التعميم غير مكتملة");
+  }
+
+  const tenantId = process.env.MICROSOFT_TENANT_ID || "5380057d-dc58-45d5-8ae2-230b3ef6a2ef";
+  const clientId = process.env.MICROSOFT_CLIENT_ID || "e92632b0-43b5-40a0-a2e7-b3130aca7c35";
+  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
+  const driveId = process.env.MICROSOFT_DRIVE_ID || "b!vag-u0AS6keay7P1gHkP54gtpOO87ZdFmdHyFfCVxqyBUJAhWFk3TrtY3uYtcmis";
+
+  if (!clientSecret) {
+    throw new HttpsError("failed-precondition", "مفتاح MICROSOFT_CLIENT_SECRET غير مضبوط");
+  }
+
+  // 1. OAuth App-Only Token
+  const tokenParams = new URLSearchParams({
+    client_id: clientId,
+    scope: "https://graph.microsoft.com/.default",
+    client_secret: clientSecret,
+    grant_type: "client_credentials"
+  });
+
+  const tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: tokenParams.toString()
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    console.error("[SharePoint Announcement OAuth Error]:", errText);
+    throw new HttpsError("internal", "فشل الحصول على رمز الوصول من Microsoft Graph");
+  }
+
+  const tokenData = await tokenRes.json();
+  const accessToken = tokenData.access_token;
+
+  // 2. المسار في SharePoint:
+  // مكتبة ملفات بوابة الموظفين / التعميمات / {announcementId} / {fileName}
+  const effectiveAnnouncementId = announcementId || `ann_${Date.now()}`;
+  const relativePath = `التعميمات/${effectiveAnnouncementId}`;
+
+  const encodedFileName = encodeURIComponent(fileName);
+  const fileBuffer = Buffer.from(fileBase64, "base64");
+  const fullPath = `${relativePath}/${encodedFileName}`;
+  const uploadUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${fullPath}:/content`;
+
+  console.log(`[SP Announcement Upload] Target Path: ${relativePath}/${fileName}`);
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": mimeType || "application/octet-stream"
+    },
+    body: fileBuffer
+  });
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text();
+    const safeMsg = errText.replace(new RegExp(accessToken, 'g'), '[TOKEN_REDACTED]');
+    console.error(`[SP Announcement Upload Error ${uploadRes.status}]:`, safeMsg);
+    throw new HttpsError("internal", `فشل رفع مرفق التعميم إلى SharePoint (HTTP ${uploadRes.status}): ${safeMsg}`);
+  }
+
+  const item = await uploadRes.json();
+
+  const attachmentObj = {
+    provider: "sharepoint",
+    name: fileName,
+    url: item.webUrl || "https://arthwhdarh.sharepoint.com/DocLib",
+    downloadUrl: item["@microsoft.graph.downloadUrl"] || item.webUrl || "https://arthwhdarh.sharepoint.com/DocLib",
+    driveItemId: item.id,
+    driveId: driveId,
+    sharePointPath: `${relativePath}/${fileName}`,
+    mimeType: mimeType || item.file?.mimeType || "",
+    size: item.size || 0,
+    updatedAt: new Date().toISOString()
+  };
+
+  console.log(`[SP Announcement Upload Success] File "${fileName}" stored in ${relativePath}`);
   return attachmentObj;
 });
