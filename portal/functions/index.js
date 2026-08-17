@@ -107,31 +107,31 @@ exports.sendPushOnNotification = onDocumentCreated(
   async (event) => {
     const n = event.data?.data();
     if(!n) return;
-    if(n.pushed === true || n.pushedAt){
-      console.log(`[IOS PUSH TEST] Notification ${event.params.id} already pushed, skipping Cloud Function duplicate.`);
-      return;
-    }
+
+    console.log(`[Push Trace] Notification created: ${event.params.id}`);
+    console.log(`[Push Trace] Function triggered`);
 
     const uids = await resolveUids(n.userId, n.excludeUid);
-    if(!uids.length){ console.log("no target uids for", n.userId); return; }
+    if(!uids.length){
+      console.log(`[Push Trace] Target UIDs: 0`);
+      return;
+    }
 
     // ترشيح حسب التفضيلات
     const allowed = [];
     for(const uid of uids){
       if(await prefAllows(uid, n.pref)) allowed.push(uid);
     }
-    if(!allowed.length){ console.log("all recipients opted out of", n.pref); return; }
+    console.log(`[Push Trace] Target UIDs: ${allowed.length}`);
+    if(!allowed.length){ return; }
 
     const tokenDocs = await tokensForUids(allowed);
-    if(!tokenDocs.length){ console.log("no tokens for recipients"); return; }
+    console.log(`[Push Trace] Tokens found: ${tokenDocs.length}`);
+    if(!tokenDocs.length){ return; }
 
     const titleText = String(n.title || "إرث وحضارة");
     const bodyText = String(n.body || "");
     const deepLinkUrl = `/portal/#${n.link || "notifs"}${n.refId ? ":" + n.refId : ""}`;
-
-    console.log(`[IOS PUSH TEST] Notification created: id=${event.params.id}, type=${n.type || "general"}, link=${n.link || "notifs"}`);
-    console.log(`[IOS PUSH TEST] Cloud Function target: ${allowed.join(", ")} (count: ${allowed.length})`);
-    console.log(`[IOS PUSH TEST] FCM token count: ${tokenDocs.length}`);
 
     const message = {
       notification: {
@@ -179,8 +179,12 @@ exports.sendPushOnNotification = onDocumentCreated(
       }
     };
 
+    console.log(`[Push Trace] Sending FCM...`);
     const tokens = tokenDocs.map(t => t.token);
     const resp = await messaging.sendEachForMulticast({ ...message, tokens });
+
+    console.log(`[Push Trace] FCM success: ${resp.successCount}`);
+    console.log(`[Push Trace] FCM failure: ${resp.failureCount}`);
 
     // تنظيف الرموز غير الصالحة تلقائياً
     const toDelete = [];
@@ -194,18 +198,12 @@ exports.sendPushOnNotification = onDocumentCreated(
         }
       }
     });
-    await Promise.all(toDelete.map(t =>
-      db.collection(COL.tokens).doc(t).delete().catch(()=>{})
-    ));
-
-    // وسم الإشعار كمُرسل لمنع التكرار
-    await event.data.ref.update({
-      pushed: true,
-      pushedAt: new Date().toISOString(),
-      pushedBy: "firebase-functions"
-    }).catch(()=>{});
-
-    console.log(`[IOS PUSH TEST] FCM send result: ${resp.successCount}/${tokens.length} ok, ${toDelete.length} invalid tokens removed`);
+    if(toDelete.length > 0){
+      await Promise.all(toDelete.map(t =>
+        db.collection(COL.tokens).doc(t).delete().catch(()=>{})
+      ));
+      console.log(`[Push Trace] Cleaned ${toDelete.length} invalid tokens`);
+    }
   }
 );
 

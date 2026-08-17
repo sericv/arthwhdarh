@@ -486,21 +486,10 @@ export async function pushNotification(n){
   return ref.id;
 }
 
-/* نداء غير حاجب للـ Worker لإرسال دفع FCM. صامت تماماً عند غياب
-   الإعداد أو فشل الشبكة — الإشعار داخل التطبيق يبقى مصدر الحقيقة. */
+/* نداء غير حاجب للـ Worker — معطّل لعزل المسار واختبار Firebase Cloud Function وحدها */
 function triggerPush(notifId){
-  if(!PUSH_ENDPOINT) return;            // غير مُعدّ بعد ⇒ تجاهل بصمت
-  try{
-    fetch(PUSH_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notifId }),
-      keepalive: true                   // يُكمل الإرسال حتى لو أُغلق التبويب
-    }).then(r => {
-      if(!r.ok) console.warn("[Push] worker responded", r.status);
-      else console.log("[Push] worker triggered for", notifId);
-    }).catch(e => console.warn("[Push] worker call failed:", e?.message || e));
-  }catch(e){ console.warn("[Push] trigger error:", e); }
+  // معطّل لاختبار Firebase Cloud Function الحصرية
+  return;
 }
 
 /* بثّ إشعار لكل أفراد إدارة */
@@ -911,6 +900,21 @@ export async function showLocalNotification(title, body, opts = {}){
     WARN("showLocalNotification failed:", e);
     return false;
   }
+}
+
+/* دالة تشخيص واختبار Push مباشر لمستخدم واحد عبر Console دون التأثير على الواجهة */
+export async function testDirectPush(targetUid){
+  console.log(`[Push Trace] testDirectPush starting for target: ${targetUid}`);
+  const notifId = await pushNotification({
+    userId: targetUid,
+    title: "اختبار إشعار مباشر",
+    body: "تم استلام إشعار الدفع التجريبي من Firebase Function بنجاح ✓",
+    type: "system_alert",
+    link: "notifs",
+    refId: "test-" + Date.now()
+  });
+  console.log(`[Push Trace] testDirectPush created notification doc: ${notifId}`);
+  return notifId;
 }
 
 /* استماع لرسائل FCM في المقدمة (التبويب مفتوح) */
