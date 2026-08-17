@@ -121,24 +121,58 @@ exports.sendPushOnNotification = onDocumentCreated(
     const tokenDocs = await tokensForUids(allowed);
     if(!tokenDocs.length){ console.log("no tokens for recipients"); return; }
 
+    const titleText = String(n.title || "إرث وحضارة");
+    const bodyText = String(n.body || "");
     const deepLinkUrl = `/portal/#${n.link || "notifs"}${n.refId ? ":" + n.refId : ""}`;
 
+    console.log(`[Push Debug] Notification created: id=${event.params.id}, type=${n.type || "general"}, link=${n.link || "notifs"}`);
+    console.log(`[Push Debug] Target UIDs count: ${allowed.length}`);
+    console.log(`[Push Debug] FCM Token docs count: ${tokenDocs.length}`);
+
     const message = {
-      notification: { title: n.title || "إرث وحضارة", body: n.body || "" },
+      notification: {
+        title: titleText,
+        body: bodyText
+      },
       data: {
-        title: String(n.title || ""),
-        body:  String(n.body || ""),
+        title: titleText,
+        body:  bodyText,
         link:  String(n.link || "notifs"),
         refId: String(n.refId || ""),
         notifId: String(event.params.id),
         tag:   String(n.refId || event.params.id)
       },
       webpush: {
-        notification: { icon: ICON, badge: ICON, dir: "rtl", lang: "ar" },
+        notification: {
+          title: titleText,
+          body: bodyText,
+          icon: ICON,
+          badge: ICON,
+          dir: "rtl",
+          lang: "ar"
+        },
+        headers: {
+          Urgency: "high",
+          TTL: "86400"
+        },
         fcmOptions: { link: deepLinkUrl }
       },
       android: { priority: "high" },
-      apns: { payload: { aps: { sound: "default" } } }
+      apns: {
+        headers: {
+          "apns-priority": "10",
+          "apns-push-type": "alert"
+        },
+        payload: {
+          aps: {
+            alert: {
+              title: titleText,
+              body: bodyText
+            },
+            sound: "default"
+          }
+        }
+      }
     };
 
     const tokens = tokenDocs.map(t => t.token);
@@ -160,7 +194,7 @@ exports.sendPushOnNotification = onDocumentCreated(
       db.collection(COL.tokens).doc(t).delete().catch(()=>{})
     ));
 
-    console.log(`push sent: ${resp.successCount}/${tokens.length} ok, ${toDelete.length} invalid removed`);
+    console.log(`[Push Debug] FCM send result: ${resp.successCount}/${tokens.length} ok, ${toDelete.length} invalid tokens removed`);
   }
 );
 

@@ -747,9 +747,67 @@ async function getMessagingLazy(){
    { ok:false, reason:"no-sw" }            ← لا دعم Service Worker
    { ok:false, reason:"error", error }     ← خطأ غير متوقع
 */
+/* تشخيص حالة Web Push التلقائي والآمن */
+export async function logPushDiagnostics(uid){
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
+  const isPWA = Boolean(window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true);
+  const notifPerm = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+  const hasSW = "serviceWorker" in navigator;
+  
+  let swRegistered = false;
+  let swScope = "N/A";
+  if(hasSW){
+    try {
+      const reg = await navigator.serviceWorker.getRegistration(SW_URL).catch(()=>null);
+      if(reg){
+        swRegistered = true;
+        swScope = reg.scope;
+      }
+    } catch(e){}
+  }
+
+  const fcmSupport = await fcmSupported();
+  let tokenExists = false;
+  let pushSubExists = false;
+
+  if(hasSW && fcmSupport && notifPerm === "granted"){
+    try {
+      const reg = await navigator.serviceWorker.getRegistration(SW_URL).catch(()=>null);
+      if(reg){
+        const sub = await reg.pushManager.getSubscription().catch(()=>null);
+        if(sub) pushSubExists = true;
+      }
+      const msg = await getMessagingLazy();
+      if(msg){
+        const token = await getToken(msg, { vapidKey: VAPID_KEY }).catch(()=>null);
+        if(token) tokenExists = true;
+      }
+    } catch(e){}
+  }
+
+  console.log("%c[Push Debug] Platform & Web Push Diagnostics", "color:#9c6e38;font-weight:bold");
+  console.log(`[Push Debug] Platform: ${navigator.platform || "Unknown"}`);
+  console.log(`[Push Debug] iOS: ${isIOS}`);
+  console.log(`[Push Debug] PWA: ${isPWA}`);
+  console.log(`[Push Debug] Notification permission: ${notifPerm}`);
+  console.log(`[Push Debug] Service Worker registered: ${swRegistered}`);
+  console.log(`[Push Debug] Service Worker scope: ${swScope}`);
+  console.log(`[Push Debug] Push supported: ${fcmSupport}`);
+  console.log(`[Push Debug] FCM token exists: ${tokenExists}`);
+  console.log(`[Push Debug] Push subscription exists: ${pushSubExists}`);
+
+  return {
+    isIOS, isPWA, notifPerm, swRegistered, swScope, fcmSupport, tokenExists, pushSubExists
+  };
+}
+
 export async function initMessaging(uid){
   console.log("[iOS Push Debug] S.initMessaging() started, uid:", uid || "—");
   LOG("initMessaging() start · uid =", uid || "—");
+
+  // تشخيص تلقائي آمن
+  setTimeout(() => logPushDiagnostics(uid), 800);
 
   // 0) دعم Notification API الأساسي
   if(!browserNotifSupported()){
