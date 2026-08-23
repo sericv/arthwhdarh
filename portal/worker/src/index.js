@@ -22,29 +22,13 @@ const ICON = "/assets/الشعار/الشعار.png";
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const origin = request.headers.get("Origin") || "";
-
-    // ── 1) إعدادات CORS الإنتاجية المحصورة ──
-    const allowedOrigins = [
-      "https://arthwhdarh.com",
-      "https://www.arthwhdarh.com",
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "http://localhost:5000",
-      "http://127.0.0.1:5000",
-      "http://localhost:5001",
-      "http://127.0.0.1:5001"
-    ];
-    const isAllowed = allowedOrigins.includes(origin);
-    const cors = {
-      "Access-Control-Allow-Origin": isAllowed ? origin : "https://arthwhdarh.com",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Credentials": "true"
-    };
+    const cors = corsHeaders(request);
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: cors });
+      return new Response(null, {
+        status: 204,
+        headers: cors
+      });
     }
 
     if (request.method !== "POST") {
@@ -731,6 +715,35 @@ function b64url(bytes) {
 }
 
 /* ═══════════ 7. مساعدات استجابة HTTP ═══════════ */
+function corsHeaders(request) {
+  const allowedOrigins = [
+    "https://arthwhdarh.com",
+    "https://www.arthwhdarh.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://localhost:5001",
+    "http://127.0.0.1:5001"
+  ];
+  const origin = (request?.headers?.get("Origin") || "").trim();
+  const isAllowed = allowedOrigins.includes(origin);
+  const matchedOrigin = isAllowed ? origin : "https://arthwhdarh.com";
+
+  const requestedHeaders = request?.headers?.get("Access-Control-Request-Headers");
+  const allowHeaders = requestedHeaders
+    ? requestedHeaders
+    : "Content-Type, Authorization, X-Requested-With, Accept, Origin";
+
+  return {
+    "Access-Control-Allow-Origin": matchedOrigin,
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PATCH, DELETE",
+    "Access-Control-Allow-Headers": allowHeaders,
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400"
+  };
+}
+
 function json(obj, status, headers) {
   return new Response(JSON.stringify(obj), {
     status,
