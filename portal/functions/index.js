@@ -665,7 +665,20 @@ function getRiyadhDateAndServerTime(now = new Date()) {
   return { dateStr, year, month, day, formattedTime, timeInMins };
 }
 
-exports.recordAttendance = onCall(sharePointCorsOptions, async (request) => {
+const attendanceCorsOptions = {
+  cors: [
+    "https://arthwhdarh.com",
+    "https://www.arthwhdarh.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://localhost:5001",
+    "http://127.0.0.1:5001"
+  ]
+};
+
+exports.recordAttendance = onCall(attendanceCorsOptions, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "يجب تسجيل الدخول أولاً للوصول إلى الخدمة");
   }
