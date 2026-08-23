@@ -4,7 +4,8 @@
    بوابة الموظفين — جمعية إرث وحضارة بالقريات
    Premium Mobile App Experience (Soft Minimalism / Notion & Linear Inspired)
  ══════════════════════════════════════════════════════════ */
-:root {
+/* ════════════════ THEME TOKENS ════════════════ */
+:root, [data-theme="classic"] {
   --font-base:    'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --bg-app:       #F8F5EE;       /* Warm Sand Beige */
   --bg-paper:     #FFFFFF;       /* Pure Ivory White */
@@ -43,6 +44,77 @@
   
   --shadow-card:  0 4px 20px -4px rgba(31, 26, 21, 0.04), 0 1px 3px rgba(31, 26, 21, 0.02);
   --shadow-lift:  0 12px 36px -8px rgba(31, 26, 21, 0.09);
+}
+
+[data-theme="light"] {
+  --bg-app:       #F9F9F8;       /* Clean Light Gray Tint */
+  --bg-paper:     #FFFFFF;       /* Crisp White */
+  --bg-subtle:    #F3F2EF;       /* Soft Gray Subtitle */
+  --bg-hover:     #EAE8E3;
+  
+  --ink:          #1A1918;       /* Charcoal Text */
+  --ink-soft:     #2D2B29;
+  --ink-mid:      #524F4B;
+  --ink-muted:    #7A7670;
+  --ink-faint:    #B2AEA7;
+  
+  --gold:         #947124;
+  --gold-soft:    #B88E36;
+  --gold-deep:    #785B1B;
+  --gold-pale:    #F5EEE0;
+  
+  --line:         rgba(148, 113, 36, 0.15);
+  --line-soft:    rgba(0, 0, 0, 0.06);
+
+  --shadow-card:  0 4px 18px -4px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-lift:  0 10px 30px -6px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] {
+  --bg-app:       #141210;       /* Dark Charcoal Background */
+  --bg-paper:     #1E1B18;       /* Elevated Warm Dark Surface */
+  --bg-subtle:    #26221E;       /* Soft Dark Surface Tint */
+  --bg-hover:     #312B26;
+  
+  --ink:          #F4ECDC;       /* Warm Ivory Text */
+  --ink-soft:     #E5DBCB;
+  --ink-mid:      #BBAF9E;
+  --ink-muted:    #8F8374;
+  --ink-faint:    #635A4F;
+  
+  --gold:         #D4AF37;       /* Glowing Heritage Gold */
+  --gold-soft:    #E2C258;
+  --gold-deep:    #B88E36;
+  --gold-pale:    #2B2418;
+  
+  --line:         rgba(212, 175, 55, 0.22);
+  --line-soft:    rgba(255, 255, 255, 0.07);
+
+  --shadow-card:  0 4px 20px -4px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lift:  0 14px 40px -6px rgba(0, 0, 0, 0.6);
+}
+
+/* Transitions for Smooth Live Theme Change */
+html, body, #appShell, .card, .sidebar, .header, .modal-card, input, select, textarea, button, table, td, th {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: var(--bg-subtle) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--ink-muted) !important;
+}
+
+[data-theme="dark"] option {
+  background-color: var(--bg-paper) !important;
+  color: var(--ink) !important;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1059,24 +1131,52 @@ img { display: block; max-width: 100%; }
 }
 
 /* Directory Cards */
-.emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; margin-top: 16px; }
+.emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; margin-top: 16px; }
 .emp-card {
-  background: var(--bg-paper); border: 1px solid var(--line);
-  border-radius: var(--r-lg); padding: 20px;
+  background: var(--bg-paper); border: 1px solid rgba(184, 142, 54, 0.22);
+  border-radius: 14px; padding: 22px 18px;
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  transition: all .2s var(--ease); box-shadow: var(--shadow-card);
+  transition: all .25s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 4px 14px rgba(0,0,0,0.02);
+  cursor: pointer; position: relative;
 }
-.emp-card:hover { transform: translateY(-2px); border-color: var(--gold-soft); box-shadow: var(--shadow-lift); }
+.emp-card:hover { transform: translateY(-4px); border-color: rgba(184, 142, 54, 0.5); box-shadow: 0 10px 24px rgba(148, 113, 36, 0.12); }
 .emp-avatar-lg {
-  width: 70px; height: 70px; border-radius: 50%;
-  background: var(--gold-deep); color: #fff;
+  width: 76px; height: 76px; border-radius: 50%;
+  background: #F4ECDC; color: #947124; border: 2.5px solid #947124;
   display: grid; place-items: center; font-size: 24px; font-weight: 800;
-  margin-bottom: 12px; overflow: hidden; flex-shrink: 0;
+  margin-bottom: 14px; overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 10px rgba(148, 113, 36, 0.15);
 }
 .emp-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
 .emp-name { font-size: 16px; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
 .emp-title { font-size: 13px; color: var(--ink-muted); margin-bottom: 12px; }
 .emp-actions { display: flex; gap: 6px; margin-top: 14px; width: 100%; justify-content: center; }
+
+/* Modal Overlay & Responsive Mobile Bottom Sheet */
+.emp-profile-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(31, 26, 21, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+@media (max-width: 640px) {
+  .emp-profile-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .emp-profile-modal-card {
+    border-radius: 24px 24px 0 0 !important;
+    max-height: 88vh !important;
+  }
+}
 
 /* ════════ MOBILE RESPONSIVE PROFILE & LEAVES ════════ */
 @media (max-width: 768px) {
@@ -2438,6 +2538,68 @@ img { display: block; max-width: 100%; }
   margin-top: 14px;
   padding-top: 10px;
   border-top: 1px solid var(--line-soft);
+}
+
+/* ══════════════════════════════════════════════════════════
+   تخصيص لون تحديد النص البني الفاتح الهادئ (Text Selection Highlight)
+ ══════════════════════════════════════════════════════════ */
+::selection {
+  background-color: rgba(184, 142, 54, 0.25) !important;
+  color: inherit !important;
+}
+::-moz-selection {
+  background-color: rgba(184, 142, 54, 0.25) !important;
+  color: inherit !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   مؤشر الهالة اللطيف بجانب مؤشر النظام الطبيعي (Native Cursor Aura Ring)
+   المؤشر الأساسي هو مؤشر النظام الطبيعي 100% دون أي إخفاء (بدون cursor: none)
+ ══════════════════════════════════════════════════════════ */
+@media (hover: hover) and (pointer: fine) {
+  .portal-cursor-ring {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(184, 142, 54, 0.45);
+    background-color: rgba(184, 142, 54, 0.04);
+    pointer-events: none !important;
+    z-index: 999999;
+    opacity: 0;
+    margin-top: -10px;
+    margin-left: -10px;
+    will-change: transform, opacity;
+    transition: opacity 0.25s ease, width 0.2s cubic-bezier(0.16, 1, 0.3, 1), height 0.2s cubic-bezier(0.16, 1, 0.3, 1), margin 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, background-color 0.2s ease;
+  }
+
+  body.cursor-active .portal-cursor-ring {
+    opacity: 1;
+  }
+
+  body.cursor-hover .portal-cursor-ring {
+    width: 28px;
+    height: 28px;
+    margin-top: -14px;
+    margin-left: -14px;
+    border-color: rgba(184, 142, 54, 0.85);
+    background-color: rgba(184, 142, 54, 0.12);
+  }
+
+  body.cursor-down .portal-cursor-ring {
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    margin-left: -7px;
+    border-color: var(--gold-deep, #947124);
+    background-color: rgba(184, 142, 54, 0.25);
+  }
+
+  body.cursor-text-hover .portal-cursor-ring {
+    opacity: 0 !important;
+  }
 }
 
 

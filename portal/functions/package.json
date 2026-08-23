@@ -1,13 +1,16 @@
 {
   "name": "erth-portal-functions",
-  "description": "Cloud Functions لإشعارات الدفع — بوابة إرث وحضارة",
+  "description": "Cloud Functions لإشعارات الدفع وتوليد المستندات — بوابة إرث وحضارة",
   "version": "1.0.0",
-  "engines": { "node": "20" },
+  "engines": {
+    "node": "20"
+  },
   "main": "index.js",
   "dependencies": {
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.0.0",
-    "firebase-functions": "^5.0.0"
+    "firebase-functions": "^5.0.0",
+    "puppeteer": "^22.6.0"
   },
   "private": true
 }

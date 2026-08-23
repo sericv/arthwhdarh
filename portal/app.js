@@ -11,6 +11,11 @@ import * as S from "./services.js?v=5";
 import { renderPdfEditor, checkUnsavedAndLeave } from "./pdf-editor.js";
 import { renderFinancialCalc } from "./financial-calc.js";
 import { renderAnnouncements } from "./announcements.js";
+import { generateMasterDocumentPDF as masterPDFEngine, generatePrintablePDFReport as masterPrintReport, getLoggedUserRoleTitle as getLoggedUserRoleTitleDoc } from "./documents/master-template.js";
+import { generateLeavePdf as generateLeavePdfDoc } from "./documents/leave-letter.js";
+import { generateLeaveRequestPdf as generateLeaveRequestPdfDoc } from "./documents/leave-request.js";
+import { downloadMonthlyAttendancePDF as downloadMonthlyAttendancePDFDoc, getPdfStatusBadge as getPdfStatusBadgeDoc } from "./documents/monthly-attendance.js";
+import { downloadEmployeeAttendancePDF as downloadEmployeeAttendancePDFDoc } from "./documents/employee-attendance.js";
 
 /* ════════ الحالة العامة (State) ════════ */
 const State = {
@@ -114,112 +119,27 @@ function getGregorianDate(ts) {
 }
 
 async function generateLeavePdf(leaveId, btn) {
-  if (btn) {
-    btn.disabled = true;
-    btn.originalHtml = btn.innerHTML;
-    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز الخطاب...`;
-  }
-  
-  try {
-    const leaves = [...(State.empLeaves || []), ...(State.execLeaves || []), ...(State.archiveLeaves || [])];
-    let leave = leaves.find(l => l.id === leaveId);
-    
-    if (!leave) {
-      const docRef = S.doc(S.db, S.COL.leaves, leaveId);
-      const snap = await S.getDoc(docRef);
-      if (snap.exists()) {
-        leave = { id: snap.id, ...snap.data() };
-      }
-    }
-    
-    if (!leave) {
-      throw new Error("لم يتم العثور على سجل الإجازة.");
-    }
-    
-    const typeLabel = LEAVE_TYPES[leave.type]?.label || leave.type;
-    const startDateM = getGregorianDate(leave.startDate);
-    const startDateH = getHijriDate(leave.startDate);
-    const endDateM = getGregorianDate(leave.endDate);
-    const endDateH = getHijriDate(leave.endDate);
-    const todayM = getGregorianDate(new Date());
-    const todayH = getHijriDate(new Date());
-    
-    let execName = "المدير التنفيذي";
-    if (leave.approvedBy) {
-      execName = leave.approvedBy;
-    } else if (leave.statusHistory) {
-      const appStep = leave.statusHistory.find(h => h.status === "approved" || h.action === "approve");
-      if (appStep && appStep.by) execName = appStep.by;
-    }
+  return generateLeavePdfDoc(leaveId, btn, {
+    State,
+    S,
+    LEAVE_TYPES,
+    getGregorianDate,
+    getHijriDate,
+    esc,
+    toast
+  });
+}
 
-    // Fetch the template file
-    const response = await fetch("leave-template.html?v=35");
-    if (!response.ok) {
-      throw new Error("تعذّر تحميل قالب الخطاب (leave-template.html).");
-    }
-    let templateHtml = await response.text();
-
-    // Replace the placeholders with the actual values
-    templateHtml = templateHtml
-      .replace(/\{\{رقم_الطلب\}\}/g, leave.refNo || "—")
-      .replace(/\{\{تاريخ_اليوم_ميلادي\}\}/g, todayM)
-      .replace(/\{\{تاريخ_اليوم_هجري\}\}/g, todayH)
-      .replace(/\{\{اسم_الموظف\}\}/g, leave.userName || "—")
-      .replace(/\{\{المسمى_الوظيفي\}\}/g, leave.userJobTitle || "—")
-      .replace(/\{\{نوع_الإجازة\}\}/g, typeLabel)
-      .replace(/\{\{تاريخ_البداية_ميلادي\}\}/g, startDateM)
-      .replace(/\{\{تاريخ_البداية_هجري\}\}/g, startDateH)
-      .replace(/\{\{تاريخ_النهاية_ميلادي\}\}/g, endDateM)
-      .replace(/\{\{تاريخ_النهاية_هجري\}\}/g, endDateH)
-      .replace(/\{\{عدد_الأيام\}\}/g, leave.daysCount || "—")
-      .replace(/\{\{اسم_المدير_التنفيذي\}\}/g, execName);
-
-    // Create a temporary container styled as a hidden viewport wrapper
-    const wrapper = document.createElement("div");
-    wrapper.id = "docx-render-wrapper";
-    wrapper.style.position = "absolute";
-    wrapper.style.top = "0";
-    wrapper.style.left = "0";
-    wrapper.style.zIndex = "-9999";
-    wrapper.style.width = "100%";
-    wrapper.style.height = "100%";
-    wrapper.style.pointerEvents = "none";
-    wrapper.style.overflow = "hidden";
-
-    wrapper.innerHTML = templateHtml;
-    const pageEl = wrapper.firstElementChild;
-    document.body.appendChild(wrapper);
-
-    // Give the browser 300ms to render layout & resolve fonts
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Log diagnostic metrics to verify render content is greater than 0
-    console.log("[PDF Pre-flight] pageEl offsetHeight:", pageEl.offsetHeight);
-    console.log("[PDF Pre-flight] pageEl offsetWidth:", pageEl.offsetWidth);
-    console.log("[PDF Pre-flight] pageEl rect:", pageEl.getBoundingClientRect());
-
-    const opt = {
-      margin: 0,
-      filename: `خطاب-إجازة-${leave.refNo || leaveId}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    console.log("[PDF Debug] Converting rendered DOM to PDF via html2pdf...");
-    await html2pdf().from(pageEl).set(opt).save();
-    
-    document.body.removeChild(wrapper);
-    toast("تم تحميل الخطاب بصيغة PDF بنجاح.");
-  } catch (error) {
-    console.error(error);
-    toast("فشل توليد الخطاب: " + (error.message || error), "err");
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = btn.originalHtml;
-    }
-  }
+async function generateLeaveRequestPdf(leaveId, btn) {
+  return generateLeaveRequestPdfDoc(leaveId, btn, {
+    State,
+    S,
+    LEAVE_TYPES,
+    getGregorianDate,
+    getHijriDate,
+    esc,
+    toast
+  });
 }
 
 function isTechAdmin(u = State.user){
@@ -414,6 +334,12 @@ S.onAuthStateChanged(S.auth, async (fbUser)=>{
     }
 
     State.user = profile;
+    if (profile.themePreference) {
+      applyTheme(profile.themePreference, false);
+    } else {
+      const localTheme = localStorage.getItem("portal_theme") || "classic";
+      applyTheme(localTheme, false);
+    }
     console.log(`%c[Portal] User profile loaded for UID: ${fbUser.uid}`, "color:#3a5e2e;font-weight:bold");
     await enterApp();
   } catch(err) {
@@ -578,6 +504,22 @@ function startLiveSync(){
       renderSidebar(); // Update sidebar notification dots in real-time
     });
   } catch(e){ console.warn("[Portal] watchSuggestions error:", e); }
+
+  // 6. Watch Today Attendance & Attendance Settings
+  try {
+    State.todayAttendanceUnsub = S.watchAttendanceRecordForToday(u.uid, (record) => {
+      State.todayAttendance = record;
+      triggerViewRefresh("dash");
+    });
+  } catch(e){ console.warn("[Portal] watchAttendanceRecordForToday error:", e); }
+
+  try {
+    State.attendanceSettingsUnsub = S.watchAttendanceSettings((settings) => {
+      State.attendanceSettings = settings;
+      triggerViewRefresh("dash");
+      triggerViewRefresh("settings");
+    });
+  } catch(e){ console.warn("[Portal] watchAttendanceSettings error:", e); }
 }
 
 function stopLiveSync(){
@@ -587,6 +529,8 @@ function stopLiveSync(){
   if(State.empLeavesUnsub){ try { State.empLeavesUnsub(); }catch(e){} State.empLeavesUnsub = null; }
   if(State.suggestionsUnsub){ try { State.suggestionsUnsub(); }catch(e){} State.suggestionsUnsub = null; }
   if(State.notifUnsub){ try { State.notifUnsub(); }catch(e){} State.notifUnsub = null; }
+  if(State.todayAttendanceUnsub){ try { State.todayAttendanceUnsub(); }catch(e){} State.todayAttendanceUnsub = null; }
+  if(State.attendanceSettingsUnsub){ try { State.attendanceSettingsUnsub(); }catch(e){} State.attendanceSettingsUnsub = null; }
 }
 
 function triggerViewRefresh(dataContext){
@@ -729,10 +673,13 @@ function renderSidebar(){
   `;
 
   let mgmtNav = "";
-  if(isHRUser){
+  if(isHRUser || isExecUser || isTechAdmin){
     mgmtNav += `<li><button class="nav-item ${State.view==='emp_leaves'?'active':''}" data-nav="emp_leaves">
       <i class="fa-solid fa-clipboard-user"></i><span class="nlbl">إجازات الموظفين</span>
       <span class="nav-dot ${pendingHRCount > 0 ? 'show' : ''}"></span>
+    </button></li>`;
+    mgmtNav += `<li><button class="nav-item ${State.view==='attendance'?'active':''}" data-nav="attendance">
+      <i class="fa-solid fa-user-clock"></i><span class="nlbl">الحضور والانصراف</span>
     </button></li>`;
   }
   if(isExecUser){
@@ -818,6 +765,7 @@ const VIEW_META = {
   leaves:               { la:"My Leaves",        lbl:"إجازاتي",               fn:renderMyLeaves },
   emp_leaves:           { la:"Employee Leaves",  lbl:"إجازات الموظفين",      fn:renderEmpLeavesHR },
   exec_leaves_approval: { la:"Leave Approvals",  lbl:"اعتماد الإجازات",       fn:renderExecLeavesApproval },
+  attendance:           { la:"HR Management",    lbl:"الحضور والانصراف",      fn:renderAttendance },
   tasks:                { la:"Tasks",            lbl:"المهام",               fn:renderTasks },
   my_notes:             { la:"My Notes",         lbl:"ملاحظاتي",             fn:renderMyNotes },
   members:              { la:"Employees",        lbl:"الموظفون",             fn:renderMembers },
@@ -893,6 +841,318 @@ function emptyState(msg, sub="لا يوجد ما يُعرض حالياً"){
   </div>`;
 }
 
+/* ── دوال مساعدة لبطاقة الحضور والانصراف ── */
+function getFormattedArabicDate() {
+  const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+  const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+  const now = new Date();
+  const dayName = days[now.getDay()];
+  const dayNum = now.getDate();
+  const monthName = months[now.getMonth()];
+  const yearNum = now.getFullYear();
+  return `${dayName}، ${dayNum} ${monthName} ${yearNum}`;
+}
+
+function formatTime12hDisplay(tStr) {
+  if (!tStr) return "";
+  const clean = tStr.trim().toLowerCase();
+  if (clean.includes("ص") || clean.includes("م")) return clean;
+  const parts = clean.split(":");
+  if (parts.length < 2) return clean;
+  let h = parseInt(parts[0], 10);
+  const m = parts[1];
+  if (isNaN(h)) return clean;
+  const isPM = h >= 12;
+  if (h > 12) h -= 12;
+  if (h === 0) h = 12;
+  const period = isPM ? "م" : "ص";
+  return `${String(h).padStart(2, "0")}:${m} ${period}`;
+}
+
+function renderAttendanceCardHtml(u, record, settings) {
+  const dateStr = getFormattedArabicDate();
+  const startDisp = formatTime12hDisplay(settings?.workStartTime || "08:00");
+  const endDisp = formatTime12hDisplay(settings?.workEndTime || "16:00");
+
+  const todayIso = new Date().toISOString().split("T")[0];
+  const hasApprovedLeave = (State.myLeaves || []).some(l => 
+    (l.status === "approved" || l.status === "exec_approved") &&
+    l.startDate && l.endDate && todayIso >= l.startDate && todayIso <= l.endDate
+  );
+
+  let statusBadgeHtml = "";
+  let bodyContentHtml = "";
+
+  if (hasApprovedLeave) {
+    statusBadgeHtml = `
+      <span style="background:rgba(124, 58, 237, 0.12); color:#7c3aed; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+        <i class="fa-solid fa-umbrella-beach"></i> إجازة معتمدة
+      </span>
+    `;
+    bodyContentHtml = `
+      <div style="background:rgba(124, 58, 237, 0.06); border:1px solid rgba(124, 58, 237, 0.2); border-radius:var(--r-md); padding:16px; margin-top:14px; text-align:center;">
+        <div style="font-size:14px; font-weight:800; color:#7c3aed; margin-bottom:4px;">🟣 لديك إجازة معتمدة لهذا اليوم</div>
+        <div style="font-size:12.5px; color:var(--ink-soft);">لا يتطلب منك تسجيل الحضور والانصراف اليوم. نتمنى لك إجازة سعيدة.</div>
+      </div>
+    `;
+  } else if (!record || (!record.checkInTime && record.status !== "present" && record.status !== "late")) {
+    statusBadgeHtml = `
+      <span style="background:rgba(34, 197, 94, 0.12); color:#16a34a; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+        <i class="fa-solid fa-circle" style="font-size:8px;"></i> لم يتم تسجيل الحضور
+      </span>
+    `;
+    bodyContentHtml = `
+      <div style="margin-top:16px;">
+        <button id="btnEmployeeCheckIn" class="btn btn-primary" style="width:100%; padding:14px; font-size:15px; font-weight:800; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg, var(--gold-deep) 0%, #b88e36 100%); color:#fff; box-shadow:0 4px 14px rgba(184,142,54,0.25); cursor:pointer; border:none; transition:all 0.2s ease;">
+          <i class="fa-solid fa-location-dot" style="font-size:16px;"></i>
+          <span>تسجيل الحضور</span>
+        </button>
+        <div style="text-align:center; margin-top:10px; font-size:12px; color:var(--ink-muted); display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="fa-solid fa-location-crosshairs" style="color:var(--gold-deep);"></i>
+          <span>📍 يجب أن تكون داخل نطاق مقر الجمعية</span>
+        </div>
+      </div>
+    `;
+  } else if (record.checkInTime && !record.checkOutTime) {
+    statusBadgeHtml = `
+      <span style="background:rgba(34, 197, 94, 0.12); color:#16a34a; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+        <i class="fa-solid fa-circle-check"></i> تم تسجيل الحضور
+      </span>
+    `;
+    bodyContentHtml = `
+      <div style="background:rgba(34, 197, 94, 0.06); border:1px solid rgba(34, 197, 94, 0.2); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <span style="font-size:13px; font-weight:700; color:var(--ink);">وقت الحضور:</span>
+          <span style="font-size:16px; font-weight:900; color:#16a34a;">${esc(record.checkInTime)}</span>
+        </div>
+        <div style="font-size:12px; color:#15803d; display:flex; align-items:center; gap:6px;">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>📍 تم التحقق من موقع مقر الجمعية</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--line-soft);">
+        <div style="font-size:13px; font-weight:700; color:var(--ink); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+          <span style="width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block;"></span>
+          <span>🟢 جاهز لتسجيل الانصراف</span>
+        </div>
+        <button id="btnEmployeeCheckOut" class="btn btn-secondary" style="width:100%; padding:13px; font-size:14.5px; font-weight:800; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; gap:8px; background:rgba(220, 38, 38, 0.08); color:var(--danger); border:1px solid rgba(220, 38, 38, 0.25); cursor:pointer; transition:all 0.2s ease;">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>تسجيل الانصراف</span>
+        </button>
+      </div>
+    `;
+  } else if (record.checkInTime && record.checkOutTime) {
+    statusBadgeHtml = `
+      <span style="background:rgba(34, 197, 94, 0.12); color:#16a34a; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+        <i class="fa-solid fa-circle-check"></i> تم تسجيل الانصراف
+      </span>
+    `;
+    bodyContentHtml = `
+      <div style="background:rgba(34, 197, 94, 0.06); border:1px solid rgba(34, 197, 94, 0.2); border-radius:var(--r-md); padding:16px; margin-top:14px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:center; padding-bottom:12px; border-bottom:1px solid rgba(34, 197, 94, 0.15);">
+          <div>
+            <div style="font-size:11.5px; color:var(--ink-muted); margin-bottom:2px;">وقت الحضور</div>
+            <div style="font-size:15px; font-weight:900; color:#16a34a;">${esc(record.checkInTime)}</div>
+          </div>
+          <div>
+            <div style="font-size:11.5px; color:var(--ink-muted); margin-bottom:2px;">وقت الانصراف</div>
+            <div style="font-size:15px; font-weight:900; color:#16a34a;">${esc(record.checkOutTime)}</div>
+          </div>
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:#15803d; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>📍 تم التحقق من موقع مقر الجمعية — اكتمل حضور وانصراف اليوم</span>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="card" id="employeeAttendanceHeroCard" style="margin-bottom:24px; border:1.5px solid var(--line); background:var(--bg-paper); border-radius:var(--r-lg); padding:20px; box-shadow:var(--shadow-card); position:relative; overflow:hidden;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:var(--gold-pale); color:var(--gold-deep); display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 2px 8px rgba(184,142,54,0.15);">
+            <i class="fa-solid fa-user-clock"></i>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:16.5px; font-weight:900; color:var(--ink);">الحضور والانصراف</h3>
+            <p style="margin:2px 0 0 0; font-size:12.5px; font-weight:600; color:var(--ink-muted);">${dateStr}</p>
+          </div>
+        </div>
+        <div>
+          ${statusBadgeHtml}
+        </div>
+      </div>
+
+      <div style="font-size:12.5px; color:var(--ink-muted); background:var(--bg-subtle); padding:8px 14px; border-radius:var(--r-sm); display:inline-flex; align-items:center; gap:8px;">
+        <i class="fa-regular fa-clock" style="color:var(--gold-deep); font-size:14px;"></i>
+        <span>وقت الدوام: <strong style="color:var(--ink);">${startDisp} — ${endDisp}</strong></span>
+      </div>
+
+      <div id="attLocationNoticeHost"></div>
+
+      ${bodyContentHtml}
+    </div>
+  `;
+}
+
+async function handleEmployeeAttendanceAction(action) {
+  const noticeHost = $("#attLocationNoticeHost");
+  if (noticeHost) noticeHost.innerHTML = "";
+
+  const btnId = action === "checkIn" ? "#btnEmployeeCheckIn" : "#btnEmployeeCheckOut";
+  const btn = $(btnId);
+  const origHtml = btn ? btn.innerHTML : "";
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ تحديد موقعك الجغرافي…`;
+  }
+
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    if (noticeHost) {
+      noticeHost.innerHTML = `
+        <div style="background:rgba(220, 38, 38, 0.08); border:1px solid rgba(220, 38, 38, 0.25); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+          <div style="font-weight:800; color:var(--danger); font-size:13.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-wifi"></i> ⚠️ لا يوجد اتصال بالإنترنت
+          </div>
+          <div style="font-size:12.5px; color:var(--ink-soft);">يرجى التأكد من اتصالك بشبكة الإنترنت والمحاولة مرة أخرى.</div>
+        </div>
+      `;
+    }
+    toast("لا يوجد اتصال بالإنترنت", "err");
+    if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+    return;
+  }
+
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject({ code: "UNSUPPORTED", message: "متصفحك لا يدعم تحديد الموقع الجغرافي" });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve(p.coords),
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      );
+    });
+
+    const latitude = pos.latitude;
+    const longitude = pos.longitude;
+    const accuracy = Math.round(pos.accuracy || 0);
+
+    if (btn) {
+      btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ التحقق من الخادم…`;
+    }
+
+    const res = await S.recordEmployeeAttendance({
+      action: action,
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: accuracy
+    });
+
+    if (res && res.success) {
+      toast(res.message || "تم التسجيل بنجاح", "ok");
+      State.todayAttendance = res.record;
+      triggerViewRefresh("dash");
+    } else {
+      const code = res?.code || "";
+      const msg = res?.message || "تعذر إتمام العملية";
+
+      if (code === "out_of_range") {
+        if (noticeHost) {
+          noticeHost.innerHTML = `
+            <div style="background:rgba(220, 38, 38, 0.08); border:1px solid rgba(220, 38, 38, 0.25); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+              <div style="font-weight:800; color:var(--danger); font-size:14px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-location-dot"></i> 📍 خارج نطاق مقر الجمعية
+              </div>
+              <div style="font-size:12.5px; color:var(--ink-soft); line-height:1.5;">
+                يجب أن تكون داخل مقر الجمعية لتسجيل الحضور والانصراف.
+                ${res.distanceFromOffice ? `<div style="margin-top:6px; font-size:12px; font-weight:700; color:var(--danger);">المسافة الحالية من الجمعية: تقريباً <strong>${res.distanceFromOffice} متر</strong> (المسموح: ${res.allowedRadius || 100}م)</div>` : ''}
+              </div>
+            </div>
+          `;
+        }
+        toast("أنت خارج نطاق مقر الجمعية", "err");
+      } else {
+        if (noticeHost) {
+          noticeHost.innerHTML = `
+            <div style="background:rgba(217, 119, 6, 0.08); border:1px solid rgba(217, 119, 6, 0.25); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+              <div style="font-weight:800; color:var(--gold-deep); font-size:13.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-circle-exclamation"></i> تنبيه
+              </div>
+              <div style="font-size:12.5px; color:var(--ink-soft);">${esc(msg)}</div>
+            </div>
+          `;
+        }
+        toast(msg, "err");
+      }
+      if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+    }
+
+  } catch (err) {
+    console.error("[handleEmployeeAttendanceAction] Error:", err);
+
+    if (err.code === 1 || err.code === "PERMISSION_DENIED") {
+      if (noticeHost) {
+        noticeHost.innerHTML = `
+          <div style="background:rgba(217, 119, 6, 0.08); border:1px solid rgba(217, 119, 6, 0.25); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+            <div style="font-weight:800; color:var(--gold-deep); font-size:14px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-triangle-exclamation"></i> ⚠️ تعذر تحديد موقعك
+            </div>
+            <div style="font-size:12.5px; color:var(--ink-soft); line-height:1.5;">
+              يرجى السماح للمتصفح بالوصول إلى موقعك ثم المحاولة مرة أخرى.
+            </div>
+          </div>
+        `;
+      }
+      toast("يرجى السماح بالوصول إلى الموقع الجغرافي", "err");
+    } else if (err.code === 2 || err.code === "POSITION_UNAVAILABLE") {
+      if (noticeHost) {
+        noticeHost.innerHTML = `
+          <div style="background:rgba(217, 119, 6, 0.08); border:1px solid rgba(217, 119, 6, 0.25); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+            <div style="font-weight:800; color:var(--gold-deep); font-size:13.5px; margin-bottom:4px;">
+              ⚠️ يتعذر الحصول على موقع جهازك حالياً
+            </div>
+            <div style="font-size:12.5px; color:var(--ink-soft);">تأكد من تفعيل خدمة الـ GPS أو الموقع في جهازك.</div>
+          </div>
+        `;
+      }
+      toast("تعذر الحصول على إحداثيات الموقع", "err");
+    } else if (err.code === 3 || err.code === "TIMEOUT") {
+      if (noticeHost) {
+        noticeHost.innerHTML = `
+          <div style="background:rgba(217, 119, 6, 0.08); border:1px solid rgba(217, 119, 6, 0.25); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+            <div style="font-weight:800; color:var(--gold-deep); font-size:13.5px; margin-bottom:4px;">
+              ⚠️ انتهت مهلة طلب الموقع
+            </div>
+            <div style="font-size:12.5px; color:var(--ink-soft);">يرجى إعادة المحاولة مرة أخرى.</div>
+          </div>
+        `;
+      }
+      toast("انتهت مهلة استجابة الموقع الجغرافي", "err");
+    } else {
+      const displayStr = err.message || "حدث خطأ غير متوقع في الخادم";
+      if (noticeHost) {
+        noticeHost.innerHTML = `
+          <div style="background:rgba(220, 38, 38, 0.08); border:1px solid rgba(220, 38, 38, 0.25); border-radius:var(--r-md); padding:14px; margin-top:14px;">
+            <div style="font-weight:800; color:var(--danger); font-size:13.5px; margin-bottom:4px;">
+              ⚠️ خطأ في التسجيل
+            </div>
+            <div style="font-size:12.5px; color:var(--ink-soft);">${esc(displayStr)}</div>
+          </div>
+        `;
+      }
+      toast(displayStr, "err");
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+  }
+}
+
 /* ════════════════ 1. الصفحة الرئيسية (Minimal Daily Workspace) ════════════════ */
 function renderDash(el){
   const u = State.user;
@@ -915,7 +1175,7 @@ function renderDash(el){
     if (pendingApprovalLeaves > 0) {
       summaryCardsHtml += `
         <div class="stat-card" data-goto="exec_leaves_approval" style="cursor:pointer;background:rgba(255, 193, 7, 0.08);border:1px solid rgba(255, 193, 7, 0.2);padding:16px;border-radius:var(--r-md);flex:1;min-width:240px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-space-between;margin-bottom:8px">
             <div style="width:36px;height:36px;border-radius:50%;background:rgba(255, 193, 7, 0.15);display:flex;align-items:center;justify-content:center;color:#b27e05">
               <i class="fa-solid fa-stamp"></i>
             </div>
@@ -1116,13 +1376,26 @@ function renderDash(el){
   }
 
   el.innerHTML = `
-    <div style="margin-bottom:26px">
+    <div style="margin-bottom:22px">
       <h1 class="page-title">مرحباً، ${esc(u.name.split(" ")[0])} 👋</h1>
       <p class="page-sub">${esc(u.jobTitle || roleLabel)} — <span style="color:var(--ink-faint)">${todayStr}</span></p>
     </div>
 
+    <!-- بطاقة الحضور والانصراف الإلكتروني للموظف -->
+    ${renderAttendanceCardHtml(u, State.todayAttendance, State.attendanceSettings)}
+
     ${sectionsHtml}
   `;
+
+  const btnCheckIn = $("#btnEmployeeCheckIn", el);
+  if (btnCheckIn) {
+    btnCheckIn.addEventListener("click", () => handleEmployeeAttendanceAction("checkIn"));
+  }
+
+  const btnCheckOut = $("#btnEmployeeCheckOut", el);
+  if (btnCheckOut) {
+    btnCheckOut.addEventListener("click", () => handleEmployeeAttendanceAction("checkOut"));
+  }
 
   $$("[data-goto]", el).forEach(b => b.addEventListener("click", () => navigate(b.dataset.goto)));
   $$("[data-task]", el).forEach(c => c.addEventListener("click", () => openTaskDetail(c.dataset.task)));
@@ -1285,7 +1558,6 @@ function renderProfile(el){
             <div class="profile-hero-info">
               <span><i class="fa-solid fa-envelope"></i> ${esc(u.email)}</span>
               <span><i class="fa-solid fa-phone"></i> ${esc(u.phone || "غير محدد")}</span>
-              <span><i class="fa-solid fa-calendar-check"></i> تاريخ الانضمام: ${esc(u.hireDate || "—")}</span>
             </div>
           </div>
 
@@ -2077,6 +2349,800 @@ function renderExecLeavesApproval(el){
   bindLeaveEvents(el);
 }
 
+/* ══════════════════════════════════════════════════════════
+   17. نظام الحضور والانصراف (Attendance & Punctuality System)
+ ══════════════════════════════════════════════════════════ */
+
+let attendanceUnsub = null;
+
+async function renderAttendance(host) {
+  const u = State.user;
+  const isHRUser = u && (u.role === "hr" || u.role === "executive" || u.role === "tech_admin" || u.role === "admin");
+
+  if (!isHRUser) {
+    host.innerHTML = `
+      <div style="padding:40px; text-align:center; background:var(--bg-paper); border-radius:var(--r-lg); border:1px solid var(--line-soft); margin-top:20px;">
+        <i class="fa-solid fa-lock" style="font-size:3rem; color:var(--gold); margin-bottom:16px;"></i>
+        <h3 style="font-size:18px; font-weight:700; margin-bottom:8px;">عذراً، هذه الصفحة مخصصة لمدير النظام والموارد البشرية فقط</h3>
+        <p style="color:var(--ink-muted); font-size:14px;">لا تملك الصلاحية لإدارة سجلات الحضور والانصراف.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const now = new Date();
+  if (!State.attendanceYear) State.attendanceYear = now.getFullYear();
+  if (!State.attendanceMonth) State.attendanceMonth = now.getMonth() + 1;
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!State.selectedAttendanceDate) State.selectedAttendanceDate = todayStr;
+
+  if (!State.members || State.members.length === 0) {
+    try {
+      State.members = await (S.listUsers ? S.listUsers() : S.getUsers());
+    } catch (e) {
+      console.warn("فشل جلب قائمة الموظفين في الحضور:", e);
+      State.members = [];
+    }
+  }
+
+  if (!State.hrLeaves || State.hrLeaves.length === 0) {
+    try {
+      State.hrLeaves = await S.getEmpLeavesHR();
+    } catch (e) {
+      State.hrLeaves = [];
+    }
+  }
+
+  host.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:20px; padding-bottom:40px;">
+      
+      <!-- شريط العنوان والتحكم في التاريخ -->
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; background:var(--bg-paper); padding:18px 24px; border-radius:var(--r-lg); border:1px solid var(--line-soft); box-shadow:var(--shadow-card);">
+        <div>
+          <h2 style="font-size:20px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:10px;">
+            <i class="fa-solid fa-user-clock" style="color:var(--gold);"></i> الحضور والانصراف
+          </h2>
+          <p style="font-size:13px; color:var(--ink-muted); margin-top:2px;">إدارة ورصد وسجلات حضور وانصراف موظفي الجمعية دائمًا بحسب الأشهر</p>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:6px; background:var(--bg-subtle); padding:6px 12px; border-radius:var(--r-md); border:1px solid var(--line-soft);">
+            <label style="font-size:12px; font-weight:600; color:var(--ink-mid);">التاريخ:</label>
+            <input type="date" id="attDateFilter" value="${State.selectedAttendanceDate}" style="border:none; background:transparent; font-size:13px; font-weight:700; color:var(--ink); outline:none; font-family:var(--font-base);">
+          </div>
+
+          <select id="attMonthFilter" style="padding:7px 12px; border-radius:var(--r-md); border:1px solid var(--line); background:var(--bg-paper); font-size:13px; font-weight:700; color:var(--ink); outline:none;">
+            ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<option value="${m}" ${State.attendanceMonth === m ? 'selected' : ''}>شهر ${m} (${getMonthNameArabic(m)})</option>`).join('')}
+          </select>
+
+          <select id="attYearFilter" style="padding:7px 12px; border-radius:var(--r-md); border:1px solid var(--line); background:var(--bg-paper); font-size:13px; font-weight:700; color:var(--ink); outline:none;">
+            ${[2024, 2025, 2026, 2027].map(y => `<option value="${y}" ${State.attendanceYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+          </select>
+
+          <button class="btn btn-secondary" id="btnAttendanceArchive" style="gap:6px; font-size:12.5px;">
+            <i class="fa-solid fa-box-archive"></i> الأرشيف
+          </button>
+
+          <button class="btn btn-primary" id="btnExportMonthlyPDF" style="gap:6px; font-size:12.5px;">
+            <i class="fa-solid fa-file-pdf"></i> تقرير الشهر PDF
+          </button>
+
+          <button class="btn btn-secondary" id="btnAttConfigSettings" style="gap:6px; font-size:12.5px;" title="إعدادات الحضور والنطاق الجغرافي">
+            <i class="fa-solid fa-sliders" style="color:var(--gold-deep);"></i> إعدادات النطاق
+          </button>
+        </div>
+      </div>
+
+      <!-- كروت الإحصائيات العامة للمحتوى -->
+      <div id="attStatsContainer" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:14px;">
+        <div class="stat-card" style="background:var(--bg-paper); padding:16px; border-radius:var(--r-md); border:1px solid var(--line-soft); box-shadow:var(--shadow-card);">
+          <div style="display:flex; align-items:center; justify-content:space-between; color:var(--ink-muted); font-size:12px; font-weight:600;">
+            إجمالي الموظفين <i class="fa-solid fa-users" style="color:var(--gold);"></i>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:var(--ink); margin-top:8px;" id="statTotalEmps">${(State.members || []).length}</div>
+        </div>
+
+        <div class="stat-card" style="background:rgba(31, 122, 76, 0.06); padding:16px; border-radius:var(--r-md); border:1px solid rgba(31, 122, 76, 0.2);">
+          <div style="display:flex; align-items:center; justify-content:space-between; color:var(--success); font-size:12px; font-weight:600;">
+            الحاضرون اليوم <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:var(--success); margin-top:8px;" id="statPresentCount">0</div>
+        </div>
+
+        <div class="stat-card" style="background:rgba(184, 142, 54, 0.08); padding:16px; border-radius:var(--r-md); border:1px solid rgba(184, 142, 54, 0.25);">
+          <div style="display:flex; align-items:center; justify-content:space-between; color:var(--gold-deep); font-size:12px; font-weight:600;">
+            المتأخرون اليوم <i class="fa-solid fa-clock"></i>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:var(--gold-deep); margin-top:8px;" id="statLateCount">0</div>
+          <div style="font-size:11px; color:var(--ink-muted); margin-top:2px;" id="statLateMins">0 دقيقة تأخير</div>
+        </div>
+
+        <div class="stat-card" style="background:rgba(168, 42, 42, 0.06); padding:16px; border-radius:var(--r-md); border:1px solid rgba(168, 42, 42, 0.2);">
+          <div style="display:flex; align-items:center; justify-content:space-between; color:var(--danger); font-size:12px; font-weight:600;">
+            الغياب اليوم <i class="fa-solid fa-circle-xmark"></i>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:var(--danger); margin-top:8px;" id="statAbsentCount">0</div>
+        </div>
+
+        <div class="stat-card" style="background:rgba(43, 94, 168, 0.06); padding:16px; border-radius:var(--r-md); border:1px solid rgba(43, 94, 168, 0.2);">
+          <div style="display:flex; align-items:center; justify-content:space-between; color:var(--info); font-size:12px; font-weight:600;">
+            الإجازات <i class="fa-solid fa-umbrella-beach"></i>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:var(--info); margin-top:8px;" id="statLeaveCount">0</div>
+        </div>
+      </div>
+
+      <!-- قائمة الموظفين والسجلات التفاعلية -->
+      <div style="background:var(--bg-paper); border-radius:var(--r-lg); border:1px solid var(--line-soft); padding:20px; box-shadow:var(--shadow-card);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+          <h3 style="font-size:16px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-list-check" style="color:var(--gold);"></i> سجلات الموظفين لتاريخ (<span id="lblCurDate">${State.selectedAttendanceDate}</span>)
+          </h3>
+          <input type="text" id="attSearchEmp" placeholder="بحث باسم الموظف أو القسم…" style="padding:8px 14px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-subtle); font-size:13px; width:240px; outline:none;">
+        </div>
+
+        <div id="attMainContentHost">
+          <div style="text-align:center; padding:30px; color:var(--ink-muted);">
+            <i class="fa-solid fa-spinner spin" style="font-size:24px;"></i>
+            <p style="margin-top:10px; font-size:13px;">جارٍ تحميل سجلات الحضور والانصراف…</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  $("#attDateFilter").addEventListener("change", (e) => {
+    State.selectedAttendanceDate = e.target.value;
+    const parts = e.target.value.split("-");
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (y !== State.attendanceYear || m !== State.attendanceMonth) {
+        State.attendanceYear = y;
+        State.attendanceMonth = m;
+        $("#attYearFilter").value = y;
+        $("#attMonthFilter").value = m;
+        initAttendanceRealtimeListener();
+        return;
+      }
+    }
+    renderAttendanceTableAndStats();
+  });
+
+  $("#attMonthFilter").addEventListener("change", (e) => {
+    State.attendanceMonth = parseInt(e.target.value, 10);
+    initAttendanceRealtimeListener();
+  });
+
+  $("#attYearFilter").addEventListener("change", (e) => {
+    State.attendanceYear = parseInt(e.target.value, 10);
+    initAttendanceRealtimeListener();
+  });
+
+  $("#btnAttendanceArchive").addEventListener("click", () => {
+    openAttendanceArchiveDrawer();
+  });
+
+  $("#btnExportMonthlyPDF").addEventListener("click", (e) => {
+    downloadMonthlyAttendancePDF(e.currentTarget);
+  });
+
+  const btnSet = $("#btnAttConfigSettings");
+  if (btnSet) {
+    btnSet.addEventListener("click", () => navigate("settings"));
+  }
+
+  $("#attSearchEmp").addEventListener("input", () => {
+    renderAttendanceTableAndStats();
+  });
+
+  initAttendanceRealtimeListener();
+}
+
+function getMonthNameArabic(m) {
+  const names = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+  return names[m - 1] || "";
+}
+
+function initAttendanceRealtimeListener() {
+  if (attendanceUnsub) {
+    attendanceUnsub();
+    attendanceUnsub = null;
+  }
+
+  const y = State.attendanceYear;
+  const m = State.attendanceMonth;
+
+  attendanceUnsub = S.watchAttendanceForMonth(y, m, (records) => {
+    State.attendanceRecords = records || [];
+    renderAttendanceTableAndStats();
+  });
+}
+
+function renderAttendanceTableAndStats() {
+  const host = $("#attMainContentHost");
+  if (!host) return;
+
+  const targetDate = State.selectedAttendanceDate;
+  const searchQ = ($("#attSearchEmp")?.value || "").trim().toLowerCase();
+  const lbl = $("#lblCurDate");
+  if (lbl) lbl.textContent = targetDate;
+
+  const members = State.members || [];
+  const recordsMap = new Map();
+  (State.attendanceRecords || []).forEach(r => {
+    if (r.date === targetDate) {
+      recordsMap.set(r.employeeUid, r);
+    }
+  });
+
+  const approvedLeaves = (State.hrLeaves || []).filter(l => l.status === "hr_approved" || l.status === "exec_approved" || l.status === "approved");
+  const leaveUidSet = new Set();
+  approvedLeaves.forEach(l => {
+    if (l.startDate && l.endDate && l.userId) {
+      if (targetDate >= l.startDate && targetDate <= l.endDate) {
+        leaveUidSet.add(l.userId);
+      }
+    }
+  });
+
+  let presentCount = 0;
+  let lateCount = 0;
+  let totalLateMins = 0;
+  let absentCount = 0;
+  let leaveCount = 0;
+
+  const rowItems = members.map(m => {
+    let rec = recordsMap.get(m.uid);
+
+    if (!rec && leaveUidSet.has(m.uid)) {
+      rec = {
+        employeeUid: m.uid,
+        employeeName: m.name || m.email,
+        department: m.department || "",
+        date: targetDate,
+        status: "leave",
+        notes: "إجازة معتمدة تلقائية",
+        isAuto: true
+      };
+    }
+
+    const status = rec ? rec.status : "unregistered";
+
+    if (status === "present") presentCount++;
+    else if (status === "late") {
+      lateCount++;
+      totalLateMins += (rec.lateMinutes || 0);
+    } else if (status === "absent") absentCount++;
+    else if (status === "leave") leaveCount++;
+
+    return { member: m, record: rec, status };
+  });
+
+  const elTot = $("#statTotalEmps"); if (elTot) elTot.textContent = members.length;
+  const elPres = $("#statPresentCount"); if (elPres) elPres.textContent = presentCount;
+  const elLate = $("#statLateCount"); if (elLate) elLate.textContent = lateCount;
+  const elLateM = $("#statLateMins"); if (elLateM) elLateM.textContent = `${totalLateMins} دقيقة تأخير`;
+  const elAbs = $("#statAbsentCount"); if (elAbs) elAbs.textContent = absentCount;
+  const elLev = $("#statLeaveCount"); if (elLev) elLev.textContent = leaveCount;
+
+  const filtered = rowItems.filter(item => {
+    if (!searchQ) return true;
+    const name = (item.member.name || item.member.email || "").toLowerCase();
+    const dept = (item.member.department || "").toLowerCase();
+    return name.includes(searchQ) || dept.includes(searchQ);
+  });
+
+  if (filtered.length === 0) {
+    host.innerHTML = `
+      <div style="text-align:center; padding:40px; color:var(--ink-muted);">
+        <i class="fa-solid fa-users-slash" style="font-size:2.5rem; color:var(--ink-faint); margin-bottom:12px;"></i>
+        <p style="font-size:14px;">لا توجد نتائج مطابقة لمحدادت البحث.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile) {
+    host.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        ${filtered.map(item => {
+          const m = item.member;
+          const r = item.record;
+          const statusBadge = getAttendanceStatusBadge(item.status, r?.lateMinutes);
+          const methodTag = r?.method === "electronic" 
+            ? `<span style="font-size:11px; padding:2px 8px; border-radius:999px; background:rgba(34,197,94,0.1); color:#16a34a; font-weight:700;"><i class="fa-solid fa-mobile-screen"></i> إلكتروني ${r?.distanceFromOffice !== undefined ? `(${r.distanceFromOffice}م)` : ''}</span>`
+            : r ? `<span style="font-size:11px; padding:2px 8px; border-radius:999px; background:rgba(184,142,54,0.1); color:var(--gold-deep); font-weight:700;"><i class="fa-solid fa-pen"></i> يدوي</span>` : '';
+          return `
+            <div style="background:var(--bg-paper); border:1px solid var(--line-soft); border-radius:var(--r-md); padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:var(--shadow-card);">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <div style="width:36px; height:36px; border-radius:50%; background:var(--gold-pale); color:var(--gold-deep); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;">
+                    ${(m.name || m.email || "م")[0]}
+                  </div>
+                  <div>
+                    <div style="font-weight:700; font-size:14px; color:var(--ink);">${esc(m.name || m.email)}</div>
+                    <div style="font-size:11.5px; color:var(--ink-muted);">${esc(m.department || "غير محدد")} ${methodTag}</div>
+                  </div>
+                </div>
+                ${statusBadge}
+              </div>
+
+              <div style="font-size:12.5px; color:var(--ink-soft); background:var(--bg-subtle); padding:8px 10px; border-radius:var(--r-sm); display:flex; flex-direction:column; gap:4px;">
+                <div><strong>وقت الحضور:</strong> ${r?.checkInTime ? esc(r.checkInTime) : "—"} | <strong>الانصراف:</strong> ${r?.checkOutTime ? esc(r.checkOutTime) : "—"}</div>
+                ${r?.lateMinutes > 0 ? `<div style="color:var(--gold-deep); font-weight:700;"><strong>التأخير:</strong> ${r.lateMinutes} دقيقة</div>` : ''}
+                <div><strong>الملاحظات:</strong> ${r?.notes ? esc(r.notes) : "—"}</div>
+              </div>
+
+              <div style="display:flex; items-center; justify-content:flex-end; gap:8px; margin-top:4px;">
+                <button class="btn btn-secondary btn-sm btn-emp-rep" data-uid="${m.uid}" style="font-size:11.5px; gap:4px;">
+                  <i class="fa-solid fa-chart-line"></i> تقرير الموظف
+                </button>
+                <button class="btn btn-primary btn-sm btn-edit-att" data-uid="${m.uid}" style="font-size:11.5px; gap:4px;">
+                  <i class="fa-solid fa-pen-to-square"></i> ${r ? 'تعديل الحضور' : 'تسجيل الحضور'}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else {
+    host.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:right;">
+          <thead>
+            <tr style="background:var(--bg-subtle); border-bottom:1px solid var(--line); color:var(--ink-mid);">
+              <th style="padding:12px; font-weight:700;">الموظف</th>
+              <th style="padding:12px; font-weight:700;">القسم</th>
+              <th style="padding:12px; font-weight:700;">حالة اليوم</th>
+              <th style="padding:12px; font-weight:700;">وقت الحضور</th>
+              <th style="padding:12px; font-weight:700;">وقت الانصراف</th>
+              <th style="padding:12px; font-weight:700;">الطريقة/الموقع</th>
+              <th style="padding:12px; font-weight:700;">التأخير</th>
+              <th style="padding:12px; font-weight:700;">الملاحظات</th>
+              <th style="padding:12px; font-weight:700; text-align:left;">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(item => {
+              const m = item.member;
+              const r = item.record;
+              const statusBadge = getAttendanceStatusBadge(item.status, r?.lateMinutes);
+              const methodTag = r?.method === "electronic" 
+                ? `<span style="font-size:11px; padding:3px 8px; border-radius:999px; background:rgba(34,197,94,0.1); color:#16a34a; font-weight:700;"><i class="fa-solid fa-mobile-screen"></i> إلكتروني ${r?.distanceFromOffice !== undefined ? `(${r.distanceFromOffice}م)` : ''}</span>`
+                : r ? `<span style="font-size:11px; padding:3px 8px; border-radius:999px; background:rgba(184,142,54,0.1); color:var(--gold-deep); font-weight:700;"><i class="fa-solid fa-pen"></i> يدوي</span>` : `<span style="color:var(--ink-faint);">—</span>`;
+              return `
+                <tr style="border-bottom:1px solid var(--line-soft);">
+                  <td style="padding:12px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="width:32px; height:32px; border-radius:50%; background:var(--gold-pale); color:var(--gold-deep); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;">
+                        ${(m.name || m.email || "م")[0]}
+                      </div>
+                      <span style="font-weight:700; color:var(--ink);">${esc(m.name || m.email)}</span>
+                    </div>
+                  </td>
+                  <td style="padding:12px; color:var(--ink-mid);">${esc(m.department || "—")}</td>
+                  <td style="padding:12px;">${statusBadge}</td>
+                  <td style="padding:12px; font-weight:600; color:var(--ink);">${r?.checkInTime ? esc(r.checkInTime) : "—"}</td>
+                  <td style="padding:12px; font-weight:600; color:var(--ink);">${r?.checkOutTime ? esc(r.checkOutTime) : "—"}</td>
+                  <td style="padding:12px;">${methodTag}</td>
+                  <td style="padding:12px;">
+                    ${r?.lateMinutes > 0 ? `<span style="color:var(--gold-deep); font-weight:800;">${r.lateMinutes} دقيقة</span>` : `<span style="color:var(--ink-faint);">0</span>`}
+                  </td>
+                  <td style="padding:12px; color:var(--ink-mid); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${r?.notes ? esc(r.notes) : "<span style='color:var(--ink-faint);'>—</span>"}
+                  </td>
+                  <td style="padding:12px; text-align:left;">
+                    <div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">
+                      <button class="btn btn-secondary btn-sm btn-emp-rep" data-uid="${m.uid}" title="عرض تقرير الموظف للشهر">
+                        <i class="fa-solid fa-user-gear"></i> التقرير
+                      </button>
+                      <button class="btn btn-primary btn-sm btn-edit-att" data-uid="${m.uid}">
+                        <i class="fa-solid fa-pen-to-square"></i> ${r ? 'تعديل' : 'تسجيل'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  $$(".btn-edit-att").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const uid = btn.dataset.uid;
+      const emp = (State.members || []).find(x => x.uid === uid);
+      const rec = (State.attendanceRecords || []).find(r => r.employeeUid === uid && r.date === targetDate);
+      openRecordAttendanceModal(emp, targetDate, rec);
+    });
+  });
+
+  $$(".btn-emp-rep").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const uid = btn.dataset.uid;
+      const emp = (State.members || []).find(x => x.uid === uid);
+      openEmployeeAttendanceModal(emp);
+    });
+  });
+}
+
+function getAttendanceStatusBadge(status, lateMinutes) {
+  if (status === "present") {
+    return `<span style="background:rgba(31, 122, 76, 0.1); color:var(--success); border:1px solid rgba(31, 122, 76, 0.25); padding:4px 10px; border-radius:var(--r-full); font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-circle" style="font-size:7px;"></i> حاضر</span>`;
+  } else if (status === "late") {
+    return `<span style="background:rgba(184, 142, 54, 0.12); color:var(--gold-deep); border:1px solid rgba(184, 142, 54, 0.3); padding:4px 10px; border-radius:var(--r-full); font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-circle" style="font-size:7px;"></i> متأخر ${lateMinutes ? `(${lateMinutes} د)` : ''}</span>`;
+  } else if (status === "absent") {
+    return `<span style="background:rgba(168, 42, 42, 0.1); color:var(--danger); border:1px solid rgba(168, 42, 42, 0.25); padding:4px 10px; border-radius:var(--r-full); font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-circle" style="font-size:7px;"></i> غائب</span>`;
+  } else if (status === "leave") {
+    return `<span style="background:rgba(43, 94, 168, 0.1); color:var(--info); border:1px solid rgba(43, 94, 168, 0.25); padding:4px 10px; border-radius:var(--r-full); font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-circle" style="font-size:7px;"></i> إجازة</span>`;
+  } else {
+    return `<span style="background:var(--bg-subtle); color:var(--ink-muted); border:1px solid var(--line-soft); padding:4px 10px; border-radius:var(--r-full); font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:5px;"><i class="fa-regular fa-circle" style="font-size:7px;"></i> لم يسجل</span>`;
+  }
+}
+
+function openRecordAttendanceModal(emp, targetDate, existingRecord) {
+  if (!emp) return;
+
+  const currentStatus = existingRecord ? existingRecord.status : "present";
+  const currentCheckIn = existingRecord ? (existingRecord.checkInTime || "08:00") : "08:00";
+  const currentCheckOut = existingRecord ? (existingRecord.checkOutTime || "") : "";
+  const currentNotes = existingRecord ? (existingRecord.notes || "") : "";
+  const currentLateMins = existingRecord ? (existingRecord.lateMinutes || 0) : 0;
+
+  const content = `
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--line-soft); padding-bottom:14px;">
+        <div style="width:42px; height:42px; border-radius:50%; background:var(--gold-pale); color:var(--gold-deep); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;">
+          ${(emp.name || emp.email || "م")[0]}
+        </div>
+        <div>
+          <h3 style="font-size:16px; font-weight:700; color:var(--ink);">${esc(emp.name || emp.email)}</h3>
+          <p style="font-size:12.5px; color:var(--ink-muted);">${esc(emp.department || "غير محدد")} — تاريخ: <strong style="color:var(--ink);">${targetDate}</strong></p>
+        </div>
+      </div>
+
+      <form id="formRecordAtt" style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <label style="display:block; font-size:13px; font-weight:700; color:var(--ink); margin-bottom:6px;">حالة اليوم:</label>
+          <select id="modalAttStatus" style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line); background:var(--bg-paper); font-size:13.5px; font-weight:700; color:var(--ink); outline:none;">
+            <option value="present" ${currentStatus === "present" ? "selected" : ""}>🟢 حاضر</option>
+            <option value="late" ${currentStatus === "late" ? "selected" : ""}>🟡 متأخر</option>
+            <option value="absent" ${currentStatus === "absent" ? "selected" : ""}>🔴 غائب</option>
+            <option value="leave" ${currentStatus === "leave" ? "selected" : ""}>🟣 إجازة</option>
+          </select>
+        </div>
+
+        <div id="wrapCheckInTime" style="display:${currentStatus === 'late' || currentStatus === 'present' ? 'block' : 'none'};">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">
+                وقت الحضور الفعلي: <span id="lblTimeReq" style="color:var(--danger); display:${currentStatus === 'late' ? 'inline' : 'none'};">*</span>
+              </label>
+              <input type="text" id="modalCheckInTime" value="${esc(currentCheckIn)}" placeholder="مثال: 08:04 ص" style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">وقت الانصراف (اختياري):</label>
+              <input type="text" id="modalCheckOutTime" value="${esc(currentCheckOut)}" placeholder="مثال: 04:07 م" style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+          </div>
+          <div id="previewLateMins" style="margin-top:6px; font-size:12px; font-weight:700; color:var(--gold-deep); display:${currentStatus === 'late' ? 'block' : 'none'};">
+            التأخير المحسوب: ${currentLateMins} دقيقة
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block; font-size:13px; font-weight:700; color:var(--ink); margin-bottom:6px;">سبب التعديل اليدوي (يُسجل في سجل التدقيق):</label>
+          <input type="text" id="modalAttReason" placeholder="أدخل سبب التعديل اليدوي (مثال: نسيان التسجيل إلكترونياً، مهمة خارجية…)" style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13px; color:var(--ink); outline:none;">
+        </div>
+
+        <div>
+          <label style="display:block; font-size:13px; font-weight:700; color:var(--ink); margin-bottom:6px;">ملاحظات الموارد البشرية:</label>
+          <textarea id="modalAttNotes" rows="2" placeholder="ملاحظة خاصة بهذا السجل (اختياري)…" style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13px; color:var(--ink); outline:none; font-family:var(--font-base); resize:vertical;">${esc(currentNotes)}</textarea>
+        </div>
+
+        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary" data-close>إلغاء</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveAttendance">
+            <i class="fa-solid fa-floppy-disk"></i> حفظ السجل
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  openModal(content);
+
+  const statusSel = $("#modalAttStatus");
+  const wrapTime = $("#wrapCheckInTime");
+  const timeReq = $("#lblTimeReq");
+  const timeInput = $("#modalCheckInTime");
+  const previewLate = $("#previewLateMins");
+
+  const updateTimeVisibility = () => {
+    const st = statusSel.value;
+    if (st === "late") {
+      wrapTime.style.display = "block";
+      timeReq.style.display = "inline";
+      previewLate.style.display = "block";
+    } else if (st === "present") {
+      wrapTime.style.display = "block";
+      timeReq.style.display = "none";
+      previewLate.style.display = "none";
+    } else {
+      wrapTime.style.display = "none";
+      previewLate.style.display = "none";
+    }
+  };
+
+  const updateLateCalc = () => {
+    if (statusSel.value === "late") {
+      const lateMins = S.calculateLateMinutes(timeInput.value, "08:00");
+      previewLate.textContent = `التأخير المحسوب: ${lateMins} دقيقة (بداية الدوام 08:00 ص)`;
+    }
+  };
+
+  statusSel.addEventListener("change", () => {
+    updateTimeVisibility();
+    updateLateCalc();
+  });
+
+  timeInput.addEventListener("input", updateLateCalc);
+
+  $("#formRecordAtt").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const status = statusSel.value;
+    const checkIn = timeInput.value.trim();
+    const checkOut = $("#modalCheckOutTime") ? $("#modalCheckOutTime").value.trim() : "";
+    const reason = $("#modalAttReason") ? $("#modalAttReason").value.trim() : "";
+    const notes = $("#modalAttNotes").value.trim();
+
+    if (status === "late" && !checkIn) {
+      toast("يرجى إدخال وقت الوصول الفعلي للموظف المتأخر", "err");
+      return;
+    }
+
+    const lateMins = status === "late" ? S.calculateLateMinutes(checkIn, "08:00") : 0;
+
+    const btn = $("#btnSaveAttendance");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الحفظ…`;
+
+    try {
+      await S.saveAttendanceRecord({
+        employeeUid: emp.uid,
+        employeeName: emp.name || emp.email,
+        department: emp.department || "",
+        date: targetDate,
+        status: status,
+        checkInTime: checkIn,
+        checkOutTime: checkOut,
+        lateMinutes: lateMins,
+        notes: notes,
+        reason: reason || notes || "تعديل يدوي بواسطة الموارد البشرية",
+        method: "manual"
+      }, State.user);
+
+      toast("تم حفظ سجل الحضور بنجاح");
+      closeModal();
+    } catch (err) {
+      console.error("فشل حفظ الحضور:", err);
+      toast(err.message || "حدث خطأ أثناء حفظ سجل الحضور", "err");
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> حفظ السجل`;
+    }
+  });
+}
+
+function openAttendanceArchiveDrawer() {
+  const years = [2026, 2025, 2024];
+  const months = [1,2,3,4,5,6,7,8,9,10,11,12];
+
+  const content = `
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="border-bottom:1px solid var(--line-soft); padding-bottom:12px;">
+        <h3 style="font-size:16px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-box-archive" style="color:var(--gold);"></i> أرشيف الحضور والانصراف
+        </h3>
+        <p style="font-size:12.5px; color:var(--ink-muted); margin-top:2px;">اختر الشهر والسنة للرجوع إلى جميع سجلات الحضور التاريخية المحفوظة</p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:16px; max-height:400px; overflow-y:auto; padding-left:4px;">
+        ${years.map(y => `
+          <div style="background:var(--bg-subtle); border:1px solid var(--line-soft); border-radius:var(--r-md); padding:14px;">
+            <div style="font-size:14px; font-weight:800; color:var(--ink); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-calendar" style="color:var(--gold);"></i> سنة ${y}
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:8px;">
+              ${months.map(m => `
+                <button class="btn btn-secondary btn-sm btn-select-archive-month" data-year="${y}" data-month="${m}" style="font-size:12px; font-weight:700; ${State.attendanceYear === y && State.attendanceMonth === m ? 'background:var(--gold); color:#ffffff; border-color:var(--gold);' : ''}">
+                  ${getMonthNameArabic(m)} (${m})
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+        <button class="btn btn-secondary" data-close>إغلاق</button>
+      </div>
+    </div>
+  `;
+
+  openModal(content);
+
+  $$(".btn-select-archive-month").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const y = parseInt(btn.dataset.year, 10);
+      const m = parseInt(btn.dataset.month, 10);
+      State.attendanceYear = y;
+      State.attendanceMonth = m;
+
+      $("#attYearFilter").value = y;
+      $("#attMonthFilter").value = m;
+
+      closeModal();
+      initAttendanceRealtimeListener();
+      toast(`تم الانتقال إلى أرشيف ${getMonthNameArabic(m)} ${y}`);
+    });
+  });
+}
+
+function openEmployeeAttendanceModal(emp) {
+  if (!emp) return;
+
+  const y = State.attendanceYear;
+  const m = State.attendanceMonth;
+  const records = (State.attendanceRecords || []).filter(r => r.employeeUid === emp.uid);
+
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const dayRecordsMap = new Map();
+  records.forEach(r => dayRecordsMap.set(r.date, r));
+
+  let presentCount = 0;
+  let lateCount = 0;
+  let totalLateMins = 0;
+  let absentCount = 0;
+  let leaveCount = 0;
+
+  const dayRows = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const r = dayRecordsMap.get(dateStr);
+
+    const status = r ? r.status : "unregistered";
+    if (status === "present") presentCount++;
+    else if (status === "late") {
+      lateCount++;
+      totalLateMins += (r.lateMinutes || 0);
+    } else if (status === "absent") absentCount++;
+    else if (status === "leave") leaveCount++;
+
+    dayRows.push({ day: d, date: dateStr, record: r, status });
+  }
+
+  const content = `
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; border-bottom:1px solid var(--line-soft); padding-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:44px; height:44px; border-radius:50%; background:var(--gold-pale); color:var(--gold-deep); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;">
+            ${(emp.name || emp.email || "م")[0]}
+          </div>
+          <div>
+            <h3 style="font-size:17px; font-weight:800; color:var(--ink);">${esc(emp.name || emp.email)}</h3>
+            <p style="font-size:12.5px; color:var(--ink-muted);">${esc(emp.department || "غير محدد")} — شهر ${getMonthNameArabic(m)} ${y}</p>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-sm" id="btnExportEmpPDF" style="gap:6px;">
+          <i class="fa-solid fa-file-pdf"></i> تحميل تقرير الموظف PDF
+        </button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px;">
+        <div style="background:rgba(31, 122, 76, 0.06); padding:10px; border-radius:var(--r-md); text-align:center; border:1px solid rgba(31, 122, 76, 0.2);">
+          <div style="font-size:18px; font-weight:800; color:var(--success);">${presentCount}</div>
+          <div style="font-size:11px; color:var(--ink-mid);">أيام الحضور</div>
+        </div>
+        <div style="background:rgba(184, 142, 54, 0.08); padding:10px; border-radius:var(--r-md); text-align:center; border:1px solid rgba(184, 142, 54, 0.25);">
+          <div style="font-size:18px; font-weight:800; color:var(--gold-deep);">${lateCount}</div>
+          <div style="font-size:11px; color:var(--ink-mid);">أيام التأخير (${totalLateMins} د)</div>
+        </div>
+        <div style="background:rgba(168, 42, 42, 0.06); padding:10px; border-radius:var(--r-md); text-align:center; border:1px solid rgba(168, 42, 42, 0.2);">
+          <div style="font-size:18px; font-weight:800; color:var(--danger);">${absentCount}</div>
+          <div style="font-size:11px; color:var(--ink-mid);">أيام الغياب</div>
+        </div>
+        <div style="background:rgba(43, 94, 168, 0.06); padding:10px; border-radius:var(--r-md); text-align:center; border:1px solid rgba(43, 94, 168, 0.2);">
+          <div style="font-size:18px; font-weight:800; color:var(--info);">${leaveCount}</div>
+          <div style="font-size:11px; color:var(--ink-mid);">أيام الإجازة</div>
+        </div>
+      </div>
+
+      <div style="max-height:320px; overflow-y:auto; border:1px solid var(--line-soft); border-radius:var(--r-md);">
+        <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:right;">
+          <thead>
+            <tr style="background:var(--bg-subtle); border-bottom:1px solid var(--line-soft); position:sticky; top:0;">
+              <th style="padding:8px 12px;">اليوم / التاريخ</th>
+              <th style="padding:8px 12px;">الحالة</th>
+              <th style="padding:8px 12px;">وقت الحضور</th>
+              <th style="padding:8px 12px;">التأخير</th>
+              <th style="padding:8px 12px;">الملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dayRows.map(row => `
+              <tr style="border-bottom:1px solid var(--line-soft);">
+                <td style="padding:8px 12px; font-weight:700;">${row.date}</td>
+                <td style="padding:8px 12px;">${getAttendanceStatusBadge(row.status, row.record?.lateMinutes)}</td>
+                <td style="padding:8px 12px;">${row.record?.checkInTime ? esc(row.record.checkInTime) : "—"}</td>
+                <td style="padding:8px 12px;">${row.record?.lateMinutes > 0 ? `<span style="color:var(--gold-deep); font-weight:700;">${row.record.lateMinutes} دقيقة</span>` : "0"}</td>
+                <td style="padding:8px 12px; color:var(--ink-mid);">${row.record?.notes ? esc(row.record.notes) : "—"}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+        <button class="btn btn-secondary" data-close>إغلاق</button>
+      </div>
+    </div>
+  `;
+
+  openModal(content);
+
+  $("#btnExportEmpPDF").addEventListener("click", (e) => {
+    downloadEmployeeAttendancePDF(emp, y, m, dayRows, e.currentTarget);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   مستندات وتقارير الـ PDF الرسمية (Modular PDF System)
+ ══════════════════════════════════════════════════════════ */
+function downloadMonthlyAttendancePDF(btn) {
+  return downloadMonthlyAttendancePDFDoc(btn, {
+    State,
+    S,
+    getMonthNameArabic,
+    esc,
+    toast
+  });
+}
+
+function downloadEmployeeAttendancePDF(emp, year, month, dayRows, btn) {
+  return downloadEmployeeAttendancePDFDoc(emp, year, month, dayRows, btn, {
+    State,
+    S,
+    getMonthNameArabic,
+    esc,
+    toast
+  });
+}
+
+function getPdfStatusBadge(status) {
+  return getPdfStatusBadgeDoc(status);
+}
+
+function getLoggedUserRoleTitle() {
+  return getLoggedUserRoleTitleDoc(State.user);
+}
+
+function generateMasterDocumentPDF(options) {
+  return masterPDFEngine({ ...options, userState: State.user });
+}
+
+function generatePrintablePDFReport(title, contentHtml) {
+  return masterPrintReport(title, contentHtml);
+}
+
 function formatTimelineDate(timestamp) {
   if (!timestamp) return "";
   
@@ -2240,16 +3306,19 @@ function renderLeaveCard(l, mode){
         </div>
       ` : ""}
 
-      ${(l.status === "approved" && (mode === "hr" || mode === "exec")) ? `
-        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-soft);flex-wrap:wrap">
-          <button class="btn btn-secondary btn-capsule btn-pdf-download" data-download-pdf="${l.id}" style="background:#2d4a63;color:#fff;border:none"><i class="fa-solid fa-file-pdf" style="color:#ff8a80"></i> تحميل خطاب الاعتماد</button>
-        </div>
-      ` : ""}
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line-soft);flex-wrap:wrap">
+        <button class="btn btn-secondary btn-capsule btn-pdf-download" data-download-request-pdf="${l.id}" style="background:#8C6840;color:#fff;border:none"><i class="fa-solid fa-file-invoice"></i> تحميل نموذج الطلب</button>
+        ${(l.status === "approved" && (mode === "hr" || mode === "exec")) ? `<button class="btn btn-secondary btn-capsule btn-pdf-download" data-download-pdf="${l.id}" style="background:#2d4a63;color:#fff;border:none"><i class="fa-solid fa-file-pdf" style="color:#ff8a80"></i> تحميل خطاب الاعتماد</button>` : ""}
+      </div>
     </div>
   `;
 }
 
 function bindLeaveEvents(el){
+  $$("[data-download-request-pdf]", el).forEach(b=>b.addEventListener("click", ()=>{
+    const id = b.dataset.downloadRequestPdf;
+    generateLeaveRequestPdf(id, b);
+  }));
   $$("[data-hr-approve]", el).forEach(b=>b.addEventListener("click", async ()=>{
     const id = b.dataset.hrApprove;
     b.disabled = true;
@@ -2537,6 +3606,196 @@ function openNewLeaveModal(){
 
 /* ════════════════ 4. دليل الموظفين والمسؤول التقني (Members) ════════════════ */
 /* ════════════════ 4. دليل الموظفين والمسؤول التقني (Members Redesign) ════════════════ */
+function openEmployeeProfileModal(emp) {
+  if (!emp) return;
+
+  const isSelf = emp.uid === State.user.uid;
+  const isStatusActive = emp.status !== "disabled";
+  const roleLabel = ROLES[emp.role]?.label || emp.role;
+  const activeLeave = getUserActiveLeave(emp.uid);
+
+  let leaveBadgeHtml = "";
+  if (activeLeave) {
+    const typeLabel = LEAVE_TYPES[activeLeave.type]?.label || activeLeave.type;
+    const returnsText = getDaysUntilReturn(activeLeave.endDate);
+    leaveBadgeHtml = `
+      <div style="background: rgba(217,119,6,0.08); color: rgb(217,119,6); border: 1px solid rgba(217,119,6,0.25); font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;">
+        <i class="fa-solid fa-umbrella-beach"></i> في إجازة حالياً (${esc(typeLabel)} · العودة: ${esc(returnsText)})
+      </div>
+    `;
+  }
+
+  const existing = $("#empProfileModalOverlay");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "empProfileModalOverlay";
+  overlay.className = "emp-profile-modal-overlay";
+
+  overlay.innerHTML = `
+    <div class="emp-profile-modal-card" style="background: #FFFFFF; border: 1px solid rgba(184, 142, 54, 0.3); border-radius: 20px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.18); position: relative; transform: scale(0.96) translateY(10px); transition: transform 0.25s ease; direction: rtl;">
+      
+      <!-- Modal Header Banner -->
+      <div style="background: linear-gradient(135deg, #FAF7F2 0%, #F4ECDC 100%); padding: 28px 24px 20px 24px; border-bottom: 1.5px solid rgba(184, 142, 54, 0.25); text-align: center; position: relative; border-radius: 20px 20px 0 0;">
+        <button id="closeEmpProfileModalBtn" style="position: absolute; top: 16px; left: 16px; background: rgba(255,255,255,0.85); border: 1px solid rgba(184,142,54,0.3); border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; color: #1F1A15; cursor: pointer; font-size: 14px; transition: all 0.2s;" title="إغلاق (Esc)">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <!-- Avatar -->
+        <div style="width: 86px; height: 86px; border-radius: 50%; background: #F4ECDC; border: 3px solid #947124; overflow: hidden; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto; box-shadow: 0 6px 16px rgba(148, 113, 36, 0.2);">
+          ${emp.avatar ? `<img src="${esc(emp.avatar)}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size: 30px; font-weight: 800; color: #947124;">${esc(initials(emp.name))}</span>`}
+        </div>
+
+        <h2 style="font-size: 20px; font-weight: 800; color: #1F1A15; margin: 0 0 8px 0;">${esc(emp.name)}</h2>
+
+        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: center; margin-bottom: 4px;">
+          <span style="background: #F4ECDC; color: #947124; border: 1px solid rgba(184, 142, 54, 0.35); font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 999px;">
+            <i class="fa-solid fa-briefcase"></i> ${esc(emp.jobTitle || "موظف")}
+          </span>
+          <span style="background: ${isStatusActive ? 'rgba(31, 122, 76, 0.08)' : 'rgba(168, 42, 42, 0.08)'}; color: ${isStatusActive ? '#1F7A4C' : '#A82A2A'}; border: 1px solid ${isStatusActive ? 'rgba(31, 122, 76, 0.25)' : 'rgba(168, 42, 42, 0.25)'}; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 999px;">
+            <i class="fa-solid ${isStatusActive ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${isStatusActive ? 'حساب نشط' : 'حساب معطل'}
+          </span>
+          ${isTechAdmin(emp) ? `<span style="background: rgba(30,64,175,0.08); color: #1E40AF; border: 1px solid rgba(30,64,175,0.25); font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 999px;"><i class="fa-solid fa-shield-halved"></i> مسئول تقني</span>` : ''}
+        </div>
+
+        ${leaveBadgeHtml}
+      </div>
+
+      <!-- Modal Body -->
+      <div style="padding: 24px;">
+        
+        <!-- Contact Section -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 13px; font-weight: 800; color: #947124; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-address-card"></i> معلومات الاتصال والتنظيم
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+            <div style="background: #FAF7F2; border: 1px solid rgba(184, 142, 54, 0.2); border-radius: 10px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: #574E45; margin-bottom: 3px; font-weight: 600;">البريد الإلكتروني</div>
+              <div style="font-size: 13px; font-weight: 700; color: #1F1A15; word-break: break-all; display: flex; align-items: center; justify-content: space-between;">
+                <span>${esc(emp.email)}</span>
+                <button class="btn-icon" id="copyEmpEmailBtn" title="نسخ البريد" style="background:none;border:none;color:#947124;cursor:pointer;padding:2px 6px;">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
+            </div>
+            <div style="background: #FAF7F2; border: 1px solid rgba(184, 142, 54, 0.2); border-radius: 10px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: #574E45; margin-bottom: 3px; font-weight: 600;">رقم الجوال</div>
+              <div style="font-size: 13.5px; font-weight: 700; color: #1F1A15;">${esc(emp.phone || "غير محدد")}</div>
+            </div>
+            <div style="background: #FAF7F2; border: 1px solid rgba(184, 142, 54, 0.2); border-radius: 10px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: #574E45; margin-bottom: 3px; font-weight: 600;">القسم / الإدارة</div>
+              <div style="font-size: 13.5px; font-weight: 700; color: #1F1A15;">${esc(emp.department || "جمعية إرث وحضارة")}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bio Section -->
+        ${emp.bio ? `
+          <div style="margin-bottom: 20px;">
+            <div style="font-size: 13px; font-weight: 800; color: #947124; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-user-pen"></i> النبذة المختصرة
+            </div>
+            <div style="background: #FAF7F2; border: 1px solid rgba(184, 142, 54, 0.2); border-radius: 10px; padding: 14px; font-size: 13.5px; color: #1F1A15; line-height: 1.7;">
+              ${esc(emp.bio)}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- CV Section -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 13px; font-weight: 800; color: #947124; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-file-pdf"></i> السيرة الذاتية (SharePoint)
+          </div>
+          ${emp.cv ? `
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #FAF7F2; border: 1px solid rgba(184, 142, 54, 0.25); border-radius: 10px; padding: 12px 16px; flex-wrap: wrap; gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-pdf" style="font-size: 24px; color: #A82A2A;"></i>
+                <div>
+                  <div style="font-size: 13.5px; font-weight: 700; color: #1F1A15;">${esc(emp.cv.name || "السيرة الذاتية")}</div>
+                  <div style="font-size: 11px; color: #574E45;">مستند SharePoint رسمي</div>
+                </div>
+              </div>
+              <a href="${esc(S.getCvPreviewUrl(emp.cv))}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding: 7px 14px; font-size: 12.5px; font-weight: 700; text-decoration: none;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> فتح السيرة الذاتية
+              </a>
+            </div>
+          ` : `
+            <div style="background: #FAF7F2; border: 1px dashed rgba(184, 142, 54, 0.3); border-radius: 10px; padding: 14px; text-align: center; color: #857A6E; font-size: 12.5px;">
+              لم يتم رفع سيرة ذاتية لهذا الموظف بعد
+            </div>
+          `}
+        </div>
+
+        <!-- Action Footer -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(31, 26, 21, 0.08);">
+          ${(isSelf || isTechAdmin()) ? `
+            <button class="btn btn-secondary" id="goToFullProfileBtn" style="font-size: 12.5px; font-weight: 700; color: #947124; background: #FAF7F2; border-color: rgba(184,142,54,0.3);">
+              <i class="fa-solid fa-gear"></i> إدارة الملف الشخصي الكامل
+            </button>
+          ` : '<div></div>'}
+          <button class="btn btn-secondary" id="closeModalBottomBtn" style="font-size: 12.5px; font-weight: 700;">
+            إغلاق
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  requestAnimationFrame(() => {
+    overlay.style.opacity = "1";
+    const card = overlay.querySelector(".emp-profile-modal-card");
+    if (card) card.style.transform = "scale(1) translateY(0)";
+  });
+
+  const closeModal = () => {
+    overlay.style.opacity = "0";
+    const card = overlay.querySelector(".emp-profile-modal-card");
+    if (card) card.style.transform = "scale(0.96) translateY(10px)";
+    setTimeout(() => {
+      overlay.remove();
+      document.removeEventListener("keydown", onEsc);
+    }, 250);
+  };
+
+  const onEsc = (e) => {
+    if (e.key === "Escape") closeModal();
+  };
+
+  document.addEventListener("keydown", onEsc);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  const closeBtn = $("#closeEmpProfileModalBtn", overlay);
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+
+  const closeBottomBtn = $("#closeModalBottomBtn", overlay);
+  if (closeBottomBtn) closeBottomBtn.addEventListener("click", closeModal);
+
+  const copyEmailBtn = $("#copyEmpEmailBtn", overlay);
+  if (copyEmailBtn) {
+    copyEmailBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(emp.email);
+      toast("تم نسخ البريد الإلكتروني");
+    });
+  }
+
+  const fullProfileBtn = $("#goToFullProfileBtn", overlay);
+  if (fullProfileBtn) {
+    fullProfileBtn.addEventListener("click", () => {
+      closeModal();
+      State.selectedEmp = emp;
+      State.profileTab = "info";
+      navigate("profile");
+    });
+  }
+}
+
 function renderMembers(el){
   const u = State.user;
   const canAdmin = isTechAdmin(u);
@@ -2547,38 +3806,46 @@ function renderMembers(el){
   if(!State.empLeaveFilter) State.empLeaveFilter = "all";
 
   el.innerHTML = `
-    ${pageHead("Employees", "دليل الموظفين", "الموظفون وفريق العمل", "", "عرض جميع الموظفين في الجمعية والتواصل والتنظيم الإداري.")}
+    <!-- Header Hero banner -->
+    <div style="background: linear-gradient(135deg, #FAF7F2 0%, #F4ECDC 100%); border: 1px solid rgba(184, 142, 54, 0.25); border-radius: 16px; padding: 26px 28px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; position: relative; overflow: hidden;">
+      <div style="position: absolute; left: -20px; bottom: -20px; font-size: 140px; color: rgba(184, 142, 54, 0.04); pointer-events: none;"><i class="fa-solid fa-users"></i></div>
+      <div style="position: relative; z-index: 1;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #947124; letter-spacing: 0.5px; margin-bottom: 6px;">
+          <i class="fa-solid fa-users-gear"></i> دليل فريق العمل
+        </div>
+        <h1 style="font-size: 22px; font-weight: 800; color: #1F1A15; margin: 0 0 6px 0;">دليل الموظفين</h1>
+        <p style="font-size: 13.5px; color: #574E45; margin: 0;">تعرف على فريق جمعية إرث وحضارة بالقريات للتواصل الإداري والتنظيم</p>
+      </div>
+      ${canAdmin ? `<button class="btn btn-primary" id="addEmpBtn" style="position: relative; z-index: 1; padding: 10px 20px; font-weight: 700;"><i class="fa-solid fa-user-plus"></i> إضافة موظف جديد</button>` : ""}
+    </div>
 
     <!-- شريط التحكم والفلترة -->
-    <div class="toolbar">
-      <div class="search-box">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input id="empSearchInput" placeholder="ابحث باسم الموظف، المسمى الوظيفي، أو البريد…" value="${esc(State.userSearchQuery)}">
+    <div style="background: #FFFFFF; border: 1px solid rgba(184, 142, 54, 0.2); border-radius: 14px; padding: 14px 18px; margin-bottom: 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+      <div style="flex: 1; min-width: 240px; position: relative;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #947124; font-size: 14px;"></i>
+        <input id="empSearchInput" class="input" style="padding-right: 40px; border-radius: 8px; border-color: rgba(184, 142, 54, 0.25); background: #FAF7F2; font-size: 13.5px;" placeholder="🔍 البحث عن موظف بالاسم، المسمى الوظيفي، أو البريد…" value="${esc(State.userSearchQuery)}">
       </div>
 
-      <div class="filters">
-        <select id="empRoleFilter" class="input" style="padding:7px 10px;font-size:12.5px">
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <select id="empRoleFilter" class="input" style="padding: 8px 12px; font-size: 12.5px; border-radius: 8px; background: #FAF7F2; border-color: rgba(184, 142, 54, 0.25);">
           <option value="all">جميع الصلاحيات</option>
           <option value="executive" ${State.empRoleFilter==='executive'?'selected':''}>مدير تنفيذي</option>
           <option value="hr" ${State.empRoleFilter==='hr'?'selected':''}>موارد بشرية</option>
           <option value="employee" ${State.empRoleFilter==='employee'?'selected':''}>موظف</option>
         </select>
 
-        <select id="empStatusFilter" class="input" style="padding:7px 10px;font-size:12.5px">
+        <select id="empStatusFilter" class="input" style="padding: 8px 12px; font-size: 12.5px; border-radius: 8px; background: #FAF7F2; border-color: rgba(184, 142, 54, 0.25);">
           <option value="all">جميع الحالات</option>
           <option value="active" ${State.empStatusFilter==='active'?'selected':''}>حسابات نشطة</option>
           <option value="disabled" ${State.empStatusFilter==='disabled'?'selected':''}>حسابات معطلة</option>
         </select>
 
-        <select id="empLeaveFilter" class="input" style="padding:7px 10px;font-size:12.5px">
+        <select id="empLeaveFilter" class="input" style="padding: 8px 12px; font-size: 12.5px; border-radius: 8px; background: #FAF7F2; border-color: rgba(184, 142, 54, 0.25);">
           <option value="all" ${State.empLeaveFilter==='all'?'selected':''}>حالة الحضور (الكل)</option>
           <option value="on_leave" ${State.empLeaveFilter==='on_leave'?'selected':''}>في إجازة حالياً 🌴</option>
           <option value="active_work" ${State.empLeaveFilter==='active_work'?'selected':''}>على رأس العمل 💼</option>
         </select>
       </div>
-
-      <div class="spacer"></div>
-      ${canAdmin ? `<button class="btn btn-primary" id="addEmpBtn"><i class="fa-solid fa-user-plus"></i> إضافة موظف جديد</button>` : ""}
     </div>
 
     <!-- شبكة بطاقات الموظفين -->
@@ -2640,58 +3907,60 @@ function renderEmpGrid(){
     const roleLabel = ROLES[emp.role]?.label || emp.role;
     const isDisabled = emp.status === "disabled";
     
-    // حساب شارة الإجازة
     const activeLeave = getUserActiveLeave(emp.uid);
     let leaveBadgeHtml = "";
     if (activeLeave) {
       const typeLabel = LEAVE_TYPES[activeLeave.type]?.label || activeLeave.type;
       const returnsText = getDaysUntilReturn(activeLeave.endDate);
       leaveBadgeHtml = `
-        <span class="status-badge tooltip-trigger" style="background:rgba(217,119,6,0.08);color:rgb(217,119,6);border:1px solid rgba(217,119,6,0.2);cursor:help;">
-          <i class="fa-solid fa-umbrella-beach"></i> في إجازة
-          <span class="tooltip-content">
-            ${esc(typeLabel)} · من ${esc(activeLeave.startDate)} إلى ${esc(activeLeave.endDate)} · ${esc(returnsText)}
-          </span>
+        <span style="background:rgba(217,119,6,0.08);color:rgb(217,119,6);border:1px solid rgba(217,119,6,0.25);font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;" title="${esc(typeLabel)} · العودة: ${esc(returnsText)}">
+          <i class="fa-solid fa-umbrella-beach"></i> إجازة
         </span>
       `;
     }
 
     return `
-      <div class="emp-card">
-        <div class="emp-avatar-lg">
-          ${emp.avatar ? `<img src="${esc(emp.avatar)}">` : esc(initials(emp.name))}
-        </div>
-        <div class="emp-name">${esc(emp.name)}</div>
-        
-        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;justify-content:center;margin-top:10px">
-          <span class="status-badge" style="${isDisabled ? 'background:var(--danger-bg);color:var(--danger)' : 'background:var(--success-bg);color:var(--success)'}">
-            <i class="fa-solid ${isDisabled ? 'fa-circle-xmark' : 'fa-circle-check'}"></i> ${isDisabled ? 'معطل' : 'نشط'}
-          </span>
-          <span class="status-badge" style="background:var(--bg-subtle);color:var(--ink-mid);border:1px solid var(--line)">
-            ${esc(emp.jobTitle || "موظف")}
-          </span>
-          ${isTechAdmin(emp) ? `<span class="status-badge" style="background:rgba(30,64,175,0.08);color:var(--info)">تقني</span>` : ''}
+      <div class="emp-card" data-card-emp="${emp.uid}">
+        <div style="position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; align-items: center;">
+          ${isDisabled ? `<span style="background:rgba(168,42,42,0.08);color:#A82A2A;border:1px solid rgba(168,42,42,0.2);font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;">معطل</span>` : ''}
           ${leaveBadgeHtml}
         </div>
 
-        <div class="emp-actions">
-          <button class="btn btn-secondary" style="width:100%" data-view-emp="${emp.uid}"><i class="fa-solid fa-id-card"></i> عرض الملف</button>
-          ${isTechAdmin() ? `
-            <button class="btn btn-secondary" data-admin-edit="${emp.uid}" title="إدارة الحساب"><i class="fa-solid fa-gear"></i></button>
-          ` : ""}
+        ${isTechAdmin() ? `
+          <button class="btn-icon" data-admin-edit="${emp.uid}" title="إدارة الحساب" style="position: absolute; top: 12px; left: 12px; background: #FAF7F2; border: 1px solid rgba(184, 142, 54, 0.2); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: #947124; cursor: pointer; z-index: 2;">
+            <i class="fa-solid fa-gear" style="font-size: 11px;"></i>
+          </button>
+        ` : ''}
+
+        <div class="emp-avatar-lg">
+          ${emp.avatar ? `<img src="${esc(emp.avatar)}">` : esc(initials(emp.name))}
+        </div>
+
+        <div class="emp-name" style="font-size:15.5px;font-weight:800;color:#1F1A15;margin-bottom:4px">${esc(emp.name)}</div>
+        
+        <div style="background: #F4ECDC; color: #947124; border: 1px solid rgba(184, 142, 54, 0.3); font-size: 11.5px; font-weight: 700; padding: 3px 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+          <i class="fa-solid fa-briefcase" style="font-size: 10px;"></i> ${esc(emp.jobTitle || "موظف")}
+        </div>
+
+        <div style="font-size: 11.5px; color: #574E45; margin-bottom: 14px; font-weight: 600;">
+          <i class="fa-solid fa-building" style="color: #947124; margin-left: 3px;"></i> ${esc(emp.department || "جمعية إرث وحضارة")}
+        </div>
+
+        <div class="emp-actions" style="margin-top:auto;width:100%">
+          <button class="btn btn-secondary" style="width:100%;border-radius:8px;font-weight:700;font-size:12.5px;color:#947124;background:#FAF7F2;border-color:rgba(184,142,54,0.25)" data-view-emp="${emp.uid}">
+            عرض الملف الشخصي <i class="fa-solid fa-arrow-left" style="margin-right: 4px; font-size: 11px;"></i>
+          </button>
         </div>
       </div>
     `;
   }).join("");
 
-  $$("[data-view-emp]", area).forEach(btn => {
-    btn.addEventListener("click", ()=>{
-      const emp = State.users.find(x => x.uid === btn.dataset.viewEmp);
-      if(emp){
-        State.selectedEmp = emp;
-        State.profileTab = "info";
-        navigate("profile");
-      }
+  $$("[data-card-emp]", area).forEach(card => {
+    card.addEventListener("click", (e)=>{
+      if (e.target.closest("[data-admin-edit]")) return;
+      const empUid = card.dataset.cardEmp;
+      const emp = State.users.find(x => x.uid === empUid);
+      if (emp) openEmployeeProfileModal(emp);
     });
   });
 
@@ -4551,10 +5820,33 @@ function renderNotifBadge(){
 
 
 
+/* ════════════════ Theme Engine Manager ════════════════ */
+function getSavedTheme() {
+  return localStorage.getItem("portal_theme") || "classic";
+}
+
+function applyTheme(themeName, saveToFirestore = true) {
+  const validThemes = ["classic", "light", "dark"];
+  const theme = validThemes.includes(themeName) ? themeName : "classic";
+
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("portal_theme", theme);
+
+  if (State && State.user) {
+    State.user.themePreference = theme;
+    if (saveToFirestore && State.user.uid) {
+      S.updateUserProfile(State.user.uid, { themePreference: theme }).catch(err => {
+        console.warn("[Theme] Failed to sync theme to Firestore:", err);
+      });
+    }
+  }
+}
+
 /* ════════════════ 8. الإعدادات (Settings) ════════════════ */
 async function renderSettings(el){
   if(!el) el = $("#viewHost");
   const u = State.user;
+  const currentTheme = getSavedTheme();
 
   // فحص بيئة آيفون ووضع الـ PWA
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || 
@@ -4591,6 +5883,62 @@ async function renderSettings(el){
   // سنقوم ببناء الواجهة مباشرة مع حاوية فارغة (Skeleton) لقائمة الأجهزة لتفادي أي بطء في الانتقال
   el.innerHTML = `
     ${pageHead("Settings", "الإعدادات", "إعدادات", "الحساب والتطبيق", "تفضيلات الحساب والإشعارات والمظهر وتراخيص الأجهزة.")}
+
+    <!-- قسم المظهر والثيمات -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-head">
+        <div>
+          <h3 style="margin:0"><i class="fa-solid fa-palette" style="color:var(--gold-deep);margin-left:8px"></i> المظهر</h3>
+          <p style="font-size:12.5px;color:var(--ink-muted);margin:4px 0 0 0">اختر المظهر المناسب لك أثناء استخدام بوابة الموظفين.</p>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:16px;margin-top:18px">
+        
+        <!-- 1. Erth Classic -->
+        <div class="theme-card-option ${currentTheme === 'classic' ? 'active' : ''}" data-theme-choice="classic" style="background: var(--bg-paper); border: 2px solid ${currentTheme === 'classic' ? 'var(--gold-deep)' : 'var(--line)'}; border-radius: 14px; padding: 18px 16px; cursor: pointer; transition: all 0.25s ease; position: relative; text-align: center;">
+          ${currentTheme === 'classic' ? `<div style="position: absolute; top: 10px; left: 10px; background: var(--gold-deep); color: #fff; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;">✓ محدد</div>` : ''}
+          <div style="height: 75px; background: #F8F5EE; border: 1.5px solid rgba(184,142,54,0.3); border-radius: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+            <div style="width: 28px; height: 100%; background: #FAF7F2; border-radius: 4px; border: 1px solid rgba(184,142,54,0.25);"></div>
+            <div style="flex: 1; height: 100%; display: flex; flex-direction: column; gap: 5px;">
+              <div style="height: 14px; background: #947124; border-radius: 3px; width: 60%;"></div>
+              <div style="height: 24px; background: #FFFFFF; border-radius: 4px; border: 1px solid rgba(184,142,54,0.15);"></div>
+            </div>
+          </div>
+          <div style="font-size: 14.5px; font-weight: 800; color: var(--ink); margin-bottom: 2px;">Erth Classic</div>
+          <div style="font-size: 12px; color: var(--ink-muted);">الثيم الأساسي</div>
+        </div>
+
+        <!-- 2. Light Theme -->
+        <div class="theme-card-option ${currentTheme === 'light' ? 'active' : ''}" data-theme-choice="light" style="background: var(--bg-paper); border: 2px solid ${currentTheme === 'light' ? 'var(--gold-deep)' : 'var(--line)'}; border-radius: 14px; padding: 18px 16px; cursor: pointer; transition: all 0.25s ease; position: relative; text-align: center;">
+          ${currentTheme === 'light' ? `<div style="position: absolute; top: 10px; left: 10px; background: var(--gold-deep); color: #fff; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;">✓ محدد</div>` : ''}
+          <div style="height: 75px; background: #F9F9F8; border: 1.5px solid rgba(0,0,0,0.12); border-radius: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+            <div style="width: 28px; height: 100%; background: #F3F2EF; border-radius: 4px; border: 1px solid rgba(0,0,0,0.08);"></div>
+            <div style="flex: 1; height: 100%; display: flex; flex-direction: column; gap: 5px;">
+              <div style="height: 14px; background: #947124; border-radius: 3px; width: 60%;"></div>
+              <div style="height: 24px; background: #FFFFFF; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1);"></div>
+            </div>
+          </div>
+          <div style="font-size: 14.5px; font-weight: 800; color: var(--ink); margin-bottom: 2px;">Light</div>
+          <div style="font-size: 12px; color: var(--ink-muted);">الثيم الأبيض</div>
+        </div>
+
+        <!-- 3. Dark Theme -->
+        <div class="theme-card-option ${currentTheme === 'dark' ? 'active' : ''}" data-theme-choice="dark" style="background: var(--bg-paper); border: 2px solid ${currentTheme === 'dark' ? 'var(--gold-deep)' : 'var(--line)'}; border-radius: 14px; padding: 18px 16px; cursor: pointer; transition: all 0.25s ease; position: relative; text-align: center;">
+          ${currentTheme === 'dark' ? `<div style="position: absolute; top: 10px; left: 10px; background: var(--gold-deep); color: #fff; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;">✓ محدد</div>` : ''}
+          <div style="height: 75px; background: #141210; border: 1.5px solid rgba(212,175,55,0.3); border-radius: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+            <div style="width: 28px; height: 100%; background: #26221E; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06);"></div>
+            <div style="flex: 1; height: 100%; display: flex; flex-direction: column; gap: 5px;">
+              <div style="height: 14px; background: #D4AF37; border-radius: 3px; width: 60%;"></div>
+              <div style="height: 24px; background: #1E1B18; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);"></div>
+            </div>
+          </div>
+          <div style="font-size: 14.5px; font-weight: 800; color: var(--ink); margin-bottom: 2px;">Dark</div>
+          <div style="font-size: 12px; color: var(--ink-muted);">الثيم الأسود</div>
+        </div>
+
+      </div>
+    </div>
 
     <!-- تنبيه خاص لأجهزة الآيفون في حال عدم التثبيت كـ PWA -->
     ${(isIOS && !isStandalone) ? `
@@ -4684,7 +6032,103 @@ async function renderSettings(el){
         `).join("")}
       </div>
     </div>
+
+    <!-- قسم إعدادات الحضور والانصراف الجغرافي (للموارد البشرية والمدير التنفيذي والمسؤول التقني) -->
+    ${(u.role === "hr" || u.role === "executive" || isTechAdmin(u)) ? `
+      <div class="card" style="margin-top:16px;">
+        <div class="card-head">
+          <div>
+            <h3 style="margin:0"><i class="fa-solid fa-location-dot" style="color:var(--gold-deep);margin-left:8px"></i> إعدادات الحضور والانصراف والنطاق الجغرافي</h3>
+            <p style="font-size:12.5px;color:var(--ink-muted);margin:4px 0 0 0">تحديد إحداثيات مقر الجمعية ونصف القطر المسموح به وأوقات الدوام الرسمية.</p>
+          </div>
+        </div>
+
+        <form id="formAttendanceSettings" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">خط العرض (Latitude):</label>
+              <input type="number" step="any" id="attLat" value="${State.attendanceSettings?.officeLat ?? 31.334302}" required style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">خط الطول (Longitude):</label>
+              <input type="number" step="any" id="attLng" value="${State.attendanceSettings?.officeLng ?? 37.338730}" required style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">نصف القطر المسموح (بالمتر):</label>
+              <input type="number" min="10" max="5000" id="attRadius" value="${State.attendanceSettings?.allowedRadius ?? 100}" required style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">وقت بداية الدوام الرسمي:</label>
+              <input type="time" id="attStartTime" value="${State.attendanceSettings?.workStartTime ?? '08:00'}" required style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">وقت نهاية الدوام الرسمي:</label>
+              <input type="time" id="attEndTime" value="${State.attendanceSettings?.workEndTime ?? '16:00'}" required style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">مهلة السماح للتأخير (بالدقائق):</label>
+              <input type="number" min="0" max="120" id="attGraceMins" value="${State.attendanceSettings?.graceMinutes ?? 15}" required style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13.5px; font-weight:600; color:var(--ink); outline:none;">
+            </div>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">العنوان النصي لمقر الجمعية:</label>
+            <input type="text" id="attAddress" value="${esc(State.attendanceSettings?.address || 'شركة حمود عيد للتجارة والتسويق، صلاح الدين، السديرية، القريات 77453')}" required style="width:100%; padding:10px; border-radius:var(--r-md); border:1px solid var(--line-soft); background:var(--bg-paper); font-size:13px; color:var(--ink); outline:none;">
+          </div>
+
+          <div style="display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn btn-primary" id="btnSaveAttendanceSettings" style="gap:8px;">
+              <i class="fa-solid fa-floppy-disk"></i> حفظ إعدادات الحضور والنطاق
+            </button>
+          </div>
+        </form>
+      </div>
+    ` : ""}
   `;
+
+  const formAttSet = $("#formAttendanceSettings", el);
+  if (formAttSet) {
+    formAttSet.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = $("#btnSaveAttendanceSettings");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الحفظ…`;
+
+      try {
+        const payload = {
+          officeLat: parseFloat($("#attLat").value),
+          officeLng: parseFloat($("#attLng").value),
+          allowedRadius: parseInt($("#attRadius").value, 10),
+          workStartTime: $("#attStartTime").value.trim(),
+          workEndTime: $("#attEndTime").value.trim(),
+          graceMinutes: parseInt($("#attGraceMins").value, 10),
+          address: $("#attAddress").value.trim()
+        };
+        const updated = await S.saveAttendanceSettings(payload, State.user);
+        State.attendanceSettings = updated;
+        toast("✅ تم حفظ إعدادات الحضور والنطاق الجغرافي بنجاح", "ok");
+      } catch (err) {
+        toast("فشل حفظ الإعدادات: " + err.message, "err");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> حفظ إعدادات الحضور والنطاق`;
+      }
+    });
+  }
+
+  // ربط أحداث تغيير الثيم
+  $$("[data-theme-choice]", el).forEach(card => {
+    card.addEventListener("click", () => {
+      const chosenTheme = card.dataset.themeChoice;
+      applyTheme(chosenTheme, true);
+      renderSettings(el);
+      const labels = { classic: "Erth Classic (الأصلي)", light: "Light (الأبيض)", dark: "Dark (الأسود)" };
+      toast(`تم تفعيل مظهر ${labels[chosenTheme] || chosenTheme}`);
+    });
+  });
 
   // نداء غير متزامن لجلب الأجهزة من Firestore دون تعطيل المعاينة الفورية
   S.listUserTokens(u.uid).then((userTokens) => {
@@ -6337,22 +7781,8 @@ function openNewSuggestionModal() {
 
     triggerBtn.disabled = true;
     triggerBtn.innerHTML = `<i class="fa-solid fa-spinner spin"></i> جارٍ الرفع…`;
-    progressTxt.textContent = "0%";
-
     try {
-      const res = await S.uploadToCloudinary(
-        file,
-        (pct) => {
-          progressTxt.textContent = `${pct}%`;
-        },
-        (status) => {
-          if (status === "compressing") {
-            progressTxt.textContent = "جاري الضغط…";
-          } else {
-            progressTxt.textContent = "جاري الرفع…";
-          }
-        }
-      );
+      const res = await S.uploadSuggestionAttachment(file);
 
       State.tempSuggestionAttachment = {
         url: res,
@@ -6545,3 +7975,101 @@ function openNotifDebugModal(d) {
   `;
   openModal(content);
 }
+
+/* ══════════════════════════════════════════════════════════
+   تتبع هالة مؤشر النظام الطبيعي (Native System Cursor Aura Listener)
+ ══════════════════════════════════════════════════════════ */
+(function initPortalCursorAura() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  
+  const isFinePointer = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (!isFinePointer) return;
+
+  const initAura = () => {
+    // تنظيف أي عناصر ومصنفات قديمة كانت تخفي المؤشر
+    const oldArrow = document.querySelector(".portal-cursor-arrow");
+    const oldDot = document.querySelector(".portal-cursor-dot");
+    if (oldArrow) oldArrow.remove();
+    if (oldDot) oldDot.remove();
+    document.body.classList.remove("has-custom-cursor");
+
+    let ring = document.querySelector(".portal-cursor-ring");
+    if (!ring) {
+      ring = document.createElement("div");
+      ring.className = "portal-cursor-ring";
+      document.body.appendChild(ring);
+    }
+
+    let mouseX = -100, mouseY = -100;
+    let ringX = -100, ringY = -100;
+    let isMoving = false;
+    let rafId = null;
+
+    function render() {
+      ringX += (mouseX - ringX) * 0.25;
+      ringY += (mouseY - ringY) * 0.25;
+      ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0)`;
+
+      if (isMoving) {
+        rafId = requestAnimationFrame(render);
+      }
+    }
+
+    window.addEventListener("mousemove", (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+
+      if (!document.body.classList.contains("cursor-active")) {
+        document.body.classList.add("cursor-active");
+        ringX = mouseX;
+        ringY = mouseY;
+      }
+
+      if (!isMoving) {
+        isMoving = true;
+        rafId = requestAnimationFrame(render);
+      }
+    }, { passive: true });
+
+    document.addEventListener("mouseleave", () => {
+      document.body.classList.remove("cursor-active");
+      isMoving = false;
+      if (rafId) cancelAnimationFrame(rafId);
+    });
+
+    document.addEventListener("mousedown", () => {
+      document.body.classList.add("cursor-down");
+    });
+
+    document.addEventListener("mouseup", () => {
+      document.body.classList.remove("cursor-down");
+    });
+
+    document.addEventListener("mouseover", (e) => {
+      const target = e.target;
+      if (!target) return;
+
+      const isText = target.closest("input, textarea, select, [contenteditable='true']");
+      if (isText) {
+        document.body.classList.add("cursor-text-hover");
+        document.body.classList.remove("cursor-hover");
+        return;
+      } else {
+        document.body.classList.remove("cursor-text-hover");
+      }
+
+      const isClickable = target.closest("a, button, [role='button'], .btn, .nav-item, .card-link, .sf-logout, .clickable, select, input[type='checkbox'], input[type='radio'], input[type='button'], input[type='submit']");
+      if (isClickable) {
+        document.body.classList.add("cursor-hover");
+      } else {
+        document.body.classList.remove("cursor-hover");
+      }
+    }, { passive: true });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAura);
+  } else {
+    initAura();
+  }
+})();

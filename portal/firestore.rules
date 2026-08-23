@@ -59,11 +59,18 @@ service cloud.firestore {
         isHR() ||
         isExec()
       );
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if signedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        (request.resource.data.status == 'submitted' || !('status' in request.resource.data));
       allow update: if signedIn() && (
-        isHR() ||
-        (isExec() && resource.data.status == 'hr_approved') ||
-        resource.data.userId == request.auth.uid
+        // HR updates: HR can review/reject or forward to Exec ('hr_approved'), but CANNOT set status to 'approved'
+        (isHR() &&
+         (resource.data.status == 'submitted' || resource.data.status == 'in_hr_review') &&
+         request.resource.data.status != 'approved')
+        ||
+        // Executive updates: Executive can approve ('approved') or reject ('exec_rejected')
+        (isExec() &&
+         (resource.data.status == 'hr_approved' || resource.data.status == 'submitted' || resource.data.status == 'in_hr_review'))
       );
       allow delete: if isTechAdmin() || (signedIn() && resource.data.userId == request.auth.uid && resource.data.status == 'submitted');
     }
@@ -147,6 +154,12 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
       allow update: if signedIn() && resource.data.uid == request.auth.uid;
       allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isExec());
+    }
+
+    // ── الحضور والانصراف (portal_attendance) ──
+    match /portal_attendance/{id} {
+      allow read: if signedIn();
+      allow write: if isHR() || isExec() || isTechAdmin();
     }
 
     // ── التعميمات والإعلانات الداخلية (portal_announcements) ──

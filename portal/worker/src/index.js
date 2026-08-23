@@ -59,7 +59,8 @@ export default {
 
 /* ═══════════ منطق الإرسال مع التتبع المرحلي ═══════════ */
 async function sendForNotification(env, accessToken, notifId, reqId) {
-  const pid = env.PROJECT_ID;
+  const sa = loadServiceAccount(env);
+  const pid = env?.PROJECT_ID || sa?.project_id || "arthwhdarh-782ec";
 
   // 1) اقرأ مستند الإشعار
   const n = await fsGet(pid, accessToken, `${COL.notifications}/${notifId}`);
@@ -84,6 +85,14 @@ async function sendForNotification(env, accessToken, notifId, reqId) {
     console.log(`[Push Trace 3][ID=${reqId}] All recipients opted out of pref: ${n.pref}`);
     return { skipped: "opted-out", success: 0, failure: 0, removed: 0 };
   }
+
+  const isDeptTarget = String(n.userId || "").startsWith("dept:");
+  console.log(`[Target Debug][ID=${reqId}] notificationId: ${notifId}`);
+  console.log(`[Target Debug][ID=${reqId}] type: ${n.type || "general"}`);
+  console.log(`[Target Debug][ID=${reqId}] targetMode: ${isDeptTarget ? "department" : "single_user"}`);
+  console.log(`[Target Debug][ID=${reqId}] targetUid: ${n.userId || "N/A"}`);
+  console.log(`[Target Debug][ID=${reqId}] resolvedUidsCount: ${allowed.length}`);
+  console.log(`[Target Debug][ID=${reqId}] resolvedUids: [${allowed.map(u => u.slice(0, 6) + "...").join(", ")}]`);
 
   // 4) اجلب الرموز
   const tokenDocs = await tokensForUids(pid, accessToken, allowed);
@@ -265,13 +274,20 @@ async function prefAllows(pid, accessToken, uid, pref) {
 }
 
 async function tokensForUids(pid, accessToken, uids) {
+  if (!uids || !uids.length) return [];
+  const uidsSet = new Set(uids);
   const out = [];
   for (let i = 0; i < uids.length; i += 10) {
     const chunk = uids.slice(i, i + 10);
     const docs = await fsQuery(pid, accessToken, COL.tokens, {
       fieldFilter: { field: "uid", op: "IN", values: chunk.map(stringValue) }
     });
-    docs.forEach(d => out.push({ token: d.__name, uid: d.uid }));
+    // ترشيح صارم يضمن اقتصار الرموز على الـ UIDs المستهدفة فقط
+    docs.forEach(d => {
+      if (d.uid && uidsSet.has(d.uid)) {
+        out.push({ token: d.__name, uid: d.uid });
+      }
+    });
   }
   return out;
 }
@@ -282,11 +298,26 @@ function fsBase(pid) {
 }
 
 async function fsGet(pid, accessToken, path) {
-  const r = await fetch(`${fsBase(pid)}/${path}`, {
+  const url = `${fsBase(pid)}/${path}`;
+  const r = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`fsGet ${path}: ${r.status}`);
+  if (!r.ok) {
+    const errText = await r.text().catch(() => "");
+    let errCode = "UNKNOWN", errMessage = errText.slice(0, 300);
+    try {
+      const errObj = JSON.parse(errText);
+      errCode = errObj.error?.status || errObj.error?.code || "UNKNOWN";
+      errMessage = errObj.error?.message || errText.slice(0, 300);
+    } catch(e){}
+    console.log(`[FS Debug] project: ${pid}`);
+    console.log(`[FS Debug] endpoint: ${url}`);
+    console.log(`[FS Debug] status: ${r.status}`);
+    console.log(`[FS Debug] error code: ${errCode}`);
+    console.log(`[FS Debug] error message: ${errMessage}`);
+    throw new Error(`fsGet ${path}: ${r.status} (${errCode} - ${errMessage})`);
+  }
   const doc = await r.json();
   return decodeFields(doc.fields);
 }
@@ -372,67 +403,57 @@ function decodeValue(v) {
 let _tokenCache = { token: null, exp: 0 };
 let _saCache = null;
 
-/* تحميل حساب الخدمة بمرونة تتحمّل أخطاء اللصق الشائعة.
-   يدعم ثلاث صيغ للسرّ SERVICE_ACCOUNT:
-     1) JSON صحيح (الأفضل).
-     2) JSON تسرّبت فيه أسطر حقيقية داخل private_key (يُصلَح تلقائياً).
-     3) JSON كامل مُرمّز Base64 (الأكثر أماناً — بلا أي أسطر) عبر
-        السرّ البديل SERVICE_ACCOUNT_B64. */
+/* تحميل حساب الخدمة من SERVICE_ACCOUNT_B64 (مع Fallback إلى SERVICE_ACCOUNT) */
 function loadServiceAccount(env) {
   if (_saCache) return _saCache;
 
-  // مسار بديل: base64 (لا يحوي أسطراً إطلاقاً ⇒ لا يتكسّر أبداً)
-  if (env.SERVICE_ACCOUNT_B64) {
+  const hasB64 = Boolean(env.SERVICE_ACCOUNT_B64 && typeof env.SERVICE_ACCOUNT_B64 === "string" && env.SERVICE_ACCOUNT_B64.trim());
+  console.log(`[SA] SERVICE_ACCOUNT_B64 exists: ${hasB64}`);
+
+  if (hasB64) {
     try {
-      const jsonText = new TextDecoder().decode(
-        Uint8Array.from(atob(env.SERVICE_ACCOUNT_B64.trim()), c => c.charCodeAt(0))
-      );
+      const b64Clean = env.SERVICE_ACCOUNT_B64.trim().replace(/\s+/g, "");
+      const binaryString = atob(b64Clean);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const jsonText = new TextDecoder("utf-8").decode(bytes);
+      console.log(`[SA] Decoded JSON length: ${jsonText.length}`);
+
       _saCache = JSON.parse(jsonText);
-      console.log("[SA] loaded from SERVICE_ACCOUNT_B64 ✓");
+      console.log("[SA] JSON parsed: true");
       return validateSA(_saCache);
     } catch (e) {
+      console.log("[SA] JSON parsed: false");
       console.error("[SA] SERVICE_ACCOUNT_B64 decode/parse failed:", e?.message);
-      throw new Error("SERVICE_ACCOUNT_B64 غير صالح — تأكّد أنه Base64 لملف JSON كامل");
+      throw new Error("SERVICE_ACCOUNT_B64 decoding or JSON parsing failed.");
     }
   }
 
+  // Fallback إلى SERVICE_ACCOUNT عند عدم توفر SERVICE_ACCOUNT_B64
   const raw = env.SERVICE_ACCOUNT;
   if (!raw || typeof raw !== "string") {
-    throw new Error("السرّ SERVICE_ACCOUNT مفقود — اضبطه بـ wrangler secret put");
+    throw new Error("السرّ SERVICE_ACCOUNT_B64 أو SERVICE_ACCOUNT مفقود في Cloudflare Secrets.");
   }
 
-  console.log("[SA] raw length =", raw.length,
-    "· has CR =", raw.includes("\r"),
-    "· has raw LF =", /[\n]/.test(raw));
-
-  // محاولة ١: تحليل مباشر
   try {
     _saCache = JSON.parse(raw);
-    console.log("[SA] parsed directly ✓");
+    console.log("[SA] JSON parsed: true");
     return validateSA(_saCache);
   } catch (e1) {
-    console.warn("[SA] direct JSON.parse failed:", e1?.message);
-  }
-
-  // محاولة ٢: إصلاح الأسطر/المسافات الحقيقية داخل قيم السلاسل.
-  // السبب الأشهر لـ "Unterminated string": أسطر فعلية داخل private_key.
-  try {
-    const repaired = repairJsonControlChars(raw);
-    _saCache = JSON.parse(repaired);
-    console.log("[SA] parsed after control-char repair ✓ (كان هناك أسطر فعلية داخل JSON)");
-    return validateSA(_saCache);
-  } catch (e2) {
-    console.error("[SA] repair attempt failed:", e2?.message);
-    throw new Error(
-      "تعذّر تحليل SERVICE_ACCOUNT: " + (e2?.message || e2) +
-      " — يُفضّل استخدام SERVICE_ACCOUNT_B64 (انظر README)."
-    );
+    try {
+      const repaired = repairJsonControlChars(raw);
+      _saCache = JSON.parse(repaired);
+      console.log("[SA] JSON parsed: true");
+      return validateSA(_saCache);
+    } catch (e2) {
+      console.log("[SA] JSON parsed: false");
+      throw new Error("فشل تحليل السرّ SERVICE_ACCOUNT.");
+    }
   }
 }
 
-/* يهرّب أحرف التحكّم (سطر/مسافة/تبويب) الموجودة *داخل* قيم السلاسل في JSON.
-   يمرّ حرفاً حرفاً ويتتبّع إن كنا داخل سلسلة، فيحوّل 0x0A/0x0D/0x09 الخام
-   إلى \n \r \t الصالحة، دون المساس بالأحرف خارج السلاسل. */
 function repairJsonControlChars(s) {
   let out = "";
   let inStr = false, esc = false;
@@ -455,13 +476,10 @@ function repairJsonControlChars(s) {
 function validateSA(sa) {
   if (!sa.client_email) throw new Error("حساب الخدمة بلا client_email");
   if (!sa.private_key)  throw new Error("حساب الخدمة بلا private_key");
-  // إن بقيت \n كنص (مزدوجة التهريب)، طبّعها إلى أسطر فعلية لـ PEM
   if (sa.private_key.includes("\\n")) {
     sa.private_key = sa.private_key.replace(/\\n/g, "\n");
-    console.log("[SA] normalized escaped \\n in private_key");
   }
-  const head = sa.private_key.slice(0, 27);
-  console.log("[SA] validated ✓ · key starts:", head);
+  console.log("[SA] validated ✓");
   return sa;
 }
 
@@ -472,6 +490,7 @@ async function getAccessToken(env) {
   const sa = loadServiceAccount(env);
   const scope = [
     "https://www.googleapis.com/auth/datastore",
+    "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/firebase.messaging"
   ].join(" ");
 

@@ -65,6 +65,7 @@ export async function listUsers(){
   const snap = await getDocs(query(collection(db, COL.users), orderBy("name")));
   return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
 }
+export const getUsers = listUsers;
 
 /* ═══════════════ الرفع إلى Cloudinary المباشر (Unsigned Upload) ═══════════════ */
 async function compressImage(file, minSizeToCompress = 2 * 1024 * 1024) {
@@ -203,12 +204,65 @@ export function getCloudinaryDownloadUrl(url) {
   return url;
 }
 
-/* ═══════════════ إدارة الملفات والمستندات ═══════════════ */
+let _spFunctionsInstance = null;
+let _spProdFunctionsInstance = null;
+let _functionsEmulatorConnected = false;
+
+export async function getSharePointFunctions(forceProduction = false) {
+  const { getFunctions, connectFunctionsEmulator, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+  
+  if (forceProduction) {
+    if (!_spProdFunctionsInstance) {
+      _spProdFunctionsInstance = getFunctions(app, "us-central1");
+    }
+    return { functions: _spProdFunctionsInstance, httpsCallable };
+  }
+
+  if (!_spFunctionsInstance) {
+    _spFunctionsInstance = getFunctions(app, "us-central1");
+  }
+
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  if (isLocal && !_functionsEmulatorConnected) {
+    try {
+      connectFunctionsEmulator(_spFunctionsInstance, "127.0.0.1", 5001);
+      _functionsEmulatorConnected = true;
+      console.log("[Firebase Functions] Connected to local Functions Emulator at 127.0.0.1:5001");
+    } catch (e) {
+      _functionsEmulatorConnected = true;
+    }
+  }
+
+  return { functions: _spFunctionsInstance, httpsCallable };
+}
+
 export async function uploadFile(file, meta, onProgress){
-  const url = await uploadToCloudinary(file, onProgress);
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadGeneralFileToSharePoint");
+  const res = await uploadFn({
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type,
+    department: meta.department || "عام"
+  });
+
+  const spFile = res.data;
+
   const docRef = await addDoc(collection(db, COL.files), {
     name:        file.name,
-    url,
+    url:         spFile.downloadUrl || spFile.url,
+    downloadUrl: spFile.downloadUrl || spFile.url,
+    provider:    "sharepoint",
+    sharePointPath: spFile.sharePointPath,
+    driveItemId: spFile.driveItemId,
     size:        file.size,
     mime:        file.type || "",
     department:  meta.department,
@@ -217,7 +271,6 @@ export async function uploadFile(file, meta, onProgress){
     note:        meta.note || "",
     comments:    [],
     uploadedBy:  meta.uploadedBy,
-    uploaderName:meta.uploaderName,
     createdAt:   serverTimestamp(),
     updatedAt:   serverTimestamp()
   });
@@ -968,16 +1021,29 @@ function deviceLabel(){
 }
 
 export async function saveFcmToken(uid, token){
+  if(!uid || !token) return;
   try{
-    await setDoc(doc(db, COL.tokens, token), {
-      uid, token,
+    const tokenRef = doc(db, COL.tokens, token);
+    const snap = await getDoc(tokenRef).catch(()=>null);
+    const storedUid = (snap && snap.exists()) ? snap.data()?.uid : null;
+    const tokenOwnerMatchesAuth = (storedUid === uid);
+
+    console.log(`[Token Debug] currentAuthUid: ${uid}`);
+    console.log(`[Token Debug] tokenDocumentId: ${token.slice(0, 10)}... (len: ${token.length})`);
+    console.log(`[Token Debug] storedUid: ${storedUid || "none"}`);
+    console.log(`[Token Debug] tokenOwnerMatchesAuth: ${tokenOwnerMatchesAuth}`);
+
+    // الربط والتحديث الحصري للـ Token مع الـ Auth UID الحالي ومنع أي ربط قديم
+    await setDoc(tokenRef, {
+      uid: uid,
+      token: token,
       device: deviceLabel(),
       ua: navigator.userAgent.slice(0, 200),
-      createdAt: serverTimestamp(),
+      createdAt: (snap && snap.exists() && snap.data()?.createdAt) ? snap.data().createdAt : serverTimestamp(),
       lastSeen: serverTimestamp()
     }, { merge: true });
-    LOG("token stored (multi-device) ✓");
-    // تنظيف الحقل القديم المفرد إن وُجد (هجرة سلسة دون كسر)
+
+    LOG("token stored and assigned exclusively to currentAuthUid ✓");
     updateDoc(doc(db, COL.users, uid), { fcmToken: token, fcmUpdatedAt: serverTimestamp() }).catch(()=>{});
   }catch(e){ WARN("saveFcmToken failed:", e?.code || e); }
 }
@@ -1106,6 +1172,16 @@ export async function listEmpLeavesForHR(currentUserId) {
   return all.filter(l => l.userId !== currentUserId);
 }
 
+export async function getEmpLeavesHR() {
+  try {
+    const snap = await getDocs(collection(db, COL.leaves));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn("getEmpLeavesHR fallback:", e);
+    return [];
+  }
+}
+
 /* جلب طلبات الإجازات المعلقة بانتظار اعتماد المدير التنفيذي (status === hr_approved) */
 export async function listLeavesForExecApproval() {
   const q = query(
@@ -1124,50 +1200,118 @@ export async function listLeavesForExecApproval() {
 
 /* مراجعة الموارد البشرية: موافقة (تحويل للمدير hr_approved) أو رفض (hr_rejected) */
 export async function reviewLeaveHR(leaveId, hrUser, action, notes) {
+  const isHRUser = hrUser && (
+    hrUser.role === "hr" ||
+    hrUser.department === "hr" ||
+    hrUser.role === "executive" ||
+    hrUser.role === "general_manager" ||
+    hrUser.role === "board_chairman" ||
+    hrUser.isTechAdmin === true ||
+    hrUser.role === "tech_admin"
+  );
+  if (!isHRUser) {
+    throw new Error("عذراً، لا تملك صلاحية مراجعة طلبات الإجازات.");
+  }
+
+  const cleanNotes = String(notes || "").trim();
+  if (action === "reject" && !cleanNotes) {
+    throw new Error("يلزم إدخال سبب الرفض عند رفض طلب الإجازة.");
+  }
+
   const status = action === "approve" ? "hr_approved" : "hr_rejected";
   const leaveRef = doc(db, COL.leaves, leaveId);
-  await updateDoc(leaveRef, {
+  const hrName = hrUser.name || hrUser.displayName || "الموارد البشرية";
+  const now = Timestamp.now();
+
+  const updatePayload = {
     status,
     hrReview: {
       by: hrUser.uid,
-      byName: hrUser.name,
+      byName: hrName,
       action,
-      notes: notes || "",
-      at: Timestamp.now()
+      notes: cleanNotes,
+      at: now
     },
-    rejectionReason: action === "reject" ? (notes || "مرفوض من الموارد البشرية") : "",
     updatedAt: serverTimestamp()
-  });
+  };
+
+  if (action === "reject") {
+    updatePayload.rejectionReason = cleanNotes;
+    updatePayload.rejectedBy = hrName;
+    updatePayload.rejectedAt = now;
+  }
+
+  await updateDoc(leaveRef, updatePayload);
 }
 
 /* اعتماد المدير التنفيذي: توقيع نهائي (approved) */
 export async function approveLeaveExec(leaveId, execUser, notes) {
+  const isExecUser = execUser && (
+    execUser.role === "executive" ||
+    execUser.role === "general_manager" ||
+    execUser.role === "board_chairman" ||
+    execUser.role === "exec" ||
+    execUser.isTechAdmin === true ||
+    execUser.role === "tech_admin"
+  );
+  if (!isExecUser) {
+    throw new Error("عذراً، صلاحية الاعتماد النهائي مخصصة للمدير التنفيذي فقط.");
+  }
+
   const leaveRef = doc(db, COL.leaves, leaveId);
+  const execName = execUser.name || execUser.displayName || "المدير التنفيذي";
+  const now = Timestamp.now();
+
   await updateDoc(leaveRef, {
     status: "approved",
+    approvedBy: execName,
+    approvedAt: now,
     execReview: {
       by: execUser.uid,
-      byName: execUser.name,
+      byName: execName,
       action: "approve",
       notes: notes || "تم الاعتماد النهائي من المدير التنفيذي",
-      at: Timestamp.now()
+      at: now
     },
     updatedAt: serverTimestamp()
   });
 }
 
+/* رفض المدير التنفيذي: رفض نهائي مع إلزامية السبب (exec_rejected) */
 export async function rejectLeaveExec(leaveId, execUser, notes) {
+  const isExecUser = execUser && (
+    execUser.role === "executive" ||
+    execUser.role === "general_manager" ||
+    execUser.role === "board_chairman" ||
+    execUser.role === "exec" ||
+    execUser.isTechAdmin === true ||
+    execUser.role === "tech_admin"
+  );
+  if (!isExecUser) {
+    throw new Error("عذراً، صلاحية الرفض النهائي مخصصة للمدير التنفيذي فقط.");
+  }
+
+  const cleanNotes = String(notes || "").trim();
+  if (!cleanNotes) {
+    throw new Error("يلزم إدخال سبب الرفض عند رفض طلب الإجازة.");
+  }
+
   const leaveRef = doc(db, COL.leaves, leaveId);
+  const execName = execUser.name || execUser.displayName || "المدير التنفيذي";
+  const now = Timestamp.now();
+
   await updateDoc(leaveRef, {
     status: "exec_rejected",
+    rejectionReason: cleanNotes,
+    rejectedBy: execName,
+    rejectedAt: now,
     execReview: {
       by: execUser.uid,
-      byName: execUser.name,
+      byName: execName,
       action: "reject",
-      notes: notes || "تم الرفض النهائي من المدير التنفيذي",
-      at: Timestamp.now()
+      notes: cleanNotes,
+      at: now
     },
-    rejectionReason: notes || "تم الرفض النهائي من المدير التنفيذي",
     updatedAt: serverTimestamp()
   });
 }
@@ -1182,33 +1326,39 @@ export async function updateUserProfile(uid, data) {
 }
 
 export async function uploadAvatar(uid, file) {
-  const url = await uploadToCloudinary(file);
-  await updateDoc(doc(db, COL.users, uid), { avatar: url });
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadAvatarToSharePoint");
+  const res = await uploadFn({
+    targetUserId: uid,
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type
+  });
+
+  const url = res.data?.downloadUrl || res.data?.url;
   return url;
 }
 
 export function getCvPreviewUrl(cv) {
   if (!cv) return "#";
-  if (cv.provider === "sharepoint") {
-    return cv.url || cv.webUrl || "#";
-  }
-  return cv.url || "#";
+  return cv.url || cv.webUrl || "#";
 }
 
 export function getCvDownloadUrl(cv) {
   if (!cv) return "#";
-  if (cv.provider === "sharepoint") {
-    return cv.downloadUrl || cv.url || cv.webUrl || "#";
-  }
-  return getCloudinaryDownloadUrl(cv.url);
+  return cv.downloadUrl || cv.url || cv.webUrl || "#";
 }
 
-let functionsEmulatorConnected = false;
-
 export async function uploadCV(uid, file) {
-  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  
-  console.log("[CV] Upload provider: SharePoint");
+  console.log("[CV] Uploading to SharePoint via Backend Cloud Function...");
 
   const reader = new FileReader();
   const base64Promise = new Promise((resolve, reject) => {
@@ -1218,52 +1368,84 @@ export async function uploadCV(uid, file) {
   reader.readAsDataURL(file);
   const fileBase64 = await base64Promise;
 
-  const { getFunctions, connectFunctionsEmulator, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-  const functions = getFunctions(app);
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadCvToSharePoint");
+  const res = await uploadFn({
+    targetUserId: uid,
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type
+  });
 
-  if (isLocal && !functionsEmulatorConnected) {
-    try {
-      connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-      functionsEmulatorConnected = true;
-      console.log("%c[CV] Using Functions Emulator: http://127.0.0.1:5001/arthwhdarh-782ec/us-central1/uploadCvToSharePoint", "color:#b88e36;font-weight:bold");
-    } catch (e) {
-      functionsEmulatorConnected = true;
-    }
-  }
-
-  try {
-    const uploadFn = httpsCallable(functions, "uploadCvToSharePoint");
-    const res = await uploadFn({
-      targetUserId: uid,
-      fileName: file.name,
-      fileBase64: fileBase64,
-      mimeType: file.type
-    });
-
-    console.log("[CV] SharePoint upload success via Functions Emulator/Backend!");
-    console.log("[CV] Saved provider: sharepoint");
-
-    return res.data;
-  } catch (err) {
-    console.error("[CV] SharePoint upload error:", err);
-    if (isLocal) {
-      throw new Error(`فشل رفع CV عبر محاكي الدالة محلياً: ${err.message || err}`);
-    }
-    console.warn("[SharePoint CV] Backend upload failed in production, falling back to legacy Cloudinary:", err);
-    const url = await uploadToCloudinary(file);
-    const cvObj = { provider: "cloudinary", name: file.name, url, updatedAt: new Date().toISOString() };
-    await updateDoc(doc(db, COL.users, uid), { cv: cvObj });
-    return cvObj;
-  }
+  console.log("[CV] SharePoint upload success:", res.data);
+  return res.data;
 }
 
 export async function uploadCourseCert(uid, file) {
-  return await uploadToCloudinary(file);
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadCourseCertToSharePoint");
+  const res = await uploadFn({
+    targetUserId: uid,
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type
+  });
+
+  return res.data;
 }
 
 export async function uploadLeaveAttachment(file) {
-  const url = await uploadToCloudinary(file);
-  return { name: file.name, url };
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadLeaveAttachmentToSharePoint");
+  const res = await uploadFn({
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type
+  });
+
+  return {
+    name: file.name,
+    url: res.data?.downloadUrl || res.data?.url,
+    downloadUrl: res.data?.downloadUrl || res.data?.url,
+    provider: "sharepoint",
+    sharePointPath: res.data?.sharePointPath
+  };
+}
+
+export async function uploadSuggestionAttachment(file) {
+  const reader = new FileReader();
+  const base64Promise = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(file);
+  const fileBase64 = await base64Promise;
+
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadSuggestionAttachmentToSharePoint");
+  const res = await uploadFn({
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type
+  });
+
+  return res.data?.downloadUrl || res.data?.url;
 }
 
 /* ═══════════════ إدارة الموظفين للمسؤول التقني (Tech Admin) ═══════════════ */
@@ -1378,8 +1560,6 @@ export async function markSuggestionAsRead(id) {
 
 /* ═══════════════ رفع وتتبع مرفقات المهام إلى SharePoint ═══════════════ */
 export async function uploadTaskAttachment(params, file, onProgress, onStatus) {
-  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-
   const reader = new FileReader();
   const base64Promise = new Promise((resolve, reject) => {
     reader.onload = () => resolve(reader.result.split(",")[1]);
@@ -1388,69 +1568,39 @@ export async function uploadTaskAttachment(params, file, onProgress, onStatus) {
   reader.readAsDataURL(file);
   const fileBase64 = await base64Promise;
 
-  const { getFunctions, connectFunctionsEmulator, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-  const functions = getFunctions(app);
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadTaskAttachmentToSharePoint");
+  const res = await uploadFn({
+    taskType: params.taskType,
+    taskId: params.taskId,
+    subFolder: params.subFolder,
+    employeeUid: params.employeeUid,
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type
+  });
 
-  if (isLocal && !functionsEmulatorConnected) {
-    try {
-      connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-      functionsEmulatorConnected = true;
-      console.log("%c[Task Attachment] Using Functions Emulator: http://127.0.0.1:5001/arthwhdarh-782ec/us-central1/uploadTaskAttachmentToSharePoint", "color:#b88e36;font-weight:bold");
-    } catch (e) {
-      functionsEmulatorConnected = true;
-    }
-  }
-
-  try {
-    const uploadFn = httpsCallable(functions, "uploadTaskAttachmentToSharePoint");
-    const res = await uploadFn({
-      taskType: params.taskType,
-      taskId: params.taskId,
-      subFolder: params.subFolder,
-      employeeUid: params.employeeUid,
-      fileName: file.name,
-      fileBase64: fileBase64,
-      mimeType: file.type
-    });
-
-    console.log("[Task Attachment] SharePoint upload success:", res.data);
-    return res.data;
-  } catch (err) {
-    console.error("[Task Attachment] SharePoint upload error:", err);
-    if (isLocal) {
-      throw new Error(`فشل رفع مرفق المهمة محلياً: ${err.message || err}`);
-    }
-    console.warn("[Task Attachment] Backend upload failed in production, falling back to Cloudinary:", err);
-    const url = await uploadToCloudinary(file, onProgress, onStatus);
-    return {
-      provider: "cloudinary",
-      name: file.name,
-      url: url,
-      downloadUrl: getCloudinaryDownloadUrl(url),
-      updatedAt: new Date().toISOString()
-    };
-  }
+  console.log("[Task Attachment] SharePoint upload success:", res.data);
+  return res.data;
 }
 
 export function getTaskAttachmentPreviewUrl(url, itemObj) {
-  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint" || itemObj.adminAttachmentProvider === "sharepoint")) {
+  if (itemObj) {
     return itemObj.url || itemObj.webUrl || url || "#";
   }
   return url || "#";
 }
 
 export function getTaskAttachmentDownloadUrl(url, itemObj) {
-  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint" || itemObj.adminAttachmentProvider === "sharepoint")) {
+  if (itemObj) {
     return itemObj.downloadUrl || itemObj.url || itemObj.webUrl || url || "#";
   }
-  return getCloudinaryDownloadUrl(url);
+  return url || "#";
 }
 
 /* ═══════════════ 16. التعميمات والإعلانات الداخلية ═══════════════ */
 
 export async function uploadAnnouncementAttachment(params, file, onProgress, onStatus) {
-  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-
   const reader = new FileReader();
   const base64Promise = new Promise((resolve, reject) => {
     reader.onload = () => resolve(reader.result.split(",")[1]);
@@ -1459,59 +1609,31 @@ export async function uploadAnnouncementAttachment(params, file, onProgress, onS
   reader.readAsDataURL(file);
   const fileBase64 = await base64Promise;
 
-  const { getFunctions, connectFunctionsEmulator, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-  const functions = getFunctions(app);
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const uploadFn = httpsCallable(functions, "uploadAnnouncementAttachmentToSharePoint");
+  const res = await uploadFn({
+    announcementId: params.announcementId,
+    fileName: file.name,
+    fileBase64: fileBase64,
+    mimeType: file.type
+  });
 
-  if (isLocal && !functionsEmulatorConnected) {
-    try {
-      connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-      functionsEmulatorConnected = true;
-      console.log("%c[Announcement Attachment] Using Functions Emulator", "color:#b88e36;font-weight:bold");
-    } catch (e) {
-      functionsEmulatorConnected = true;
-    }
-  }
-
-  try {
-    const uploadFn = httpsCallable(functions, "uploadAnnouncementAttachmentToSharePoint");
-    const res = await uploadFn({
-      announcementId: params.announcementId,
-      fileName: file.name,
-      fileBase64: fileBase64,
-      mimeType: file.type
-    });
-
-    console.log("[Announcement Attachment] SharePoint upload success:", res.data);
-    return res.data;
-  } catch (err) {
-    console.error("[Announcement Attachment] SharePoint upload error:", err);
-    if (isLocal) {
-      throw new Error(`فشل رفع مرفق التعميم محلياً: ${err.message || err}`);
-    }
-    console.warn("[Announcement Attachment] Backend upload failed, falling back to Cloudinary:", err);
-    const url = await uploadToCloudinary(file, onProgress, onStatus);
-    return {
-      provider: "cloudinary",
-      name: file.name,
-      url: url,
-      downloadUrl: getCloudinaryDownloadUrl(url),
-      updatedAt: new Date().toISOString()
-    };
-  }
+  console.log("[Announcement Attachment] SharePoint upload success:", res.data);
+  return res.data;
 }
 
 export function getAnnouncementAttachmentPreviewUrl(url, itemObj) {
-  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint")) {
+  if (itemObj) {
     return itemObj.url || itemObj.webUrl || url || "#";
   }
   return url || "#";
 }
 
 export function getAnnouncementAttachmentDownloadUrl(url, itemObj) {
-  if (itemObj && (itemObj.provider === "sharepoint" || itemObj.attachmentProvider === "sharepoint")) {
+  if (itemObj) {
     return itemObj.downloadUrl || itemObj.url || itemObj.webUrl || url || "#";
   }
-  return getCloudinaryDownloadUrl(url);
+  return url || "#";
 }
 
 export async function listAnnouncements(currentUser) {
@@ -1662,6 +1784,218 @@ export async function listAnnouncementViews(announcementId) {
   } catch (err) {
     console.error("listAnnouncementViews error:", err);
     return [];
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   17. نظام الحضور والانصراف (Attendance Management)
+ ══════════════════════════════════════════════════════════ */
+
+export const DEFAULT_ATTENDANCE_SETTINGS = {
+  officeLat: 31.334302,
+  officeLng: 37.338730,
+  allowedRadius: 100,
+  workStartTime: "08:00",
+  workEndTime: "16:00",
+  address: "شركة حمود عيد للتجارة والتسويق، صلاح الدين، السديرية، القريات 77453",
+  graceMinutes: 15
+};
+
+export async function getAttendanceSettings() {
+  try {
+    const docRef = doc(db, COL.settings, "attendance");
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { ...DEFAULT_ATTENDANCE_SETTINGS, ...snap.data() };
+    }
+  } catch (e) {
+    console.warn("getAttendanceSettings error:", e);
+  }
+  return DEFAULT_ATTENDANCE_SETTINGS;
+}
+
+export async function saveAttendanceSettings(settingsData, currentUser) {
+  const docRef = doc(db, COL.settings, "attendance");
+  const payload = {
+    officeLat: parseFloat(settingsData.officeLat) || 31.334302,
+    officeLng: parseFloat(settingsData.officeLng) || 37.338730,
+    allowedRadius: parseInt(settingsData.allowedRadius, 10) || 100,
+    workStartTime: settingsData.workStartTime || "08:00",
+    workEndTime: settingsData.workEndTime || "16:00",
+    address: settingsData.address || "شركة حمود عيد للتجارة والتسويق، صلاح الدين، السديرية، القريات 77453",
+    graceMinutes: parseInt(settingsData.graceMinutes, 10) || 15,
+    updatedAt: serverTimestamp(),
+    updatedBy: currentUser?.name || currentUser?.email || ""
+  };
+  await setDoc(docRef, payload, { merge: true });
+  return payload;
+}
+
+export function watchAttendanceSettings(cb) {
+  try {
+    const docRef = doc(db, COL.settings, "attendance");
+    return onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        cb({ ...DEFAULT_ATTENDANCE_SETTINGS, ...snap.data() });
+      } else {
+        cb(DEFAULT_ATTENDANCE_SETTINGS);
+      }
+    }, (err) => {
+      console.warn("watchAttendanceSettings error:", err);
+      cb(DEFAULT_ATTENDANCE_SETTINGS);
+    });
+  } catch (e) {
+    cb(DEFAULT_ATTENDANCE_SETTINGS);
+    return () => {};
+  }
+}
+
+export function watchAttendanceRecordForToday(employeeUid, cb) {
+  try {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const docId = `${employeeUid}_${dateStr}`;
+    const docRef = doc(db, COL.attendance, docId);
+    return onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        cb({ id: snap.id, ...snap.data() });
+      } else {
+        cb(null);
+      }
+    }, (err) => {
+      console.warn("watchAttendanceRecordForToday error:", err);
+      cb(null);
+    });
+  } catch (e) {
+    cb(null);
+    return () => {};
+  }
+}
+
+export async function recordEmployeeAttendance({ action, latitude, longitude, accuracy }) {
+  const { functions, httpsCallable } = await getSharePointFunctions();
+  const recordFn = httpsCallable(functions, "recordAttendance");
+  const res = await recordFn({ action, latitude, longitude, accuracy });
+  return res.data;
+}
+
+export function calculateLateMinutes(checkInTime, workStartTime = "08:00") {
+  if (!checkInTime) return 0;
+
+  function parseToMinutes(tStr) {
+    if (!tStr || typeof tStr !== "string") return null;
+    const clean = tStr.trim().toLowerCase();
+    const isPM = clean.includes("pm") || clean.includes("م");
+    const isAM = clean.includes("am") || clean.includes("ص");
+    const digitsOnly = clean.replace(/[^0-9:]/g, "");
+    const parts = digitsOnly.split(":");
+    if (parts.length < 2) return null;
+
+    let h = parseInt(parts[0], 10);
+    let m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return null;
+
+    if (isPM && h < 12) h += 12;
+    if (isAM && h === 12) h = 0;
+
+    return h * 60 + m;
+  }
+
+  const startMins = parseToMinutes(workStartTime) ?? 480;
+  const checkInMins = parseToMinutes(checkInTime);
+
+  if (checkInMins === null) return 0;
+  return checkInMins > startMins ? (checkInMins - startMins) : 0;
+}
+
+export async function saveAttendanceRecord(record, currentUser) {
+  if (!record.employeeUid || !record.date) {
+    throw new Error("بيانات الموظف والتاريخ مطلوبة لتسجيل الحضور");
+  }
+
+  const docId = `${record.employeeUid}_${record.date}`;
+  const docRef = doc(db, COL.attendance, docId);
+  const snap = await getDoc(docRef).catch(() => null);
+
+  const nowIso = new Date().toISOString();
+  const existingData = snap && snap.exists() ? snap.data() : null;
+
+  const oldStatus = existingData ? existingData.status : null;
+
+  const auditEntry = {
+    updatedBy: currentUser?.name || currentUser?.email || "إدارة الموارد البشرية",
+    updatedByUid: currentUser?.uid || "",
+    updatedAt: nowIso,
+    oldStatus: oldStatus,
+    newStatus: record.status,
+    notes: record.notes || "",
+    reason: record.reason || record.notes || "تعديل يدوي بواسطة الموارد البشرية"
+  };
+
+  const auditLog = existingData && Array.isArray(existingData.auditLog)
+    ? [...existingData.auditLog, auditEntry]
+    : [auditEntry];
+
+  const payload = {
+    id: docId,
+    employeeUid: record.employeeUid,
+    employeeName: record.employeeName || existingData?.employeeName || "",
+    department: record.department || existingData?.department || "",
+    date: record.date,
+    year: parseInt(record.date.split("-")[0], 10),
+    month: parseInt(record.date.split("-")[1], 10),
+    day: parseInt(record.date.split("-")[2], 10),
+    status: record.status,
+    checkInTime: record.checkInTime !== undefined ? record.checkInTime : (existingData?.checkInTime || ""),
+    checkOutTime: record.checkOutTime !== undefined ? record.checkOutTime : (existingData?.checkOutTime || ""),
+    lateMinutes: typeof record.lateMinutes === "number" ? record.lateMinutes : (existingData?.lateMinutes || 0),
+    notes: record.notes || existingData?.notes || "",
+    method: record.method || existingData?.method || "manual",
+    updatedBy: currentUser?.name || currentUser?.email || "الموارد البشرية",
+    updatedByUid: currentUser?.uid || "",
+    updatedAt: serverTimestamp(),
+    auditLog: auditLog
+  };
+
+  if (record.location) payload.location = record.location;
+  if (record.latitude !== undefined) payload.latitude = record.latitude;
+  if (record.longitude !== undefined) payload.longitude = record.longitude;
+  if (record.accuracy !== undefined) payload.accuracy = record.accuracy;
+  if (record.distanceFromOffice !== undefined) payload.distanceFromOffice = record.distanceFromOffice;
+
+  if (!existingData) {
+    payload.createdAt = serverTimestamp();
+    payload.createdBy = currentUser?.name || currentUser?.email || "الموارد البشرية";
+    payload.createdByUid = currentUser?.uid || "";
+  }
+
+  await setDoc(docRef, payload, { merge: true });
+  return docId;
+}
+
+export function watchAttendanceForMonth(year, month, cb) {
+  try {
+    const q = query(
+      collection(db, COL.attendance),
+      where("year", "==", parseInt(year, 10)),
+      where("month", "==", parseInt(month, 10))
+    );
+
+    return onSnapshot(q, (snap) => {
+      const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      cb(records);
+    }, (err) => {
+      if (err?.code === "permission-denied") {
+        console.warn("[Firestore] watchAttendanceForMonth: permission-denied. يرجى نشر rules القواعد عبر firebase deploy --only firestore:rules");
+      } else {
+        console.warn("[Firestore] watchAttendanceForMonth error:", err);
+      }
+      cb([]);
+    });
+  } catch (e) {
+    console.warn("watchAttendanceForMonth setup error:", e);
+    cb([]);
+    return () => {};
   }
 }
 

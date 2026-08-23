@@ -36,11 +36,13 @@ export const COL = {
   files:         "portal_files",
   tasks:         "portal_tasks",
   leaves:        "portal_leaves",       // طلبات الإجازات
+  attendance:    "portal_attendance",   // الحضور والانصراف
   notifications: "portal_notifications",
   tokens:        "portal_fcm_tokens",   // رموز FCM (متعددة الأجهزة)
   personalTasks: "portal_personal_tasks",
   suggestions:   "portal_suggestions_complaints",
-  announcements: "portal_announcements"
+  announcements: "portal_announcements",
+  settings:      "settings"
 };
 
 /* ── أنواع التعميمات والإعلانات ── */
