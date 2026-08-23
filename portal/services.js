@@ -1873,10 +1873,30 @@ export function watchAttendanceRecordForToday(employeeUid, cb) {
 }
 
 export async function recordEmployeeAttendance({ action, latitude, longitude, accuracy }) {
-  const { functions, httpsCallable } = await getSharePointFunctions();
-  const recordFn = httpsCallable(functions, "recordAttendance");
-  const res = await recordFn({ action, latitude, longitude, accuracy });
-  return res.data;
+  const u = auth.currentUser;
+  if (!u) {
+    throw new Error("يجب تسجيل الدخول أولاً للوصول إلى الخدمة");
+  }
+
+  const idToken = await u.getIdToken(true);
+  const endpoint = `${PUSH_ENDPOINT}/api/attendance`;
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`
+    },
+    body: JSON.stringify({ action, latitude, longitude, accuracy })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `فشل الاتصال بخادم الحضور والانصراف (${res.status})`);
+  }
+
+  return data;
 }
 
 export function calculateLateMinutes(checkInTime, workStartTime = "08:00") {
