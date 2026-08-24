@@ -3120,7 +3120,10 @@ function buildVolunteerProfileHtml(v) {
     try {
       const dt = toTs(v.createdAt);
       if (dt && !isNaN(dt.getTime())) {
-        vJoinDate = fmtAr(dt);
+        const day = String(dt.getDate()).padStart(2, '0');
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const year = dt.getFullYear();
+        vJoinDate = `${day} / ${month} / ${year}`;
         subTitleStr = `متطوع منذ ${vJoinDate} · عضو فاعل`;
       }
     } catch (e) {}
@@ -3482,7 +3485,7 @@ function buildVolunteerProfileHtml(v) {
             <span class="value" dir="ltr" style="text-align:right;">${esc(vPhone)}</span>
           </div>
           <div class="info-item">
-            <span class="label">رقم الهوية / الإقامة</span>
+            <span class="label">رقم الهوية</span>
             <span class="value">${esc(vNationalId)}</span>
           </div>
           <div class="info-item">
@@ -3503,8 +3506,8 @@ function buildVolunteerProfileHtml(v) {
         </div>
       </div>
 
-      <div style="margin-top: 4mm; padding: 4mm 6mm; background: #FAF8F2; border-right: 3px solid #B08A4A; border-radius: 2px; font-size: 13px; color: #5f4b39; line-height: 1.6;">
-        <strong style="color: #3A2A22;">ملاحظة رسمية:</strong> تم إصدار هذا الملف إلكترونياً من قاعدة بيانات جمعية إرث وحضارة بالقريات، ويُعد نسخة مستخرجة من السجل الإلكتروني للمتطوع.
+      <div style="margin-top: 4mm; padding: 3mm 6mm; background: #FAF8F2; border: 1px dashed #D8C3A5; border-radius: 4px; font-size: 11.5px; color: #5f4b39; line-height: 1.6; text-align: center;">
+        <strong style="color: #3A2A22;">ملاحظة:</strong> تم إصدار هذا الملف إلكترونياً من قاعدة بيانات جمعية إرث وحضارة بالقريات، ويُعد نسخة مستخرجة من السجل الإلكتروني للمتطوع.
       </div>
     </main>
 
