@@ -1872,31 +1872,200 @@ export function watchAttendanceRecordForToday(employeeUid, cb) {
   }
 }
 
+function computeHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function getRiyadhDateAndFormattedTime() {
+  const now = new Date();
+  const riyadhOffsetMs = 3 * 60 * 60 * 1000;
+  const riyadhDate = new Date(now.getTime() + riyadhOffsetMs);
+
+  const year = riyadhDate.getUTCFullYear();
+  const month = riyadhDate.getUTCMonth() + 1;
+  const day = riyadhDate.getUTCDate();
+  const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  const rawH = riyadhDate.getUTCHours();
+  const m = riyadhDate.getUTCMinutes();
+
+  const isPM = rawH >= 12;
+  let h12 = rawH % 12;
+  if (h12 === 0) h12 = 12;
+  const formattedTime = `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${isPM ? "م" : "ص"}`;
+  const timeInMins = rawH * 60 + m;
+
+  return { dateStr, year, month, day, formattedTime, timeInMins };
+}
+
 export async function recordEmployeeAttendance({ action, latitude, longitude, accuracy }) {
-  const u = auth.currentUser;
-  if (!u) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
     throw new Error("يجب تسجيل الدخول أولاً للوصول إلى الخدمة");
   }
 
-  const idToken = await u.getIdToken(true);
-  const endpoint = `${PUSH_ENDPOINT}/api/attendance`;
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${idToken}`
-    },
-    body: JSON.stringify({ action, latitude, longitude, accuracy })
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data.message || data.error || `فشل الاتصال بخادم الحضور والانصراف (${res.status})`);
+  const latNum = parseFloat(latitude);
+  const lngNum = parseFloat(longitude);
+  if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+    throw new Error("⚠️ تعذر تحديد موقعك الجغرافي. يرجى تفعيل الـ GPS والسماح للمتصفح بالوصول لموقعك.");
   }
 
-  return data;
+  const accNum = parseFloat(accuracy) || 0;
+  if (accNum > 500) {
+    throw new Error(`دقة موقع الـ GPS ضعيفة جداً (${Math.round(accNum)}م). يرجى فتح الخريطة والتأكد من التواجد في مكان مفتوح ثم التكرار.`);
+  }
+
+  // 1. جلب إعدادات الحضور والنطاق الجغرافي
+  const settings = await getAttendanceSettings();
+  const officeLat = settings?.officeLat ?? 31.334302;
+  const officeLng = settings?.officeLng ?? 37.338730;
+  const allowedRadius = settings?.allowedRadius ?? 100;
+  const workStartTime = settings?.workStartTime || "08:00";
+  const graceMinutes = settings?.graceMinutes ?? 15;
+  const address = settings?.address || "شركة حمود عيد للتجارة والتسويق، صلاح الدين، السديرية، القريات 77453";
+
+  // 2. حساب المسافة من الجمعية (Haversine Formula)
+  const distanceMeters = computeHaversineDistanceMeters(latNum, lngNum, officeLat, officeLng);
+  const roundedDist = Math.round(distanceMeters);
+
+  if (roundedDist > allowedRadius) {
+    throw new Error(`📍 أنت خارج نطاق مقر الجمعية (المسافة الحالية: ${roundedDist} متر). يجب أن تكون داخل نطاق الـ ${allowedRadius} متر لتسجيل الحضور والانصراف.`);
+  }
+
+  // 3. حساب التاريخ والتوقيت الرسميين (Asia/Riyadh UTC+3)
+  const { dateStr, year, month, day, formattedTime, timeInMins } = getRiyadhDateAndFormattedTime();
+  const docId = `${currentUser.uid}_${dateStr}`;
+
+  // 4. جلب ملف المستخدم لاستخراج الاسم والقسم
+  const empProfile = await fetchUserProfile(currentUser.uid).catch(() => null);
+  const empName = empProfile?.name || currentUser.displayName || currentUser.email || "موظف";
+  const dept = empProfile?.department || "";
+
+  // 5. فحص الإجازات المعتمدة لهذا اليوم
+  const leavesRef = collection(db, COL.leaves);
+  const leavesQ = query(leavesRef, where("userId", "==", currentUser.uid));
+  const leavesSnap = await getDocs(leavesQ).catch(() => null);
+  let hasApprovedLeave = false;
+
+  if (leavesSnap && !leavesSnap.empty) {
+    leavesSnap.forEach(ld => {
+      const l = ld.data();
+      const st = l.status;
+      if ((st === "approved" || st === "exec_approved") && l.startDate && l.endDate && dateStr >= l.startDate && dateStr <= l.endDate) {
+        hasApprovedLeave = true;
+      }
+    });
+  }
+
+  if (hasApprovedLeave) {
+    throw new Error("🟣 لديك إجازة معتمدة لهذا اليوم. لا يتطلب منك تسجيل الحضور والانصراف.");
+  }
+
+  // 6. جلب السجل الحالي للتحقق من عدم التكرار
+  const attDocRef = doc(db, COL.attendance, docId);
+  const attSnap = await getDoc(attDocRef).catch(() => null);
+  const existingData = attSnap && attSnap.exists() ? attSnap.data() : null;
+
+  if (action === "checkIn") {
+    if (existingData && existingData.checkInTime) {
+      return {
+        success: true,
+        code: "ALREADY_CHECKED_IN",
+        message: "✅ تم تسجيل الحضور مسبقاً لهذا اليوم",
+        record: existingData,
+        formattedTime: existingData.checkInTime,
+        distanceFromOffice: existingData.distanceFromOffice ?? roundedDist
+      };
+    }
+
+    const [startH, startM] = workStartTime.split(":").map(x => parseInt(x, 10));
+    const workStartMins = (startH || 8) * 60 + (startM || 0);
+    const lateMins = timeInMins > (workStartMins + graceMinutes) ? (timeInMins - startMins) : 0;
+    const status = lateMins > 0 ? "late" : "present";
+
+    const payload = {
+      id: docId,
+      employeeUid: currentUser.uid,
+      employeeName: empName,
+      department: dept,
+      date: dateStr,
+      year: year,
+      month: month,
+      day: day,
+      status: status,
+      checkInTime: formattedTime,
+      checkOutTime: existingData?.checkOutTime || "",
+      lateMinutes: lateMins,
+      location: address,
+      latitude: latNum,
+      longitude: lngNum,
+      accuracy: accNum,
+      distanceFromOffice: roundedDist,
+      method: "electronic",
+      createdAt: existingData?.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      notes: existingData?.notes || "",
+      auditLog: existingData?.auditLog || []
+    };
+
+    await setDoc(attDocRef, payload, { merge: true });
+
+    return {
+      success: true,
+      code: "CHECKIN_SUCCESS",
+      message: "✅ تم تسجيل الحضور بنجاح",
+      record: payload,
+      formattedTime: formattedTime,
+      distanceFromOffice: roundedDist
+    };
+  }
+
+  if (action === "checkOut") {
+    if (!existingData || !existingData.checkInTime) {
+      throw new Error("لم يتم تسجيل الحضور بعد. يرجى تسجيل الحضور أولاً قبل تسجيل الانصراف.");
+    }
+
+    if (existingData.checkOutTime) {
+      return {
+        success: true,
+        code: "ALREADY_CHECKED_OUT",
+        message: "✅ تم تسجيل الانصراف مسبقاً لهذا اليوم",
+        record: existingData,
+        formattedTime: existingData.checkOutTime,
+        distanceFromOffice: existingData.checkOutDistanceFromOffice ?? roundedDist
+      };
+    }
+
+    const updatePayload = {
+      checkOutTime: formattedTime,
+      checkOutLatitude: latNum,
+      checkOutLongitude: lngNum,
+      checkOutAccuracy: accNum,
+      checkOutDistanceFromOffice: roundedDist,
+      updatedAt: serverTimestamp()
+    };
+
+    await updateDoc(attDocRef, updatePayload);
+
+    return {
+      success: true,
+      code: "CHECKOUT_SUCCESS",
+      message: "✅ تم تسجيل الانصراف بنجاح",
+      record: { ...existingData, ...updatePayload },
+      formattedTime: formattedTime,
+      distanceFromOffice: roundedDist
+    };
+  }
+
+  throw new Error("نوع الإجراء غير محدد (تسجيل حضور أو انصراف)");
 }
 
 export function calculateLateMinutes(checkInTime, workStartTime = "08:00") {

@@ -159,7 +159,21 @@ service cloud.firestore {
     // ── الحضور والانصراف (portal_attendance) ──
     match /portal_attendance/{id} {
       allow read: if signedIn();
-      allow write: if isHR() || isExec() || isTechAdmin();
+
+      // إنشاء سجل الحضور: الموظف ينشئ سجله الخاص لليوم فقط، أو الموارد البشرية والمدير
+      allow create: if (signedIn() && request.auth.uid == request.resource.data.employeeUid
+                        && id == request.auth.uid + "_" + request.resource.data.date
+                        && request.resource.data.method == "electronic")
+                    || isHR() || isExec() || isTechAdmin();
+
+      // تحديث سجل الحضور (تسجيل الانصراف أو تعديل HR): يمنع تعديل UID أو التاريخ أو وقت الإنشاء للموظف
+      allow update: if (signedIn() && request.auth.uid == resource.data.employeeUid
+                        && request.resource.data.employeeUid == resource.data.employeeUid
+                        && request.resource.data.date == resource.data.date
+                        && request.resource.data.createdAt == resource.data.createdAt)
+                    || isHR() || isExec() || isTechAdmin();
+
+      allow delete: if isHR() || isExec() || isTechAdmin();
     }
 
     // ── التعميمات والإعلانات الداخلية (portal_announcements) ──
@@ -198,6 +212,11 @@ service cloud.firestore {
     match /volunteerOpportunities/{id} {
       allow read: if true;
       allow create, update, delete: if signedIn();
+    }
+
+    match /volunteer_applications/{id} {
+      allow create: if true;
+      allow read, update, delete: if signedIn();
     }
 
     match /workshop_registrations/{id} {

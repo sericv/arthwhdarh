@@ -1135,19 +1135,64 @@ async function smartImageToBase64(file) {
   return dataUrl;
 }
 
-/* ── Allowed Admin Account Credentials ── */
-const ALLOWED_ADMIN_EMAIL = "2falilh2@gmail.com";
-const ALLOWED_ADMIN_UID   = "dDcYQljmYFR1gq6cD0lG3wBaHys2";
+/* ── Allowed Admin Accounts Verification ── */
+async function isAuthorizedAdmin(user) {
+  if (!user || !user.email) return false;
+
+  const emailLower = (user.email || '').toLowerCase().trim();
+  
+  // 1. Explicit admin emails
+  const allowedAdminEmails = [
+    "2falilh2@gmail.com",
+    "it@arthwhdarh.com",
+    "info@arthwhdarh.com"
+  ];
+  if (allowedAdminEmails.includes(emailLower)) return true;
+
+  // 2. Explicit master UID
+  if (user.uid === "dDcYQljmYFR1gq6cD0lG3wBaHys2") return true;
+
+  // 3. Firestore role check in portal_users and users collections
+  try {
+    const adminRoles = ["admin", "tech_admin", "executive", "hr", "general_manager", "board_chairman", "exec", "manager"];
+    
+    // Check portal_users collection
+    const portalSnap = await getDoc(doc(db, "portal_users", user.uid));
+    if (portalSnap.exists()) {
+      const pData = portalSnap.data();
+      if (pData.isTechAdmin === true || pData.isAdmin === true || adminRoles.includes(pData.role)) {
+        return true;
+      }
+    }
+
+    // Check users collection fallback
+    const userSnap = await getDoc(doc(db, "users", user.uid));
+    if (userSnap.exists()) {
+      const uData = userSnap.data();
+      if (uData.isTechAdmin === true || uData.isAdmin === true || adminRoles.includes(uData.role)) {
+        return true;
+      }
+    }
+
+    // If official domain account
+    if (emailLower.endsWith("@arthwhdarh.com")) {
+      return true;
+    }
+  } catch (err) {
+    console.warn('[Admin Authorization Check Warning]:', err);
+  }
+
+  return false;
+}
 
 /* ── Auth state ── */
 let currentUser = null;
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    const isEmailValid = (user.email || '').toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase();
-    const isUidValid   = user.uid === ALLOWED_ADMIN_UID;
+    const isAuthorized = await isAuthorizedAdmin(user);
 
-    if (isEmailValid && isUidValid) {
+    if (isAuthorized) {
       currentUser = user;
       showApp(user);
     } else {
@@ -1273,10 +1318,9 @@ if (googleBtnEl && !googleBtnEl.dataset.bound) {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      const isEmailValid = (user.email || '').toLowerCase() === ALLOWED_ADMIN_EMAIL.toLowerCase();
-      const isUidValid   = user.uid === ALLOWED_ADMIN_UID;
+      const isAuthorized = await isAuthorizedAdmin(user);
 
-      if (!isEmailValid || !isUidValid) {
+      if (!isAuthorized) {
         console.warn('Unauthorized Google login:', user.email, user.uid);
         await signOut(auth);
         if (errEl) {
@@ -2612,34 +2656,31 @@ async function vWorkshopDetail(el, w, allRegistrants) {
 let vpTab = 'volunteers', vpQ = '', vpFilter = 'all', vpCityFilter = 'all', voQ = '', voFilter = 'all', vAppQ = '';
 
 async function vVolunteerProgram(el) {
-  const [allVolunteers, allOpportunities, allApplications, siteSettings] = await Promise.all([
+  const [allVolunteers, siteSettings] = await Promise.all([
     loadCol('volunteers'),
-    loadCol('volunteerOpportunities'),
-    loadCol('volunteer_applications'),
     loadSettings()
   ]);
   await renderNav();
 
   // Filter volunteers belonging to Volunteer Program
   const progVolunteers = allVolunteers.filter(v => v.type === 'برنامج التطوع' || !v.type);
-  const openOpportunities = allOpportunities.filter(o => o.status === 'open');
   const unreviewedVolunteers = progVolunteers.filter(v => !v.reviewed);
   const displayedOppCount = (siteSettings && siteSettings.volunteerOpportunitiesCount !== undefined && siteSettings.volunteerOpportunitiesCount !== null)
     ? siteSettings.volunteerOpportunitiesCount
-    : openOpportunities.length;
+    : 0;
+
+  if (vpTab !== 'volunteers' && vpTab !== 'settings') {
+    vpTab = 'volunteers';
+  }
 
   el.innerHTML = `
   <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;">
     <div>
-      <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Volunteer Programme · برنامج المتطوعين</span><span class="e-label">نظام إدارة المتطوعين والفرص</span></div>
+      <div class="page-eyebrow"><span class="e-dot"></span><span class="e-latin">Volunteer Programme · برنامج المتطوعين</span><span class="e-label">نظام إدارة المتطوعين والعداد</span></div>
       <h1 class="page-title">برنامج <span class="accent">المتطوعين</span></h1>
-      <p class="page-sub">إدارة متطوعي الجمعية الدائمين، نشر ومتابعة الفرص التطوعية، وإدارة إعدادات العداد العام.</p>
+      <p class="page-sub">إدارة متطوعي الجمعية الدائمين وتعديل عدد الفرص التطوعية المتاحة التي تظهر للزوار.</p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-primary" id="btnCreateVO" style="gap:8px;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-        <span>إضافة فرصة جديدة</span>
-      </button>
       <button class="btn btn-outline" id="btnExportVolWord" style="gap:6px;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         <span>تصدير المتطوعين Word</span>
@@ -2654,8 +2695,7 @@ async function vVolunteerProgram(el) {
   <div class="stats-grid" style="margin-bottom:24px;">
     ${sCard('TotalVolunteers', 'إجمالي المتطوعين', progVolunteers.length, 'متطوع مسجل بالبرنامج')}
     ${sCard('NewVolunteers', 'التسجيلات الجديدة', unreviewedVolunteers.length, 'بانتظار المراجعة')}
-    ${sCard('OpenVO', 'الفرص المنشورة', openOpportunities.length, `من إجمالي ${allOpportunities.length} فرصة`)}
-    ${sCard('TotalApplications', 'المتقدمون للفرص', allApplications.length, 'طلب تقديم على الفرص')}
+    ${sCard('AvailableOpp', 'الفرص التطوعية المتاحة', displayedOppCount, 'الرقم المعروض حالياً للزوار')}
   </div>
 
   <!-- Sub-Tabs Navigation -->
@@ -2665,31 +2705,20 @@ async function vVolunteerProgram(el) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><circle cx="9" cy="9" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><circle cx="17" cy="8" r="2.2"/><path d="M14 19a4 4 0 0 1 7 0"/></svg>
         المتطوعون <span class="chip-count">${progVolunteers.length}</span>
       </button>
-      <button class="chip ${vpTab === 'opportunities' ? 'active' : ''}" data-vptab="opportunities">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        الفرص التطوعية <span class="chip-count">${allOpportunities.length}</span>
-      </button>
-      <button class="chip ${vpTab === 'applicants' ? 'active' : ''}" data-vptab="applicants">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        المتقدمون للفرص <span class="chip-count">${allApplications.length}</span>
-      </button>
       <button class="chip ${vpTab === 'settings' ? 'active' : ''}" data-vptab="settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;margin-left:4px;"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.5 5.5l1.5 1.5M17 17l1.5 1.5M5.5 18.5l1.5-1.5M17 7l1.5-1.5"/></svg>
-        إعدادات البرنامج والعداد
+        الفرص التطوعية المتاحة
       </button>
     </div>
   </div>
 
   <div id="vpTabContent">
     ${vpTab === 'volunteers' ? renderVolunteersTabHTML(progVolunteers, unreviewedVolunteers.length) : ''}
-    ${vpTab === 'opportunities' ? renderVolunteerOpportunitiesTabHTML(allOpportunities) : ''}
-    ${vpTab === 'applicants' ? renderOpportunityApplicantsTabHTML(allApplications) : ''}
-    ${vpTab === 'settings' ? renderVolunteerProgramSettingsHTML(displayedOppCount) : ''}
+    ${vpTab === 'settings' ? renderVolunteerProgramSettingsHTML(displayedOppCount, siteSettings) : ''}
   </div>
   `;
 
   // Bind Top Buttons
-  el.querySelector('#btnCreateVO')?.addEventListener('click', () => openVolunteerOpportunityFormModal(null, el));
   el.querySelector('#btnExportVolWord')?.addEventListener('click', () => exportVolunteersToWord(progVolunteers));
   el.querySelector('#btnExportVolExcel')?.addEventListener('click', () => exportRegistrantsToCSV('متطوعو_برنامج_التطوع', progVolunteers));
 
@@ -2703,11 +2732,7 @@ async function vVolunteerProgram(el) {
 
   // Bind Sub-views specific events
   if (vpTab === 'volunteers') {
-    bindVolunteersTabEvents(el, progVolunteers, allApplications);
-  } else if (vpTab === 'opportunities') {
-    bindOpportunitiesTabEvents(el, allOpportunities, allApplications);
-  } else if (vpTab === 'applicants') {
-    bindApplicantsTabEvents(el, allApplications);
+    bindVolunteersTabEvents(el, progVolunteers, []);
   } else if (vpTab === 'settings') {
     bindProgramSettingsEvents(el);
   }
@@ -2796,6 +2821,7 @@ function renderVolunteersTabHTML(volunteers, unreviewedCount) {
                   <div style="display:flex;gap:4px;flex-wrap:nowrap;">
                     <button class="btn btn-sm btn-outline" data-vp-detail="${v.id}" style="font-size:11px;">تفاصيل</button>
                     <button class="btn btn-sm btn-ghost" data-vp-edit="${v.id}" style="font-size:11px;">تعديل</button>
+                    <button class="btn btn-sm btn-outline" data-vp-pdf="${v.id}" style="font-size:11px;gap:4px;"><i class="fa-solid fa-file-pdf"></i> تحميل ملف المتطوع</button>
                     <button class="btn btn-sm btn-ghost del" data-vp-del="${v.id}" style="font-size:11px;">حذف</button>
                   </div>
                 </td>
@@ -2955,43 +2981,51 @@ function renderOpportunityApplicantsTabHTML(applications) {
 }
 
 /* ── TAB 4: PROGRAM SETTINGS & PUBLIC COUNTER HTML ── */
-function renderVolunteerProgramSettingsHTML(displayedCount) {
+function renderVolunteerProgramSettingsHTML(displayedCount, siteSettings) {
+  const lastUpdated = (siteSettings && siteSettings.volunteerOpportunitiesCountUpdatedAt) ? siteSettings.volunteerOpportunitiesCountUpdatedAt : 'غير محدد';
+  const updatedBy = (siteSettings && siteSettings.volunteerOpportunitiesCountUpdatedBy) ? siteSettings.volunteerOpportunitiesCountUpdatedBy : 'مسؤول النظام';
+
   return `
   <div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
     
-    <div class="card" style="padding:26px;border-radius:16px;background:var(--paper);">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div style="width:42px;height:42px;border-radius:10px;background:var(--gold-pale);display:grid;place-items:center;color:var(--gold-deep);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:22px;height:22px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    <div class="card" style="padding:28px;border-radius:16px;background:var(--paper);border:1px solid var(--line-soft);box-shadow:var(--shadow-sm);">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line-soft);">
+        <div style="width:46px;height:46px;border-radius:12px;background:var(--gold-pale);display:grid;place-items:center;color:var(--gold-deep);flex-shrink:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:24px;height:24px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
         </div>
         <div>
-          <h3 style="font-size:17px;font-weight:800;color:var(--ink);">عداد الفرص المعروضة للجمهور</h3>
-          <p style="font-size:13px;color:var(--ink-muted);margin-top:2px;">التحكم بالرقم الذي يظهر في العداد الصغير بصفحة التطوع العامة.</p>
+          <h3 style="font-size:18px;font-weight:800;color:var(--ink);margin:0;">الفرص التطوعية المتاحة</h3>
+          <p style="font-size:13px;color:var(--ink-muted);margin-top:3px;">عدد الفرص التي تظهر حاليًا للزوار في صفحة التطوع العامة.</p>
         </div>
       </div>
 
-      <form id="vpSettingsForm" style="display:flex;flex-direction:column;gap:16px;">
+      <form id="vpSettingsForm" style="display:flex;flex-direction:column;gap:20px;">
         <div class="field">
-          <label style="font-weight:700;font-size:14px;color:var(--ink);">عدد الفرص المعروضة (الرقم الظاهر للزوار)</label>
-          <input type="number" id="vpSet_oppCount" min="0" max="99" value="${displayedCount}" required style="padding:12px 14px;border-radius:10px;border:1px solid var(--line-soft);font-size:16px;font-weight:700;width:100%;">
-          <span style="font-size:12px;color:var(--ink-muted);margin-top:4px;display:block;">
-            * ملاحظة: هذا الرقم مستقل تماماً عن عدد المتطوعين وعدد السجلات، وهو فقط رقم تحدده الإدارة ليظهر للعامة.
+          <label style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:8px;display:block;">الفرص التطوعية المتاحة (الرقم الظاهر للزوار)</label>
+          <input type="number" id="vpSet_oppCount" min="0" max="999" value="${displayedCount}" required style="padding:14px 16px;border-radius:10px;border:1px solid var(--line-soft);font-size:22px;font-weight:800;width:100%;color:var(--gold-deep);text-align:center;background:var(--parchment-2);">
+          <span style="font-size:12px;color:var(--ink-muted);margin-top:6px;display:block;">
+            * هذا الرقم يظهر مباشرة في كروت وعدادات صفحة التطوع العامة للزوار.
           </span>
         </div>
 
-        <div style="background:var(--parchment-2);padding:14px 18px;border-radius:12px;border:1px solid var(--line-soft);display:flex;align-items:center;gap:12px;">
-          <span style="font-size:12px;color:var(--ink-mid);">المعاينة المباشرة:</span>
-          <span class="chip chip-approved" id="vpCounterPreview" style="font-weight:800;font-size:13px;">
+        <div style="background:var(--parchment-2);padding:14px 18px;border-radius:12px;border:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:700;color:var(--ink-mid);">المعاينة المباشرة للزوار:</span>
+          <span class="chip chip-approved" id="vpCounterPreview" style="font-weight:800;font-size:14px;padding:6px 16px;">
             متاح الآن ${displayedCount} فرص تطوعية
           </span>
         </div>
 
-        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-          <button type="submit" class="btn btn-primary" id="btnSaveVpSettings" style="gap:8px;padding:10px 24px;">
-            <span>حفظ وتحديث العداد</span>
+        <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+          <button type="submit" class="btn btn-primary" id="btnSaveVpSettings" style="gap:8px;padding:12px 28px;font-size:15px;font-weight:700;">
+            <span>حفظ التعديل</span>
           </button>
         </div>
       </form>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--line-soft);display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ink-muted);">
+        <div><strong>آخر تحديث:</strong> <span>${lastUpdated}</span></div>
+        <div><strong>تم التحديث بواسطة:</strong> <span>${updatedBy}</span></div>
+      </div>
     </div>
 
   </div>
@@ -3027,7 +3061,7 @@ function bindVolunteersTabEvents(el, volunteers, applications) {
       const vid = b.dataset.vpDetail;
       const volObj = volunteers.find(v => v.id === vid);
       if (volObj) {
-        const userApps = applications.filter(a => a.volunteerId === vid || (a.phone && a.phone === volObj.phone));
+        const userApps = (applications || []).filter(a => a.volunteerId === vid || (a.phone && a.phone === volObj.phone));
         openVolunteerDetailModal(volObj, userApps);
       }
     });
@@ -3047,6 +3081,17 @@ function bindVolunteersTabEvents(el, volunteers, applications) {
     });
   });
 
+  // Volunteer Download PDF
+  el.querySelectorAll('[data-vp-pdf]').forEach(b => {
+    b.addEventListener('click', () => {
+      const vid = b.dataset.vpPdf;
+      const volObj = volunteers.find(v => v.id === vid);
+      if (volObj) {
+        downloadVolunteerProfilePdf(volObj, b);
+      }
+    });
+  });
+
   // Volunteer Delete
   el.querySelectorAll('[data-vp-del]').forEach(b => {
     b.addEventListener('click', async () => {
@@ -3062,83 +3107,452 @@ function bindVolunteersTabEvents(el, volunteers, applications) {
   });
 }
 
-function bindOpportunitiesTabEvents(el, opportunities, applications) {
-  const sInput = el.querySelector('#voSearchInput');
-  if (sInput) {
-    sInput.addEventListener('input', e => {
-      voQ = e.target.value;
-      vVolunteerProgram(el);
-      el.querySelector('#voSearchInput')?.focus();
-    });
+/* ── VOLUNTEER PDF PROFILE GENERATOR ENGINE ── */
+function buildVolunteerProfileHtml(v) {
+  const vName = (v.name || v.fullName || 'بدون اسم').trim();
+  const vPhone = (v.phone || v.mobile || 'غير متوفر').trim();
+  const vNationalId = (v.nationalId || v.idNumber || 'غير متوفر').trim();
+  const vCity = (v.city || 'غير متوفر').trim();
+  
+  let vJoinDate = 'غير متوفر';
+  let subTitleStr = 'عضو فاعل في برنامج المتطوعين';
+  if (v.createdAt) {
+    try {
+      const dt = toTs(v.createdAt);
+      if (dt && !isNaN(dt.getTime())) {
+        vJoinDate = fmtAr(dt);
+        subTitleStr = `متطوع منذ ${vJoinDate} · عضو فاعل`;
+      }
+    } catch (e) {}
   }
 
-  el.querySelectorAll('[data-vof]').forEach(b => {
-    b.addEventListener('click', () => {
-      voFilter = b.dataset.vof;
-      vVolunteerProgram(el);
-    });
-  });
+  const avatarLetter = (vName.charAt(0) || 'م').toUpperCase();
 
-  // View Applicants for an Opportunity
-  el.querySelectorAll('[data-vo-view-apps]').forEach(b => {
-    b.addEventListener('click', () => {
-      const oppId = b.dataset.voViewApps;
-      const oppObj = opportunities.find(o => o.id === oppId);
-      if (oppObj) openOpportunityApplicantsModal(oppObj, el);
-    });
-  });
+  let skillsArray = [];
+  if (Array.isArray(v.skills)) {
+    skillsArray = v.skills.map(s => String(s || '').trim()).filter(Boolean);
+  } else if (v.skills || v.interests) {
+    const raw = String(v.skills || v.interests || '');
+    skillsArray = raw.split(/[،,]/).map(s => s.trim()).filter(Boolean);
+  }
 
-  // Edit Opportunity
-  el.querySelectorAll('[data-vo-edit]').forEach(b => {
-    b.addEventListener('click', () => {
-      const oppId = b.dataset.voEdit;
-      const oppObj = opportunities.find(o => o.id === oppId);
-      if (oppObj) openVolunteerOpportunityFormModal(oppObj, el);
-    });
-  });
+  let skillsHtml = '';
+  if (skillsArray.length > 0) {
+    skillsHtml = skillsArray.map(s => `<span class="tag">${esc(s)}</span>`).join('');
+  } else {
+    skillsHtml = `<span class="tag">غير محدد</span>`;
+  }
 
-  // Delete Opportunity
-  el.querySelectorAll('[data-vo-del]').forEach(b => {
-    b.addEventListener('click', async () => {
-      const oppId = b.dataset.voDel;
-      if (!confirm('هل تريد حذف هذه الفرصة التطوعية؟')) return;
-      try {
-        await deleteDoc(doc(db, 'volunteerOpportunities', oppId));
-        loaded.volunteerOpportunities = false;
-        toast('تم حذف الفرصة التطوعية بنجاح');
-        vVolunteerProgram(el);
-      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
-    });
-  });
+  const originUrl = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'https://arthwhdarh.com';
+  const logoUrl = `${originUrl}/assets/%D8%A7%D9%84%D8%B4%D8%B9%D8%A7%D8%B1/%D8%A7%D9%84%D8%B4%D8%B9%D8%A7%D8%B1.png`;
+
+  return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>جمعية إرث وحضارة · بيانات المتطوع — ${esc(vName)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      background: #FAF8F2;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Tajawal", Arial, sans-serif;
+      padding: 0;
+      color: #3A2A22;
+      direction: rtl;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      height: 297mm;
+      background: #FAF8F2;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 18mm 22mm 16mm 22mm;
+    }
+    .watermark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+      width: 60%;
+      max-width: 450px;
+      text-align: center;
+    }
+    .watermark img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .document-header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0;
+      position: relative;
+      z-index: 2;
+      margin-bottom: 8mm;
+    }
+    .association-logo {
+      flex-shrink: 0;
+      width: 95px;
+      height: auto;
+      margin-left: 15px;
+      display: block;
+    }
+    .association-logo img {
+      width: 100%;
+      height: auto;
+      max-height: 70px;
+      object-fit: contain;
+      display: block;
+    }
+    .top-brand-line {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      height: 18px;
+      position: relative;
+    }
+    .top-brand-line .line {
+      flex: 1;
+      height: 1.2px;
+      background: #3A2A22;
+      display: block;
+    }
+    .top-brand-line .gold-accent {
+      width: 26px;
+      min-width: 26px;
+      height: 8px;
+      background: #B08A4A;
+      display: inline-block;
+      margin: 0 8px 0 0;
+      flex-shrink: 0;
+    }
+    .document-content {
+      flex: 1;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: 2mm 0;
+    }
+    .doc-title-block {
+      margin-bottom: 6mm;
+      border-bottom: 1px solid #D8C3A5;
+      padding-bottom: 4mm;
+    }
+    .doc-title-block h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #3A2A22;
+      letter-spacing: 0.01em;
+    }
+    .doc-title-block .sub {
+      font-size: 14px;
+      font-weight: 400;
+      color: #8C6840;
+      margin-top: 3px;
+    }
+    .volunteer-profile {
+      background: #F5F1EA;
+      border: 1px solid #D8C3A5;
+      border-radius: 4px;
+      padding: 6mm 8mm;
+      margin: 2mm 0 4mm 0;
+    }
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 6mm;
+      padding-bottom: 4mm;
+      border-bottom: 1px solid #D8C3A5;
+    }
+    .profile-avatar {
+      width: 65px;
+      height: 65px;
+      border-radius: 50%;
+      background: #B08A4A;
+      color: #FAF8F2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+    .profile-name-title {
+      flex: 1;
+    }
+    .profile-name-title .name {
+      font-size: 22px;
+      font-weight: 700;
+      color: #3A2A22;
+    }
+    .profile-name-title .title {
+      font-size: 13.5px;
+      font-weight: 400;
+      color: #8C6840;
+      margin-top: 3px;
+    }
+    .profile-status {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .profile-status .pdf-badge {
+      font-size: 12px;
+      padding: 3px 14px;
+      border-radius: 12px;
+    }
+    .badge-city {
+      background: #3A2A2215;
+      color: #3A2A22;
+      border: 1px solid #3A2A2230;
+      font-weight: 500;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5mm 8mm;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .info-item .label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8C6840;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .info-item .value {
+      font-size: 15.5px;
+      font-weight: 500;
+      color: #3A2A22;
+      padding: 3px 0;
+      border-bottom: 1px dashed #D8C3A5;
+    }
+    .skills-section {
+      margin-top: 5mm;
+      padding-top: 4mm;
+      border-top: 1px solid #D8C3A5;
+    }
+    .skills-section .skills-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #3A2A22;
+      margin-bottom: 3mm;
+    }
+    .skills-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .skills-tags .tag {
+      background: #FAF8F2;
+      border: 1px solid #B08A4A60;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #3A2A22;
+    }
+    .document-footer {
+      position: relative;
+      z-index: 2;
+      margin-top: auto;
+      padding-top: 6mm;
+    }
+    .bottom-brand-line {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      height: 18px;
+      margin-bottom: 5mm;
+    }
+    .bottom-brand-line .line {
+      flex: 1;
+      height: 1.2px;
+      background: #3A2A22;
+    }
+    .bottom-brand-line .gold-accent {
+      width: 26px;
+      min-width: 26px;
+      height: 8px;
+      background: #B08A4A;
+      display: inline-block;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+    .footer-content {
+      text-align: center;
+      color: #3A2A22;
+    }
+    .footer-content .org-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 4px;
+    }
+    .footer-content .org-address {
+      font-size: 12px;
+      font-weight: 400;
+      color: #5f4b39;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+    .footer-content .org-contact {
+      font-size: 12px;
+      font-weight: 400;
+      color: #5f4b39;
+      display: flex;
+      justify-content: center;
+      gap: 0 10px;
+      flex-wrap: wrap;
+    }
+    .footer-content .org-contact .sep {
+      color: #B08A4A;
+      font-weight: 400;
+      padding: 0 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="watermark">
+      <img src="${logoUrl}" alt="جمعية إرث وحضارة watermark" onerror="this.style.display='none'">
+    </div>
+
+    <header class="document-header">
+      <div class="association-logo">
+        <img src="${logoUrl}" alt="جمعية إرث وحضارة logo" onerror="this.src='https://i.imgur.com/fsojLf9.png'">
+      </div>
+      <div class="top-brand-line">
+        <span class="line"></span>
+        <span class="gold-accent"></span>
+      </div>
+    </header>
+
+    <main class="document-content">
+      <div class="doc-title-block">
+        <h1>بطاقة بيانات متطوع</h1>
+      </div>
+
+      <div class="volunteer-profile">
+        <div class="profile-header">
+          <div class="profile-avatar">${esc(avatarLetter)}</div>
+          <div class="profile-name-title">
+            <div class="name">${esc(vName)}</div>
+            <div class="title">${esc(subTitleStr)}</div>
+          </div>
+          ${(vCity && vCity !== 'غير متوفر') ? `<div class="profile-status"><span class="pdf-badge badge-city">${esc(vCity)}</span></div>` : ''}
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">رقم الجوال</span>
+            <span class="value" dir="ltr" style="text-align:right;">${esc(vPhone)}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">رقم الهوية / الإقامة</span>
+            <span class="value">${esc(vNationalId)}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">المدينة</span>
+            <span class="value">${esc(vCity)}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">تاريخ الانضمام</span>
+            <span class="value">${esc(vJoinDate)}</span>
+          </div>
+        </div>
+
+        <div class="skills-section">
+          <div class="skills-label">🎯 المهارات والمجالات</div>
+          <div class="skills-tags">
+            ${skillsHtml}
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 4mm; padding: 4mm 6mm; background: #FAF8F2; border-right: 3px solid #B08A4A; border-radius: 2px; font-size: 13px; color: #5f4b39; line-height: 1.6;">
+        <strong style="color: #3A2A22;">ملاحظة رسمية:</strong> تم إصدار هذا الملف إلكترونياً من قاعدة بيانات جمعية إرث وحضارة بالقريات، ويُعد نسخة مستخرجة من السجل الإلكتروني للمتطوع.
+      </div>
+    </main>
+
+    <footer class="document-footer">
+      <div class="bottom-brand-line">
+        <span class="gold-accent"></span>
+        <span class="line"></span>
+      </div>
+      <div class="footer-content">
+        <div class="org-name">جمعية إرث وحضارة بالقريات</div>
+        <div class="org-address">مرخصة من المركز الوطني لتنمية القطاع غير الربحي برقم 1000568800 بإشراف وزارة الثقافة</div>
+        <div class="org-contact">
+          <span>المملكة العربية السعودية</span>
+          <span class="sep">|</span>
+          <span>info@arthwhdarh.com</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 300);
+    };
+  <\/script>
+</body>
+</html>`;
 }
 
-function bindApplicantsTabEvents(el, applications) {
-  const sInput = el.querySelector('#vAppSearch');
-  if (sInput) {
-    sInput.addEventListener('input', e => {
-      vAppQ = e.target.value;
-      vVolunteerProgram(el);
-      el.querySelector('#vAppSearch')?.focus();
-    });
+function downloadVolunteerProfilePdf(v, btn) {
+  if (!v) return;
+  try {
+    const fullHtml = buildVolunteerProfileHtml(v);
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      toast('يرجى السماح بالنوافذ المنبثقة (Popups) لعرض بطاقة المتطوع للطباعة', 'err');
+      return;
+    }
+    printWin.document.open();
+    printWin.document.write(fullHtml);
+    printWin.document.close();
+    toast('تم فتح صفحة طباعة ملف المتطوع 📄');
+  } catch (err) {
+    console.error('[Volunteer Print Error]:', err);
+    toast('تعذّر فتح صفحة الطباعة: ' + (err.message || err), 'err');
   }
-
-  el.querySelector('#btnExportAllAppsExcel')?.addEventListener('click', () => {
-    exportRegistrantsToCSV('جميع_المتقدمين_للفرص_التطوعية', applications);
-  });
-
-  // Delete Application
-  el.querySelectorAll('[data-vapp-del]').forEach(b => {
-    b.addEventListener('click', async () => {
-      const appId = b.dataset.vappDel;
-      if (!confirm('هل تريد حذف طلب التقديم هذا؟')) return;
-      try {
-        await deleteDoc(doc(db, 'volunteer_applications', appId));
-        loaded.volunteer_applications = false;
-        toast('تم حذف طلب التقديم بنجاح');
-        vVolunteerProgram(el);
-      } catch (err) { console.error(err); toast('حدث خطأ أثناء الحذف', 'err'); }
-    });
-  });
 }
 
 function bindProgramSettingsEvents(el) {
@@ -3154,24 +3568,34 @@ function bindProgramSettingsEvents(el) {
   el.querySelector('#vpSettingsForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const btn = el.querySelector('#btnSaveVpSettings');
-    btn.disabled = true;
-    btn.textContent = 'جارٍ الحفظ…';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'جارٍ الحفظ…';
+    }
 
     const countVal = parseInt(el.querySelector('#vpSet_oppCount').value, 10) || 0;
+    const userEmail = (typeof auth !== 'undefined' && auth.currentUser) ? (auth.currentUser.email || auth.currentUser.displayName || 'مسؤول النظام') : 'مسؤول النظام';
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
     try {
       await setDoc(doc(db, 'settings', 'site'), {
-        volunteerOpportunitiesCount: countVal
+        volunteerOpportunitiesCount: countVal,
+        volunteerOpportunitiesCountUpdatedAt: formattedDate,
+        volunteerOpportunitiesCountUpdatedBy: userEmail
       }, { merge: true });
 
       loaded.settings = false;
-      toast('تم حفظ إعدادات عداد الفرص بنجاح');
+      toast('تم حفظ عدد الفرص التطوعية المتاحة بنجاح');
+      vVolunteerProgram(el);
     } catch (err) {
       console.error(err);
       toast('حدث خطأ أثناء حفظ الإعدادات', 'err');
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'حفظ وتحديث العداد';
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'حفظ التعديل';
+      }
     }
   });
 }
@@ -3251,11 +3675,14 @@ function openVolunteerDetailModal(v, userApps) {
               `).join('')}
             </div>`
         }
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--line-soft);">
+        <button class="btn btn-primary" id="btnModalPdf" style="gap:6px;"><i class="fa-solid fa-file-pdf"></i> تحميل ملف المتطوع PDF</button>
       </div>
 
     </div>
   `;
   showModal(html);
+  document.getElementById('btnModalPdf')?.addEventListener('click', (e) => downloadVolunteerProfilePdf(v, e.currentTarget));
 }
 
 /* ── MODAL: VOLUNTEER EDIT DETAILS ── */

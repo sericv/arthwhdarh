@@ -280,15 +280,23 @@ async function uploadToSharePointInternal(relativePath, fileName, fileBase64, mi
   };
 }
 
+const allowedCorsOrigins = [
+  "https://arthwhdarh.com",
+  "https://www.arthwhdarh.com",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+  "http://localhost:5001",
+  "http://127.0.0.1:5001",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/
+];
+
 const sharePointCorsOptions = {
-  cors: [
-    "https://arthwhdarh.com",
-    "https://www.arthwhdarh.com",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5000",
-    "http://127.0.0.1:5000"
-  ]
+  cors: allowedCorsOrigins
 };
 
 /* 1. رفع السيرة الذاتية (CV) إلى SharePoint */
@@ -597,263 +605,6 @@ exports.renderLeaveRequestPdfWithPuppeteer = onCall(sharePointCorsOptions, async
 
   const { htmlString, pdfOptions } = request.data || {};
   return await executePuppeteerPdfRender(htmlString, pdfOptions);
-});
-
-/* ════════ 10. نظام تسجيل الحضور والانصراف الإلكتروني والتحقق الخادمي ════════ */
-
-function computeHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function parseTimeToMinutes(tStr) {
-  if (!tStr || typeof tStr !== "string") return 480; // default 08:00
-  const clean = tStr.trim().toLowerCase();
-  const isPM = clean.includes("pm") || clean.includes("م");
-  const isAM = clean.includes("am") || clean.includes("ص");
-  const digitsOnly = clean.replace(/[^0-9:]/g, "");
-  const parts = digitsOnly.split(":");
-  if (parts.length < 2) return 480;
-
-  let h = parseInt(parts[0], 10);
-  let m = parseInt(parts[1], 10);
-  if (isNaN(h) || isNaN(m)) return 480;
-
-  if (isPM && h < 12) h += 12;
-  if (isAM && h === 12) h = 0;
-
-  return h * 60 + m;
-}
-
-function getRiyadhDateAndServerTime(now = new Date()) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Riyadh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true
-  });
-  const parts = formatter.formatToParts(now);
-  const p = {};
-  parts.forEach(pt => p[pt.type] = pt.value);
-
-  const year = parseInt(p.year, 10);
-  const month = parseInt(p.month, 10);
-  const day = parseInt(p.day, 10);
-  const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-  let h = parseInt(p.hour, 10);
-  const m = p.minute;
-  const dayPeriod = p.dayPeriod ? p.dayPeriod.toLowerCase() : "";
-  const periodAr = (dayPeriod === "am" || dayPeriod === "ص") ? "ص" : "م";
-  const formattedTime = `${String(h).padStart(2, "0")}:${m} ${periodAr}`;
-
-  // Time in minutes from midnight
-  const rawH = now.getUTCHours() + 3; // Riyadh UTC+3
-  const riyadhH = (rawH % 24 + 24) % 24;
-  const timeInMins = riyadhH * 60 + parseInt(m, 10);
-
-  return { dateStr, year, month, day, formattedTime, timeInMins };
-}
-
-const attendanceCorsOptions = {
-  cors: [
-    "https://arthwhdarh.com",
-    "https://www.arthwhdarh.com",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5000",
-    "http://127.0.0.1:5000",
-    "http://localhost:5001",
-    "http://127.0.0.1:5001"
-  ]
-};
-
-exports.recordAttendance = onCall(attendanceCorsOptions, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "يجب تسجيل الدخول أولاً للوصول إلى الخدمة");
-  }
-
-  const callerUid = request.auth.uid;
-  const { action, latitude, longitude, accuracy } = request.data || {};
-
-  if (!action || !["checkIn", "checkOut"].includes(action)) {
-    throw new HttpsError("invalid-argument", "نوع الإجراء غير محدد (تسجيل حضور أو انصراف)");
-  }
-
-  const latNum = parseFloat(latitude);
-  const lngNum = parseFloat(longitude);
-
-  if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
-    throw new HttpsError("invalid-argument", "إحداثيات الموقع الجغرافي غير صالحة");
-  }
-
-  // 1. جلب إعدادات الحضور والنطاق المعتمدة من الخادم
-  let settings = {
-    officeLat: 31.334302,
-    officeLng: 37.338730,
-    allowedRadius: 100,
-    workStartTime: "08:00",
-    workEndTime: "16:00",
-    address: "شركة حمود عيد للتجارة والتسويق، صلاح الدين، السديرية، القريات 77453",
-    graceMinutes: 15
-  };
-
-  try {
-    const settingsDoc = await db.collection("settings").doc("attendance").get();
-    if (settingsDoc.exists) {
-      settings = { ...settings, ...settingsDoc.data() };
-    }
-  } catch (e) {
-    console.warn("[recordAttendance] Failed to fetch settings, using defaults:", e);
-  }
-
-  // 2. التحقق من المسافة الجغرافية من الخادم (Haversine Distance Check)
-  const distance = computeHaversineDistanceMeters(latNum, lngNum, settings.officeLat, settings.officeLng);
-  const roundedDist = Math.round(distance);
-
-  if (distance > settings.allowedRadius) {
-    return {
-      success: false,
-      code: "out_of_range",
-      message: "📍 خارج نطاق مقر الجمعية. يجب أن تكون داخل مقر الجمعية لتسجيل الحضور والانصراف.",
-      distanceFromOffice: roundedDist,
-      allowedRadius: settings.allowedRadius
-    };
-  }
-
-  // 3. اعتماد الوقت الرسمي الموثوق من الخادم (Server-side Time)
-  const { dateStr, year, month, day, formattedTime, timeInMins } = getRiyadhDateAndServerTime();
-  const docId = `${callerUid}_${dateStr}`;
-
-  // 4. جلب حساب الموظف
-  const userDoc = await db.collection(COL.users).doc(callerUid).get();
-  const userData = userDoc.exists ? userDoc.data() : {};
-  const empName = userData.name || userData.email || "";
-  const dept = userData.department || "";
-
-  // 5. فحص وجود إجازة معتمدة لهذا اليوم
-  const leavesSnap = await db.collection("portal_leaves")
-    .where("userId", "==", callerUid)
-    .where("status", "in", ["approved", "exec_approved"])
-    .get();
-
-  let hasApprovedLeave = false;
-  leavesSnap.forEach(ld => {
-    const l = ld.data();
-    if (l.startDate && l.endDate && dateStr >= l.startDate && dateStr <= l.endDate) {
-      hasApprovedLeave = true;
-    }
-  });
-
-  if (hasApprovedLeave) {
-    return {
-      success: false,
-      code: "approved_leave",
-      message: "🟣 لديك إجازة معتمدة لهذا اليوم. لا يتطلب منك تسجيل الحضور والانصراف."
-    };
-  }
-
-  const attDocRef = db.collection("portal_attendance").doc(docId);
-  const attDoc = await attDocRef.get();
-  const existingData = attDoc.exists ? attDoc.data() : null;
-
-  const FieldValue = require("firebase-admin/firestore").FieldValue;
-
-  if (action === "checkIn") {
-    if (existingData && existingData.checkInTime) {
-      return {
-        success: false,
-        code: "already_checked_in",
-        message: "✅ تم تسجيل الحضور مسبقاً لهذا اليوم",
-        record: existingData
-      };
-    }
-
-    const startMins = parseTimeToMinutes(settings.workStartTime);
-    const graceMins = parseInt(settings.graceMinutes || 15, 10);
-    const lateMins = timeInMins > (startMins + graceMins) ? (timeInMins - startMins) : 0;
-    const status = lateMins > 0 ? "late" : "present";
-
-    const payload = {
-      id: docId,
-      employeeUid: callerUid,
-      employeeName: empName,
-      department: dept,
-      date: dateStr,
-      year: year,
-      month: month,
-      day: day,
-      status: status,
-      checkInTime: formattedTime,
-      checkOutTime: existingData?.checkOutTime || "",
-      lateMinutes: lateMins,
-      location: settings.address,
-      latitude: latNum,
-      longitude: lngNum,
-      accuracy: accuracy || 0,
-      distanceFromOffice: roundedDist,
-      method: "electronic",
-      createdAt: existingData?.createdAt || FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      auditLog: existingData?.auditLog || []
-    };
-
-    await attDocRef.set(payload, { merge: true });
-
-    return {
-      success: true,
-      message: "✅ تم تسجيل الحضور بنجاح",
-      record: payload,
-      formattedTime: formattedTime,
-      distanceFromOffice: roundedDist
-    };
-  } else if (action === "checkOut") {
-    if (!existingData || !existingData.checkInTime) {
-      return {
-        success: false,
-        code: "not_checked_in",
-        message: "لم يتم تسجيل الحضور بعد. يرجى تسجيل الحضور أولاً."
-      };
-    }
-
-    if (existingData.checkOutTime) {
-      return {
-        success: false,
-        code: "already_checked_out",
-        message: "✅ تم تسجيل الانصراف مسبقاً لهذا اليوم",
-        record: existingData
-      };
-    }
-
-    const payload = {
-      checkOutTime: formattedTime,
-      checkOutLatitude: latNum,
-      checkOutLongitude: lngNum,
-      checkOutAccuracy: accuracy || 0,
-      checkOutDistanceFromOffice: roundedDist,
-      updatedAt: FieldValue.serverTimestamp()
-    };
-
-    await attDocRef.update(payload);
-
-    return {
-      success: true,
-      message: "✅ تم تسجيل الانصراف بنجاح",
-      record: { ...existingData, ...payload },
-      formattedTime: formattedTime,
-      distanceFromOffice: roundedDist
-    };
-  }
 });
 
 
