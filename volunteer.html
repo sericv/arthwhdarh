@@ -422,6 +422,13 @@
                             <div class="vl-field-err" id="vlerr_national_id"></div>
                         </div>
 
+                        <!-- Birth Date -->
+                        <div class="vl-field">
+                            <label class="vl-label" for="vl_birth_date">تاريخ الميلاد <span class="vl-req">*</span></label>
+                            <input type="date" id="vl_birth_date" class="vl-input" required>
+                            <div class="vl-field-err" id="vlerr_birth_date"></div>
+                        </div>
+
                         <!-- Email -->
                         <div class="vl-field">
                             <label class="vl-label" for="vl_email">البريد الإلكتروني <span class="vl-opt">(اختياري)</span></label>
@@ -444,6 +451,13 @@
                                 </select>
                             </div>
                             <div class="vl-field-err" id="vlerr_city"></div>
+
+                            <!-- Dynamic Input for "Other" City -->
+                            <div class="vl-other-skill-wrap" id="vlOtherCityWrap" style="display:none; margin-top:8px;">
+                                <label class="vl-label" for="vl_city_other">ادخل اسم المدينة <span class="vl-req">*</span></label>
+                                <input type="text" id="vl_city_other" class="vl-input" placeholder="اكتب اسم مدينتك هنا…">
+                                <div class="vl-field-err" id="vlerr_city_other"></div>
+                            </div>
                         </div>
 
                         <!-- Skills & Interests (Multiple Select) -->
@@ -753,6 +767,29 @@ if (vlOtherCb && vlOtherWrap) {
     });
 }
 
+/* Dynamic toggle for "أخرى" city field */
+const vlCitySelect = $('vl_city');
+const vlOtherCityWrap = $('vlOtherCityWrap');
+const vlOtherCityInput = $('vl_city_other');
+
+if (vlCitySelect && vlOtherCityWrap) {
+    vlCitySelect.addEventListener('change', () => {
+        if (vlCitySelect.value === 'أخرى') {
+            vlOtherCityWrap.classList.add('show');
+            vlOtherCityWrap.style.display = 'block';
+            setTimeout(() => vlOtherCityInput?.focus(), 150);
+        } else {
+            vlOtherCityWrap.classList.remove('show');
+            vlOtherCityWrap.style.display = 'none';
+            if (vlOtherCityInput) {
+                vlOtherCityInput.value = '';
+                vlOtherCityInput.classList.remove('invalid');
+            }
+            setVolErr('vlerr_city_other', '');
+        }
+    });
+}
+
 function showVolStep(stepId) {
     ['vlStepForm', 'vlStepAck', 'vlStepSuccess'].forEach(s => {
         const el = $(s);
@@ -763,9 +800,9 @@ function showVolStep(stepId) {
 
 function setVolErr(id, msg) { const el = $(id); if (el) el.textContent = msg; }
 function clearVolErrors() {
-    ['vlerr_name', 'vlerr_phone', 'vlerr_national_id', 'vlerr_email', 'vlerr_city', 'vlerr_skills', 'vlerr_skill_other', 'vlerr_agree']
+    ['vlerr_name', 'vlerr_phone', 'vlerr_national_id', 'vlerr_birth_date', 'vlerr_email', 'vlerr_city', 'vlerr_city_other', 'vlerr_skills', 'vlerr_skill_other', 'vlerr_agree']
         .forEach(id => setVolErr(id, ''));
-    ['vl_name', 'vl_phone', 'vl_national_id', 'vl_email', 'vl_city', 'vl_skill_other'].forEach(id => $(id)?.classList.remove('invalid'));
+    ['vl_name', 'vl_phone', 'vl_national_id', 'vl_birth_date', 'vl_email', 'vl_city', 'vl_city_other', 'vl_skill_other'].forEach(id => $(id)?.classList.remove('invalid'));
 }
 
 function getVolFormData() {
@@ -773,8 +810,11 @@ function getVolFormData() {
     const rawPhone = $('vl_phone').value.trim();
     const phone = normalizePhone(rawPhone);
     const nationalId = $('vl_national_id').value.trim();
+    const birthDate = $('vl_birth_date')?.value ? $('vl_birth_date').value.trim() : '';
     const email = $('vl_email').value.trim();
-    const city = $('vl_city').value;
+    const cityRaw = $('vl_city').value;
+    const cityOther = $('vl_city_other')?.value.trim();
+    const city = (cityRaw === 'أخرى' && cityOther) ? cityOther : cityRaw;
     
     let skills = Array.from(document.querySelectorAll('input[name="vl_skills"]:checked')).map(cb => cb.value);
     const isOtherChecked = $('vl_skill_other_cb')?.checked;
@@ -786,7 +826,7 @@ function getVolFormData() {
 
     const notes = $('vl_notes').value.trim();
 
-    return { name, rawPhone, phone, nationalId, email, city, skills, notes };
+    return { name, rawPhone, phone, nationalId, birthDate, email, city, skills, notes };
 }
 
 function validateVolForm(d) {
@@ -794,8 +834,36 @@ function validateVolForm(d) {
     if (!d.name) { setVolErr('vlerr_name', 'الرجاء إدخال الاسم الكامل'); $('vl_name').classList.add('invalid'); valid = false; }
     if (!d.phone || !/^05\d{8}$/.test(d.phone)) { setVolErr('vlerr_phone', 'رقم الجوال غير صحيح (05XXXXXXXX)'); $('vl_phone').classList.add('invalid'); valid = false; }
     if (!d.nationalId || d.nationalId.length < 10) { setVolErr('vlerr_national_id', 'رقم الهوية الوطنية / الإقامة يجب أن يكون ١٠ أرقام'); $('vl_national_id').classList.add('invalid'); valid = false; }
+    if (!d.birthDate) {
+        setVolErr('vlerr_birth_date', 'الرجاء اختيار تاريخ الميلاد');
+        $('vl_birth_date')?.classList.add('invalid');
+        valid = false;
+    } else {
+        const parts = d.birthDate.split('-');
+        if (parts.length === 3) {
+            const bYear = parseInt(parts[0], 10);
+            const bMonth = parseInt(parts[1], 10) - 1;
+            const bDay = parseInt(parts[2], 10);
+            const bDateObj = new Date(bYear, bMonth, bDay);
+            const today = new Date();
+            today.setHours(23, 59, 59, 999);
+            if (isNaN(bDateObj.getTime()) || bDateObj > today) {
+                setVolErr('vlerr_birth_date', 'تاريخ الميلاد غير صحيح (لا يمكن أن يكون في المستقبل)');
+                $('vl_birth_date')?.classList.add('invalid');
+                valid = false;
+            }
+        }
+    }
     if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) { setVolErr('vlerr_email', 'البريد الإلكتروني غير صحيح'); $('vl_email').classList.add('invalid'); valid = false; }
-    if (!d.city) { setVolErr('vlerr_city', 'الرجاء اختيار المدينة'); $('vl_city').classList.add('invalid'); valid = false; }
+    if (!d.city) {
+        setVolErr('vlerr_city', 'الرجاء اختيار المدينة');
+        $('vl_city').classList.add('invalid');
+        valid = false;
+    } else if ($('vl_city').value === 'أخرى' && !$('vl_city_other')?.value.trim()) {
+        setVolErr('vlerr_city_other', 'الرجاء كتابة اسم المدينة');
+        $('vl_city_other')?.classList.add('invalid');
+        valid = false;
+    }
     
     const selectedSkillsCount = document.querySelectorAll('input[name="vl_skills"]:checked').length;
     if (!selectedSkillsCount) {
@@ -888,6 +956,7 @@ $('vlConfirmBtn')?.addEventListener('click', async () => {
             mobile: pendingVolunteerData.phone,
             nationalId: pendingVolunteerData.nationalId,
             idNumber: pendingVolunteerData.nationalId,
+            birthDate: pendingVolunteerData.birthDate || '',
             email: pendingVolunteerData.email || '',
             city: pendingVolunteerData.city,
             skills: pendingVolunteerData.skills,
@@ -909,6 +978,8 @@ $('vlConfirmBtn')?.addEventListener('click', async () => {
         showVolStep('vlStepSuccess');
         $('vlRegForm').reset();
         vlOtherWrap?.classList.remove('show');
+        vlOtherCityWrap?.classList.remove('show');
+        if (vlOtherCityWrap) vlOtherCityWrap.style.display = 'none';
         pendingVolunteerData = null;
 
     } catch(err) {

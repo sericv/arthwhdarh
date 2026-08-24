@@ -3115,7 +3115,6 @@ function buildVolunteerProfileHtml(v) {
   const vCity = (v.city || 'غير متوفر').trim();
   
   let vJoinDate = 'غير متوفر';
-  let subTitleStr = 'عضو فاعل في برنامج المتطوعين';
   if (v.createdAt) {
     try {
       const dt = toTs(v.createdAt);
@@ -3124,9 +3123,22 @@ function buildVolunteerProfileHtml(v) {
         const month = String(dt.getMonth() + 1).padStart(2, '0');
         const year = dt.getFullYear();
         vJoinDate = `${day} / ${month} / ${year}`;
-        subTitleStr = `متطوع منذ ${vJoinDate} · عضو فاعل`;
       }
     } catch (e) {}
+  }
+
+  let vBirthDateStr = 'غير محدد';
+  if (v.birthDate) {
+    try {
+      const parts = String(v.birthDate).trim().split('-');
+      if (parts.length === 3) {
+        vBirthDateStr = `${parts[2]} / ${parts[1]} / ${parts[0]}`;
+      } else {
+        vBirthDateStr = String(v.birthDate);
+      }
+    } catch (e) {
+      vBirthDateStr = String(v.birthDate || 'غير محدد');
+    }
   }
 
   const avatarLetter = (vName.charAt(0) || 'م').toUpperCase();
@@ -3141,7 +3153,7 @@ function buildVolunteerProfileHtml(v) {
 
   let skillsHtml = '';
   if (skillsArray.length > 0) {
-    skillsHtml = skillsArray.map(s => `<span class="tag">${esc(s)}</span>`).join('');
+    skillsHtml = skillsArray.map(s => `<span class="tag"><i class="fas fa-check-circle"></i> ${esc(s)}</span>`).join('');
   } else {
     skillsHtml = `<span class="tag">غير محدد</span>`;
   }
@@ -3154,10 +3166,11 @@ function buildVolunteerProfileHtml(v) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>جمعية إرث وحضارة · بيانات المتطوع — ${esc(vName)}</title>
+  <title>جمعية إرث وحضارة · بطاقة متطوع — ${esc(vName)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     @page {
       size: A4 portrait;
@@ -3171,13 +3184,14 @@ function buildVolunteerProfileHtml(v) {
       print-color-adjust: exact !important;
     }
     body {
-      background: #FAF8F2;
+      background: #FAF8F2 !important;
       display: flex;
       justify-content: center;
       align-items: flex-start;
       min-height: 100vh;
       font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Tajawal", Arial, sans-serif;
       padding: 0;
+      margin: 0;
       color: #3A2A22;
       direction: rtl;
     }
@@ -3185,29 +3199,35 @@ function buildVolunteerProfileHtml(v) {
       width: 210mm;
       min-height: 297mm;
       height: 297mm;
-      background: #FAF8F2;
+      max-height: 297mm;
+      background: #FAF8F2 !important;
       position: relative;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       padding: 18mm 22mm 16mm 22mm;
+      margin: 0 auto;
+      box-shadow: none;
+      page-break-inside: avoid;
+      page-break-after: avoid;
     }
     .watermark {
       position: absolute;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      opacity: 0.03;
+      opacity: 0.025;
       pointer-events: none;
       z-index: 0;
       width: 60%;
-      max-width: 450px;
+      max-width: 480px;
       text-align: center;
     }
     .watermark img {
       width: 100%;
       height: auto;
       display: block;
+      filter: grayscale(0.3) brightness(0.85);
     }
     .document-header {
       display: flex;
@@ -3220,9 +3240,9 @@ function buildVolunteerProfileHtml(v) {
     }
     .association-logo {
       flex-shrink: 0;
-      width: 95px;
+      width: 100px;
       height: auto;
-      margin-left: 15px;
+      margin-left: 16px;
       display: block;
     }
     .association-logo img {
@@ -3241,13 +3261,13 @@ function buildVolunteerProfileHtml(v) {
     }
     .top-brand-line .line {
       flex: 1;
-      height: 1.2px;
+      height: 1.5px;
       background: #3A2A22;
       display: block;
     }
     .top-brand-line .gold-accent {
-      width: 26px;
-      min-width: 26px;
+      width: 28px;
+      min-width: 28px;
       height: 8px;
       background: #B08A4A;
       display: inline-block;
@@ -3265,39 +3285,51 @@ function buildVolunteerProfileHtml(v) {
     }
     .doc-title-block {
       margin-bottom: 6mm;
-      border-bottom: 1px solid #D8C3A5;
+      border-bottom: 2px solid #D8C3A5;
       padding-bottom: 4mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .doc-title-block .title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
     .doc-title-block h1 {
-      font-size: 26px;
+      font-size: 28px;
       font-weight: 700;
       color: #3A2A22;
       letter-spacing: 0.01em;
+      line-height: 1.2;
     }
     .doc-title-block .sub {
       font-size: 14px;
       font-weight: 400;
       color: #8C6840;
-      margin-top: 3px;
     }
-    .volunteer-profile {
+    .volunteer-card {
       background: #F5F1EA;
       border: 1px solid #D8C3A5;
-      border-radius: 4px;
-      padding: 6mm 8mm;
-      margin: 2mm 0 4mm 0;
+      border-radius: 6px;
+      padding: 7mm 9mm 7mm 9mm;
+      margin: 3mm 0 5mm 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
     }
-    .profile-header {
+    .card-header {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 18px;
       margin-bottom: 6mm;
       padding-bottom: 4mm;
-      border-bottom: 1px solid #D8C3A5;
+      border-bottom: 1.5px solid #D8C3A5;
+      flex-wrap: wrap;
     }
-    .profile-avatar {
-      width: 65px;
-      height: 65px;
+    .avatar {
+      width: 72px;
+      height: 72px;
       border-radius: 50%;
       background: #B08A4A;
       color: #FAF8F2;
@@ -3305,73 +3337,101 @@ function buildVolunteerProfileHtml(v) {
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 28px;
+      font-size: 32px;
       flex-shrink: 0;
+      box-shadow: 0 3px 10px rgba(176, 138, 74, 0.2);
     }
-    .profile-name-title {
+    .person-info {
       flex: 1;
     }
-    .profile-name-title .name {
-      font-size: 22px;
+    .person-info .name {
+      font-size: 25px;
       font-weight: 700;
       color: #3A2A22;
+      line-height: 1.2;
     }
-    .profile-name-title .title {
-      font-size: 13.5px;
+    .person-info .role {
+      font-size: 14.5px;
       font-weight: 400;
       color: #8C6840;
       margin-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .profile-status {
+    .person-info .role i {
+      color: #B08A4A;
+      font-size: 14px;
+    }
+    .status-badge {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
+      align-items: center;
     }
-    .profile-status .pdf-badge {
-      font-size: 12px;
-      padding: 3px 14px;
-      border-radius: 12px;
+    .badge-status {
+      display: inline-block;
+      padding: 3px 16px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 600;
     }
     .badge-city {
       background: #3A2A2215;
       color: #3A2A22;
       border: 1px solid #3A2A2230;
-      font-weight: 500;
     }
     .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 5mm 8mm;
+      display: flex;
+      flex-direction: column;
+      gap: 4.5mm;
+      margin-bottom: 5mm;
     }
     .info-item {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
+      padding: 2px 0;
     }
     .info-item .label {
-      font-size: 11px;
+      font-size: 11.5px;
       font-weight: 600;
       color: #8C6840;
       text-transform: uppercase;
       letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .info-item .label i {
+      font-size: 13px;
+      color: #B08A4A;
+      width: 16px;
     }
     .info-item .value {
-      font-size: 15.5px;
-      font-weight: 500;
+      font-size: 16.5px;
+      font-weight: 600;
       color: #3A2A22;
-      padding: 3px 0;
-      border-bottom: 1px dashed #D8C3A5;
+      padding: 4px 0 3px 0;
+      border-bottom: 1.5px dashed #D8C3A5;
     }
     .skills-section {
-      margin-top: 5mm;
-      padding-top: 4mm;
-      border-top: 1px solid #D8C3A5;
+      margin-top: 4mm;
+      padding-top: 5mm;
+      border-top: 1.5px solid #D8C3A5;
     }
     .skills-section .skills-label {
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 600;
       color: #3A2A22;
       margin-bottom: 3mm;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .skills-section .skills-label i {
+      color: #B08A4A;
+      font-size: 14px;
     }
     .skills-tags {
       display: flex;
@@ -3381,11 +3441,18 @@ function buildVolunteerProfileHtml(v) {
     .skills-tags .tag {
       background: #FAF8F2;
       border: 1px solid #B08A4A60;
-      padding: 4px 14px;
+      padding: 4px 16px;
       border-radius: 20px;
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 500;
       color: #3A2A22;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .skills-tags .tag i {
+      color: #B08A4A;
+      font-size: 11px;
     }
     .document-footer {
       position: relative;
@@ -3403,12 +3470,12 @@ function buildVolunteerProfileHtml(v) {
     }
     .bottom-brand-line .line {
       flex: 1;
-      height: 1.2px;
+      height: 1.5px;
       background: #3A2A22;
     }
     .bottom-brand-line .gold-accent {
-      width: 26px;
-      min-width: 26px;
+      width: 28px;
+      min-width: 28px;
       height: 8px;
       background: #B08A4A;
       display: inline-block;
@@ -3446,6 +3513,40 @@ function buildVolunteerProfileHtml(v) {
       font-weight: 400;
       padding: 0 2px;
     }
+    @media print {
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        background: #FAF8F2 !important;
+      }
+      .page {
+        margin: 0;
+        border: none;
+        box-shadow: none;
+        width: 210mm;
+        height: 297mm;
+        padding: 18mm 22mm 16mm 22mm;
+        background: #FAF8F2 !important;
+      }
+      .watermark {
+        opacity: 0.018;
+      }
+      .top-brand-line .line,
+      .bottom-brand-line .line {
+        background: #3A2A22;
+      }
+      .top-brand-line .gold-accent,
+      .bottom-brand-line .gold-accent {
+        background: #B08A4A;
+      }
+      .volunteer-card {
+        box-shadow: none;
+        border-color: #D8C3A5;
+      }
+      .association-logo img {
+        filter: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -3466,40 +3567,48 @@ function buildVolunteerProfileHtml(v) {
 
     <main class="document-content">
       <div class="doc-title-block">
-        <h1>بطاقة بيانات متطوع</h1>
+        <div class="title-group">
+          <h1>بطاقة بيانات متطوع</h1>
+        </div>
       </div>
 
-      <div class="volunteer-profile">
-        <div class="profile-header">
-          <div class="profile-avatar">${esc(avatarLetter)}</div>
-          <div class="profile-name-title">
+      <div class="volunteer-card">
+        <div class="card-header">
+          <div class="avatar">${esc(avatarLetter)}</div>
+          <div class="person-info">
             <div class="name">${esc(vName)}</div>
-            <div class="title">${esc(subTitleStr)}</div>
           </div>
-          ${(vCity && vCity !== 'غير متوفر') ? `<div class="profile-status"><span class="pdf-badge badge-city">${esc(vCity)}</span></div>` : ''}
+          ${(vCity && vCity !== 'غير متوفر') ? `
+          <div class="status-badge">
+            <span class="badge-status badge-city"><i class="fas fa-map-pin" style="margin-left:6px;"></i> ${esc(vCity)}</span>
+          </div>` : ''}
         </div>
 
         <div class="info-grid">
           <div class="info-item">
-            <span class="label">رقم الجوال</span>
+            <span class="label"><i class="fas fa-phone-alt"></i> رقم الجوال</span>
             <span class="value" dir="ltr" style="text-align:right;">${esc(vPhone)}</span>
           </div>
           <div class="info-item">
-            <span class="label">رقم الهوية</span>
+            <span class="label"><i class="fas fa-id-card"></i> رقم الهوية</span>
             <span class="value">${esc(vNationalId)}</span>
           </div>
           <div class="info-item">
-            <span class="label">المدينة</span>
+            <span class="label"><i class="fas fa-birthday-cake"></i> تاريخ الميلاد</span>
+            <span class="value">${esc(vBirthDateStr)}</span>
+          </div>
+          <div class="info-item">
+            <span class="label"><i class="fas fa-city"></i> المدينة</span>
             <span class="value">${esc(vCity)}</span>
           </div>
           <div class="info-item">
-            <span class="label">تاريخ الانضمام</span>
+            <span class="label"><i class="fas fa-calendar-plus"></i> تاريخ الانضمام</span>
             <span class="value">${esc(vJoinDate)}</span>
           </div>
         </div>
 
         <div class="skills-section">
-          <div class="skills-label">🎯 المهارات والمجالات</div>
+          <div class="skills-label"><i class="fas fa-star"></i> المهارات والمجالات</div>
           <div class="skills-tags">
             ${skillsHtml}
           </div>
@@ -3606,6 +3715,20 @@ function bindProgramSettingsEvents(el) {
 /* ── MODAL: VOLUNTEER FULL DETAILS ── */
 function openVolunteerDetailModal(v, userApps) {
   const skillsStr = Array.isArray(v.skills) ? v.skills.join('، ') : (v.skills || v.interests || '—');
+  let birthDateFormatted = 'غير محدد';
+  if (v.birthDate) {
+    try {
+      const parts = String(v.birthDate).trim().split('-');
+      if (parts.length === 3) {
+        birthDateFormatted = `${parts[2]} / ${parts[1]} / ${parts[0]}`;
+      } else {
+        birthDateFormatted = esc(v.birthDate);
+      }
+    } catch (e) {
+      birthDateFormatted = esc(v.birthDate);
+    }
+  }
+
   const html = `
     <div class="modal-head">
       <div>
@@ -3639,13 +3762,18 @@ function openVolunteerDetailModal(v, userApps) {
 
       <div class="form-grid two" style="gap:12px;">
         <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+          <span style="font-size:11px;color:var(--ink-muted);display:block;">تاريخ الميلاد</span>
+          <strong style="font-size:14px;color:var(--ink);">${birthDateFormatted}</strong>
+        </div>
+        <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
           <span style="font-size:11px;color:var(--ink-muted);display:block;">المدينة</span>
           <strong style="font-size:14px;color:var(--ink);">${esc(v.city || '—')}</strong>
         </div>
-        <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
-          <span style="font-size:11px;color:var(--ink-muted);display:block;">البريد الإلكتروني</span>
-          <strong style="font-size:14px;color:var(--ink);">${esc(v.email || 'غير مسجل')}</strong>
-        </div>
+      </div>
+
+      <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
+        <span style="font-size:11px;color:var(--ink-muted);display:block;">البريد الإلكتروني</span>
+        <strong style="font-size:14px;color:var(--ink);">${esc(v.email || 'غير مسجل')}</strong>
       </div>
 
       <div style="background:var(--paper);padding:12px;border-radius:8px;border:1px solid var(--line-soft);">
@@ -3716,13 +3844,17 @@ function openVolunteerEditModal(v, callback) {
       </div>
       <div class="form-grid two">
         <div class="field">
+          <label>تاريخ الميلاد</label>
+          <input type="date" id="vpE_birthDate" value="${escA(v.birthDate || '')}">
+        </div>
+        <div class="field">
           <label>المدينة</label>
           <input type="text" id="vpE_city" value="${escA(v.city || 'القريات')}">
         </div>
-        <div class="field">
-          <label>البريد الإلكتروني</label>
-          <input type="email" id="vpE_email" value="${escA(v.email || '')}">
-        </div>
+      </div>
+      <div class="field">
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="vpE_email" value="${escA(v.email || '')}">
       </div>
       <div class="field">
         <label>الحالة</label>
@@ -3759,6 +3891,7 @@ function openVolunteerEditModal(v, callback) {
       mobile: document.getElementById('vpE_phone').value.trim(),
       nationalId: document.getElementById('vpE_nationalId').value.trim(),
       idNumber: document.getElementById('vpE_nationalId').value.trim(),
+      birthDate: document.getElementById('vpE_birthDate').value.trim(),
       city: document.getElementById('vpE_city').value.trim(),
       email: document.getElementById('vpE_email').value.trim(),
       status: document.getElementById('vpE_status').value,
@@ -4757,16 +4890,18 @@ function exportRegistrantsToCSV(filename, rows) {
     return;
   }
 
-  const headers = ['الاسم الكامل', 'رقم الجوال', 'البريد الإلكتروني', 'رقم الهوية / الإقامة', 'الجنس', 'الحالة', 'تاريخ التسجيل', 'ملاحظات'];
+  const headers = ['الاسم الكامل', 'رقم الجوال', 'البريد الإلكتروني', 'رقم الهوية / الإقامة', 'تاريخ الميلاد', 'الجنس', 'الحالة', 'تاريخ التسجيل', 'ملاحظات'];
   const csvRows = [headers.join(',')];
 
   rows.forEach(r => {
     const dateStr = r.createdAt ? fmtEn(toTs(r.createdAt)) : '';
+    const bDate = r.birthDate ? (r.birthDate.includes('-') ? r.birthDate.split('-').reverse().join('/') : r.birthDate) : '';
     const rowData = [
       `"${(r.name || '').replace(/"/g, '""')}"`,
       `"${(r.phone || '').replace(/"/g, '""')}"`,
       `"${(r.email || '').replace(/"/g, '""')}"`,
       `"${(r.nationalId || '').replace(/"/g, '""')}"`,
+      `"${bDate.replace(/"/g, '""')}"`,
       `"${(r.gender || '').replace(/"/g, '""')}"`,
       `"${(r.status || 'جديد').replace(/"/g, '""')}"`,
       `"${dateStr}"`,
@@ -5300,8 +5435,8 @@ async function exportVolunteersToWord(rows) {
       })
     );
 
-    const tableHeaders = ['الرقم', 'الاسم الكامل', 'رقم الهوية', 'رقم الجوال', 'المدينة', 'المهارات والمجالات', 'الحالة', 'تاريخ التسجيل'];
-    const colWidths = [5, 20, 14, 13, 10, 18, 10, 10];
+    const tableHeaders = ['الرقم', 'الاسم الكامل', 'رقم الهوية', 'تاريخ الميلاد', 'رقم الجوال', 'المدينة', 'المهارات والمجالات', 'الحالة', 'تاريخ التسجيل'];
+    const colWidths = [4, 18, 12, 11, 11, 9, 17, 9, 9];
 
     const headerCells = tableHeaders.map((hdr, i) => new TableCell({
       width: { size: colWidths[i], type: WidthType.PERCENTAGE },
@@ -5336,11 +5471,13 @@ async function exportVolunteersToWord(rows) {
       const isEven = idx % 2 === 0;
       const rowBg = isEven ? 'FBF9F5' : 'FFFFFF';
       const skillsStr = Array.isArray(r.skills) ? r.skills.join('، ') : (r.skills || r.interests || '—');
+      const bDate = r.birthDate ? (r.birthDate.includes('-') ? r.birthDate.split('-').reverse().join(' / ') : r.birthDate) : '—';
 
       const cells = [
         (idx + 1).toString(),
         r.name || r.fullName || '—',
         r.nationalId || r.idNumber || '—',
+        bDate,
         r.phone || r.mobile || '—',
         r.city || '—',
         skillsStr,
