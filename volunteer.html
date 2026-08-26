@@ -396,7 +396,7 @@
                     <!-- Alert if duplicate -->
                     <div id="vlDuplicateAlert" class="vl-alert-dup" role="alert">
                         <i class="fas fa-info-circle" aria-hidden="true"></i>
-                        <span>أنت مسجل مسبقًا في برنامج المتطوعين.</span>
+                        <span>تم تسجيلك مسبقًا في برنامج التطوع، ولا يمكن تسجيل طلب جديد بنفس رقم الهوية. يمكنك التواصل مع الجمعية في حال رغبتك في تحديث بياناتك.</span>
                     </div>
 
                     <div class="vl-form-grid">
@@ -620,7 +620,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-    getFirestore, collection, addDoc, getDocs, getDoc, doc, 
+    getFirestore, collection, addDoc, setDoc, getDocs, getDoc, doc, 
     query, where, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -654,6 +654,15 @@ function normalizePhone(phone) {
         p = '0' + p;
     }
     return p;
+}
+
+function normalizeNationalId(idStr) {
+    if (!idStr) return '';
+    let s = idStr.toString()
+                 .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+                 .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷٨٩'.indexOf(d));
+    s = s.replace(/[\s\-\/\_]/g, '');
+    return s;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -790,6 +799,12 @@ if (vlCitySelect && vlOtherCityWrap) {
     });
 }
 
+$('vl_national_id')?.addEventListener('input', () => {
+    $('vlDuplicateAlert')?.classList.remove('show');
+    setVolErr('vlerr_national_id', '');
+    $('vl_national_id')?.classList.remove('invalid');
+});
+
 function showVolStep(stepId) {
     ['vlStepForm', 'vlStepAck', 'vlStepSuccess'].forEach(s => {
         const el = $(s);
@@ -800,6 +815,7 @@ function showVolStep(stepId) {
 
 function setVolErr(id, msg) { const el = $(id); if (el) el.textContent = msg; }
 function clearVolErrors() {
+    $('vlDuplicateAlert')?.classList.remove('show');
     ['vlerr_name', 'vlerr_phone', 'vlerr_national_id', 'vlerr_birth_date', 'vlerr_email', 'vlerr_city', 'vlerr_city_other', 'vlerr_skills', 'vlerr_skill_other', 'vlerr_agree']
         .forEach(id => setVolErr(id, ''));
     ['vl_name', 'vl_phone', 'vl_national_id', 'vl_birth_date', 'vl_email', 'vl_city', 'vl_city_other', 'vl_skill_other'].forEach(id => $(id)?.classList.remove('invalid'));
@@ -809,7 +825,8 @@ function getVolFormData() {
     const name = $('vl_name').value.trim();
     const rawPhone = $('vl_phone').value.trim();
     const phone = normalizePhone(rawPhone);
-    const nationalId = $('vl_national_id').value.trim();
+    const rawNationalId = $('vl_national_id').value.trim();
+    const nationalId = normalizeNationalId(rawNationalId);
     const birthDate = $('vl_birth_date')?.value ? $('vl_birth_date').value.trim() : '';
     const email = $('vl_email').value.trim();
     const cityRaw = $('vl_city').value;
@@ -826,7 +843,7 @@ function getVolFormData() {
 
     const notes = $('vl_notes').value.trim();
 
-    return { name, rawPhone, phone, nationalId, birthDate, email, city, skills, notes };
+    return { name, rawPhone, phone, rawNationalId, nationalId, birthDate, email, city, skills, notes };
 }
 
 function validateVolForm(d) {
@@ -882,7 +899,7 @@ function validateVolForm(d) {
     return valid;
 }
 
-/* Step 1 Submit -> Duplicate check via phone -> Step 2 */
+/* Step 1 Submit -> Prepare data & validate -> Step 2 */
 $('vlRegForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     clearVolErrors();
@@ -891,45 +908,17 @@ $('vlRegForm')?.addEventListener('submit', async e => {
     const d = getVolFormData();
     if (!validateVolForm(d)) return;
 
-    const btn = $('vlBtnSubmit');
-    btn.disabled = true;
-    btn.innerHTML = `<span>جارٍ التحقق…</span> <i class="fas fa-spinner fa-spin"></i>`;
-
-    try {
-        // Query if volunteer with this phone already exists
-        const qVol = query(collection(db, 'volunteers'), where('phone', '==', d.phone));
-        const snap = await getDocs(qVol);
-
-        if (!snap.empty) {
-            // Already registered! Show notification and prevent duplicate
-            $('vlDuplicateAlert')?.classList.add('show');
-            btn.disabled = false;
-            btn.innerHTML = `<span>متابعة إلى الإقرار</span> <i class="fas fa-arrow-left"></i>`;
-            return;
-        }
-
-        pendingVolunteerData = d;
-        $('vlAckName').textContent = d.name;
-        $('vlAckDate').textContent = new Date().toLocaleDateString('ar-SA');
-        $('vlAgreeCheckbox').checked = false;
-        setVolErr('vlerr_agree', '');
-        showVolStep('vlStepAck');
-
-    } catch(err) {
-        console.error('Error during duplicate check:', err);
-        pendingVolunteerData = d;
-        $('vlAckName').textContent = d.name;
-        $('vlAckDate').textContent = new Date().toLocaleDateString('ar-SA');
-        showVolStep('vlStepAck');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<span>متابعة إلى الإقرار</span> <i class="fas fa-arrow-left"></i>`;
-    }
+    pendingVolunteerData = d;
+    $('vlAckName').textContent = d.name;
+    $('vlAckDate').textContent = new Date().toLocaleDateString('ar-SA');
+    $('vlAgreeCheckbox').checked = false;
+    setVolErr('vlerr_agree', '');
+    showVolStep('vlStepAck');
 });
 
 $('vlBackToFormBtn')?.addEventListener('click', () => showVolStep('vlStepForm'));
 
-/* Step 2 -> Confirm & Save to Firebase -> Step 3 */
+/* Step 2 -> Confirm & Save to Firebase (with Atomic Duplicate Check via setDoc) -> Step 3 */
 $('vlConfirmBtn')?.addEventListener('click', async () => {
     if (!pendingVolunteerData) return;
     if (!$('vlAgreeCheckbox').checked) {
@@ -948,14 +937,18 @@ $('vlConfirmBtn')?.addEventListener('click', async () => {
     icon.style.display = 'none';
     spin.style.display = 'inline-block';
 
+    const docId = 'id_' + pendingVolunteerData.nationalId;
+    const volDocRef = doc(db, 'volunteers', docId);
+
     try {
-        await addDoc(collection(db, 'volunteers'), {
+        await setDoc(volDocRef, {
             name: pendingVolunteerData.name,
             fullName: pendingVolunteerData.name,
             phone: pendingVolunteerData.phone,
             mobile: pendingVolunteerData.phone,
-            nationalId: pendingVolunteerData.nationalId,
-            idNumber: pendingVolunteerData.nationalId,
+            nationalId: pendingVolunteerData.rawNationalId || pendingVolunteerData.nationalId,
+            normalizedNationalId: pendingVolunteerData.nationalId,
+            idNumber: pendingVolunteerData.rawNationalId || pendingVolunteerData.nationalId,
             birthDate: pendingVolunteerData.birthDate || '',
             email: pendingVolunteerData.email || '',
             city: pendingVolunteerData.city,
@@ -984,10 +977,28 @@ $('vlConfirmBtn')?.addEventListener('click', async () => {
 
     } catch(err) {
         console.error('Firestore save error:', err);
-        lbl.textContent = 'حدث خطأ — حاول مجدداً';
+        const errCode = (err && err.code) ? String(err.code) : '';
+        const errMsg = (err && err.message) ? String(err.message) : '';
+
+        if (errCode.includes('permission-denied') || errCode.includes('already-exists') || errMsg.includes('permission')) {
+            showVolStep('vlStepForm');
+            $('vlDuplicateAlert')?.classList.add('show');
+            const alertSpan = $('vlDuplicateAlert')?.querySelector('span');
+            if (alertSpan) {
+                alertSpan.textContent = 'تم تسجيلك مسبقًا في برنامج التطوع، ولا يمكن تسجيل طلب جديد بنفس رقم الهوية. يمكنك التواصل مع الجمعية في حال رغبتك في تحديث بياناتك.';
+            }
+            setVolErr('vlerr_national_id', 'رقم الهوية مسجل مسبقاً في برنامج التطوع');
+            $('vl_national_id')?.classList.add('invalid');
+        } else {
+            lbl.textContent = 'حدث خطأ — حاول مجدداً';
+            icon.style.display = 'inline-block';
+            spin.style.display = 'none';
+        }
+    } finally {
+        btn.disabled = false;
+        lbl.textContent = 'تأكيد وإرسال الطلب';
         icon.style.display = 'inline-block';
         spin.style.display = 'none';
-        btn.disabled = false;
     }
 });
 </script>
