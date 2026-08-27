@@ -2663,7 +2663,7 @@ async function vVolunteerProgram(el) {
   await renderNav();
 
   // Filter volunteers belonging to Volunteer Program
-  const progVolunteers = allVolunteers.filter(v => v.type === 'برنامج التطوع' || !v.type);
+  const progVolunteers = allVolunteers.filter(v => (v.type === 'برنامج التطوع' || !v.type) && !v.isPhoneIndex);
   const unreviewedVolunteers = progVolunteers.filter(v => !v.reviewed);
   const displayedOppCount = (siteSettings && siteSettings.volunteerOpportunitiesCount !== undefined && siteSettings.volunteerOpportunitiesCount !== null)
     ? siteSettings.volunteerOpportunitiesCount
@@ -3199,8 +3199,18 @@ function bindVolunteersTabEvents(el, volunteers, applications) {
   el.querySelectorAll('[data-vp-del]').forEach(b => {
     b.addEventListener('click', async () => {
       const vid = b.dataset.vpDel;
+      const volObj = volunteers.find(v => v.id === vid);
       if (!confirm('هل تريد حذف هذا المتطوع نهائياً من قاعدة البيانات؟')) return;
       try {
+        if (volObj && (volObj.phone || volObj.mobile)) {
+          let p = (volObj.phone || volObj.mobile).toString().replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷٨٩'.indexOf(d)).replace(/\D/g, '');
+          if (p.startsWith('9665')) p = '0' + p.substring(3);
+          else if (p.startsWith('009665')) p = '0' + p.substring(5);
+          else if (p.startsWith('5') && p.length === 9) p = '0' + p;
+          if (p) {
+            try { await deleteDoc(doc(db, 'volunteers', 'phone_' + p)); } catch(e) {}
+          }
+        }
         await deleteDoc(doc(db, 'volunteers', vid));
         loaded.volunteers = false;
         toast('تم حذف المتطوع بنجاح');

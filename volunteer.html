@@ -610,6 +610,21 @@
                 </button>
             </div>
 
+            <!-- STEP 3-DUP: Already Registered Result State -->
+            <div id="vlStepDuplicate" class="vl-success-state" style="display:none;">
+                <div class="vl-success-ring" style="background:#FAF8F2; color:#B08A4A; border-color:#D8C3A5;">
+                    <i class="fas fa-user-check" aria-hidden="true"></i>
+                </div>
+                <h3 class="vl-success-title" style="color:#3A2A22;">أنت مسجل مسبقًا في برنامج التطوع</h3>
+                <p class="vl-success-desc" style="color:#5f4b39;">
+                    بياناتك (رقم الهوية أو رقم الجوال) محفوظة ومسجلة لدينا مسبقاً في قاعدة بيانات برنامج المتطوعين.<br>
+                    لا يمكن إرسال طلب جديد بنفس البيانات. يمكنك التواصل مع الجمعية في حال رغبتك في تحديث بياناتك.
+                </p>
+                <button type="button" class="vl-btn-submit" id="vlDupDoneBtn" style="max-width:220px; margin:0 auto; background:#B08A4A; border-color:#B08A4A;">
+                    فهمت ذلك (إغلاق)
+                </button>
+            </div>
+
         </div>
     </div>
 </div>
@@ -752,6 +767,7 @@ function closeVolModal() {
 if (openVolRegBtn) openVolRegBtn.addEventListener('click', openVolModal);
 if (vlRegCloseBtn) vlRegCloseBtn.addEventListener('click', closeVolModal);
 if (vlDoneBtn) vlDoneBtn.addEventListener('click', closeVolModal);
+if ($('vlDupDoneBtn')) $('vlDupDoneBtn').addEventListener('click', closeVolModal);
 volRegModal.addEventListener('click', e => { if (e.target === volRegModal) closeVolModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && volRegModal.classList.contains('open')) closeVolModal(); });
 
@@ -802,11 +818,21 @@ if (vlCitySelect && vlOtherCityWrap) {
 $('vl_national_id')?.addEventListener('input', () => {
     $('vlDuplicateAlert')?.classList.remove('show');
     setVolErr('vlerr_national_id', '');
+    setVolErr('vlerr_phone', '');
     $('vl_national_id')?.classList.remove('invalid');
+    $('vl_phone')?.classList.remove('invalid');
+});
+
+$('vl_phone')?.addEventListener('input', () => {
+    $('vlDuplicateAlert')?.classList.remove('show');
+    setVolErr('vlerr_national_id', '');
+    setVolErr('vlerr_phone', '');
+    $('vl_national_id')?.classList.remove('invalid');
+    $('vl_phone')?.classList.remove('invalid');
 });
 
 function showVolStep(stepId) {
-    ['vlStepForm', 'vlStepAck', 'vlStepSuccess'].forEach(s => {
+    ['vlStepForm', 'vlStepAck', 'vlStepSuccess', 'vlStepDuplicate'].forEach(s => {
         const el = $(s);
         if (el) el.style.display = (s === stepId) ? 'block' : 'none';
     });
@@ -937,10 +963,30 @@ $('vlConfirmBtn')?.addEventListener('click', async () => {
     icon.style.display = 'none';
     spin.style.display = 'inline-block';
 
-    const docId = 'id_' + pendingVolunteerData.nationalId;
+    const normId = pendingVolunteerData.nationalId;
+    const normPhone = pendingVolunteerData.phone;
+
+    const docId = 'id_' + normId;
+    const phoneDocId = 'phone_' + normPhone;
+
     const volDocRef = doc(db, 'volunteers', docId);
+    const phoneDocRef = doc(db, 'volunteers', phoneDocId);
+
+    let phoneDocCreated = false;
+    let idDocCreated = false;
 
     try {
+        // 1. Create Phone index doc (fails if Phone Number already registered)
+        await setDoc(phoneDocRef, {
+            isPhoneIndex: true,
+            nationalIdDoc: docId,
+            phone: normPhone,
+            nationalId: normId,
+            createdAt: serverTimestamp()
+        });
+        phoneDocCreated = true;
+
+        // 2. Create National ID doc (fails if National ID already registered)
         await setDoc(volDocRef, {
             name: pendingVolunteerData.name,
             fullName: pendingVolunteerData.name,
@@ -964,6 +1010,7 @@ $('vlConfirmBtn')?.addEventListener('click', async () => {
             ackDate: new Date().toISOString().slice(0,10),
             createdAt: serverTimestamp()
         });
+        idDocCreated = true;
 
         await notifyAdmin('volunteers', pendingVolunteerData.name, `تسجيل جديد في برنامج المتطوعين — ${pendingVolunteerData.name}`);
         notifyTelegram('volunteers', pendingVolunteerData);
@@ -977,18 +1024,19 @@ $('vlConfirmBtn')?.addEventListener('click', async () => {
 
     } catch(err) {
         console.error('Firestore save error:', err);
+        if (phoneDocCreated && !idDocCreated) {
+            try { await deleteDoc(phoneDocRef); } catch(e) {}
+        }
         const errCode = (err && err.code) ? String(err.code) : '';
         const errMsg = (err && err.message) ? String(err.message) : '';
 
         if (errCode.includes('permission-denied') || errCode.includes('already-exists') || errMsg.includes('permission')) {
-            showVolStep('vlStepForm');
-            $('vlDuplicateAlert')?.classList.add('show');
-            const alertSpan = $('vlDuplicateAlert')?.querySelector('span');
-            if (alertSpan) {
-                alertSpan.textContent = 'تم تسجيلك مسبقًا في برنامج التطوع، ولا يمكن تسجيل طلب جديد بنفس رقم الهوية. يمكنك التواصل مع الجمعية في حال رغبتك في تحديث بياناتك.';
-            }
-            setVolErr('vlerr_national_id', 'رقم الهوية مسجل مسبقاً في برنامج التطوع');
-            $('vl_national_id')?.classList.add('invalid');
+            showVolStep('vlStepDuplicate');
+            $('vlRegForm').reset();
+            vlOtherWrap?.classList.remove('show');
+            vlOtherCityWrap?.classList.remove('show');
+            if (vlOtherCityWrap) vlOtherCityWrap.style.display = 'none';
+            pendingVolunteerData = null;
         } else {
             lbl.textContent = 'حدث خطأ — حاول مجدداً';
             icon.style.display = 'inline-block';
