@@ -133,7 +133,7 @@ export async function downloadEmployeeAttendancePDF(emp, year, month, dayRows, b
     </div>
   `;
 
-  const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.com";
+  const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.org.sa";
   const fullLogoUrl = `${originUrl}/portal/logo.png`;
 
   const cleanEmpName = String(emp.name || emp.email || "الموظف").replace(/[/\\?%*:|"<>]/g, "_").trim();

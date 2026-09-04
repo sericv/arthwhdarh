@@ -37,12 +37,12 @@
        2. NAV ACTIVE LINK HIGHLIGHT
     ───────────────────────────────────────────────────────── */
     function initNavHighlight() {
-        var currentPage = window.location.pathname.split('/').pop() || 'volunteer.html';
-        var navLinks    = document.querySelectorAll('.nav-links a, .mobile-menu-links a');
+        var path = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+        var navLinks = document.querySelectorAll('.nav-links a, .mobile-menu-links a');
 
         navLinks.forEach(function (link) {
-            var href = link.getAttribute('href');
-            if (href && (href === currentPage || (currentPage === 'volunteer.html' && href.includes('volunteer.html')))) {
+            var href = (link.getAttribute('href') || '').toLowerCase().replace(/^\/+|\/+$/g, '');
+            if (href && (path === href || path.endsWith(href) || href.endsWith(path))) {
                 link.classList.add('active');
             }
         });

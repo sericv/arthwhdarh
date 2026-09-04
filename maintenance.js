@@ -22,7 +22,7 @@ const db = getFirestore(app);
 
 /* Resolve the logo path relative to the current page.
    Public pages live at the site root, so this is the standard path. */
-const LOGO_SRC = "assets/الشعار/الشعار.png";
+const LOGO_SRC = "/assets/الشعار/الشعار.png";
 
 const DEFAULT_MESSAGE =
   "نعمل حالياً على تطوير الموقع وتحسين تجربتكم.\nنعتذر عن الانقطاع المؤقت، وسنعود إليكم قريباً بإذن الله.";
@@ -136,7 +136,7 @@ async function checkMaintenance(){
     const workshopsEnabled = siteData.workshopsEnabled !== false;
     if (!workshopsEnabled) {
       const hideWorkshopsLinks = () => {
-        document.querySelectorAll('a[href="workshops.html"]').forEach(a => {
+        document.querySelectorAll('a[href*="workshops"]').forEach(a => {
           const li = a.closest('li');
           if (li) li.style.display = 'none';
           else a.style.display = 'none';
@@ -149,8 +149,8 @@ async function checkMaintenance(){
       }
 
       const currentPath = window.location.pathname.toLowerCase();
-      if (currentPath.endsWith('workshops.html') || currentPath.endsWith('/workshops')) {
-        window.location.href = 'index.html';
+      if (currentPath.endsWith('workshops.html') || currentPath.endsWith('/workshops') || currentPath.endsWith('/workshops/')) {
+        window.location.href = '/';
         return;
       }
     }

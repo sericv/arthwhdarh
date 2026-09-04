@@ -21,7 +21,7 @@ export function buildMasterDocumentHtml(options = {}) {
   const docTitle = options.docTitle || printTitle;
   const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.com";
+  const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.org.sa";
   const fullLogoUrl = options.logoUrl || `${originUrl}/portal/logo.png`;
 
   return `<!DOCTYPE html>

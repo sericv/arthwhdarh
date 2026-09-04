@@ -192,7 +192,7 @@ export async function downloadMonthlyAttendancePDF(btnOrContext, maybeContext) {
     `).join('')}
   `;
 
-  const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.com";
+  const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.org.sa";
   const fullLogoUrl = `${originUrl}/portal/logo.png`;
 
   const filename = `تقرير_الحضور_الشهري_${safeMonthName(m)}_${y}`;

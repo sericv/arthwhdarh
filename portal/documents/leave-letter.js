@@ -51,7 +51,7 @@ export async function generateLeavePdf(leaveId, btn, context = {}) {
     const cleanEmpName = String(leave.userName || leave.id || "الموظف").replace(/[/\\?%*:|"<>]/g, "_").trim();
     const filename = `خطاب_إجازة_${cleanEmpName}_${refNumber}`;
 
-    const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.com";
+    const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.org.sa";
     const fullLogoUrl = `${originUrl}/portal/logo.png`;
 
     const fullHtmlDocument = `<!DOCTYPE html>

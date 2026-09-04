@@ -91,7 +91,7 @@ export async function generateLeaveRequestPdf(leaveId, btn, context = {}) {
     const filename = `نموذج_طلب_إجازة_${cleanEmpName}_${refNumber}`;
     const isRejected = (leave.status === "hr_rejected" || leave.status === "exec_rejected" || leave.status === "rejected");
 
-    const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.com";
+    const originUrl = (typeof window !== "undefined" && window.location) ? window.location.origin : "https://arthwhdarh.org.sa";
     const fullLogoUrl = `${originUrl}/portal/logo.png`;
 
     const fullHtmlDocument = `<!DOCTYPE html>
